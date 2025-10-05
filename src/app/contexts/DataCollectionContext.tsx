@@ -32,23 +32,26 @@ export const useDataCollection = () => {
 
 export const DataCollectionProvider: FC<PropsWithChildren> = ({ children }) => {
   const [capturedData, setCapturedData] = useState<DataPoint[]>([
-    { id: 'preferred_language', name: 'Preferred Language', value: null, status: 'pending' },
-    { id: 'employee_name', name: 'Employee Name', value: null, status: 'pending' },
-    { id: 'job_role', name: 'Job Role/Position', value: null, status: 'pending' },
-    { id: 'department', name: 'Department/Team', value: null, status: 'pending' },
-    { id: 'experience_level', name: 'Experience Level', value: null, status: 'pending' },
-    { id: 'learning_style', name: 'Learning Style Preference', value: null, status: 'pending' },
-    { id: 'prior_lms_experience', name: 'Prior LMS Experience', value: null, status: 'pending' },
-    { id: 'topik_use_case', name: 'Primary Topik Use Case', value: null, status: 'pending' },
-    { id: 'community_role', name: 'Community Role (Admin/Instructor/Learner)', value: null, status: 'pending' },
-    { id: 'training_goals', name: 'Training Goals & Objectives', value: null, status: 'pending' },
-    { id: 'collaboration_needs', name: 'Collaboration Requirements', value: null, status: 'pending' },
-    { id: 'content_creation_needs', name: 'Content Creation Needs', value: null, status: 'pending' },
-    { id: 'analytics_requirements', name: 'Analytics & Reporting Needs', value: null, status: 'pending' },
-    { id: 'integration_needs', name: 'Integration Requirements', value: null, status: 'pending' },
-    { id: 'onboarding_progress', name: 'Onboarding Module Progress', value: null, status: 'pending' },
-    { id: 'questions_answered', name: 'Questions Answered', value: null, status: 'pending' },
-    { id: 'next_steps', name: 'Recommended Next Steps', value: null, status: 'pending' },
+    // Candidate Information
+    { id: 'candidate_name', name: 'Candidate Name', value: null, status: 'pending' },
+    // Core Evaluation Metrics
+    { id: 'clarity_articulation', name: 'Clarity & Articulation', value: null, status: 'pending' },
+    { id: 'pace_rhythm', name: 'Pace & Rhythm', value: null, status: 'pending' },
+    { id: 'tone_modulation', name: 'Tone & Pitch Modulation', value: null, status: 'pending' },
+    { id: 'filler_usage', name: 'Filler Word Usage', value: null, status: 'pending' },
+    { id: 'active_listening', name: 'Active Listening', value: null, status: 'pending' },
+    { id: 'confidence_composure', name: 'Confidence & Composure', value: null, status: 'pending' },
+    { id: 'empathy_professionalism', name: 'Empathy & Professionalism', value: null, status: 'pending' },
+    { id: 'pressure_handling', name: 'Handling Pressure (Fumbling)', value: null, status: 'pending' },
+    { id: 'deescalation_technique', name: 'De-escalation Technique', value: null, status: 'pending' },
+    { id: 'solution_orientation', name: 'Solution Orientation', value: null, status: 'pending' },
+    // Summary Metrics
+    { id: 'overall_score', name: 'Overall Score', value: null, status: 'pending' },
+    { id: 'key_strengths', name: 'Key Strengths', value: null, status: 'pending' },
+    { id: 'improvement_areas', name: 'Areas for Improvement', value: null, status: 'pending' },
+    // Process Tracking
+    { id: 'evaluation_progress', name: 'Evaluation Progress', value: null, status: 'pending' },
+    { id: 'next_steps', name: 'Next Steps', value: null, status: 'pending' },
   ]);
 
   const captureDataPoint = (dataId: string, value: string, status: 'captured' | 'verified' = 'captured') => {

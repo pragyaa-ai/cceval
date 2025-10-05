@@ -18,6 +18,7 @@ import type { RealtimeAgent } from '@openai/agents/realtime';
 // Context providers & hooks
 import { useTranscript } from "@/app/contexts/TranscriptContext";
 import { useEvent } from "@/app/contexts/EventContext";
+import { useVoiceAnalysis } from "@/app/contexts/VoiceAnalysisContext";
 import { useRealtimeSession } from "./hooks/useRealtimeSession";
 import { createModerationGuardrail } from "@/app/agentConfigs/guardrails";
 import { useLanguage } from "@/app/contexts/LanguageContext";
@@ -36,7 +37,7 @@ import { simpleHandoffScenario } from "@/app/agentConfigs/simpleHandoff";
 // Map used by connect logic for scenarios defined via the SDK.
 const sdkScenarioMap: Record<string, RealtimeAgent[]> = {
   simpleHandoff: simpleHandoffScenario,
-  Topik: customerServiceRetailScenario,
+  "HCE Evaluations": customerServiceRetailScenario,
   chatSupervisor: chatSupervisorScenario,
 };
 
@@ -48,8 +49,10 @@ function App() {
   const {
     addTranscriptMessage,
     addTranscriptBreadcrumb,
+    transcriptItems,
   } = useTranscript();
   const { logClientEvent, logServerEvent } = useEvent();
+  const { startAnalysis, stopAnalysis } = useVoiceAnalysis();
 
   const [selectedAgentName, setSelectedAgentName] = useState<string>("");
   const [selectedAgentConfigSet, setSelectedAgentConfigSet] = useState<
@@ -134,7 +137,7 @@ function App() {
   );
 
   // Initialize the recording hook.
-  const { startRecording, stopRecording, downloadRecording } =
+  const { startRecording, stopRecording, downloadRecording, getMicStream } =
     useAudioDownload();
 
   const sendClientEvent = (eventObj: any, eventNameSuffix = "") => {
@@ -238,7 +241,7 @@ function App() {
           reorderedAgents.unshift(agent);
         }
 
-        const companyName = agentSetKey === 'Topik'
+        const companyName = agentSetKey === 'HCE Evaluations'
           ? customerServiceRetailCompanyName
           : chatSupervisorCompanyName;
         const guardrail = createModerationGuardrail(companyName);
@@ -358,6 +361,25 @@ function App() {
     sendClientEvent({ type: 'input_audio_buffer.commit' }, 'commit PTT');
     sendClientEvent({ type: 'response.create' }, 'trigger response PTT');
   };
+
+  // Monitor agent changes to detect Voice Quality Assessment Agent
+  useEffect(() => {
+    console.log('👤 Current agent:', selectedAgentName);
+    
+    // Check for all possible formats of the Voice Quality Agent name
+    const isVoiceQualityAgent = selectedAgentName === 'Voice Quality Assessment Agent' ||  // from dropdown
+                                 selectedAgentName === 'voice_quality_assessment_agent' ||  // lowercase with underscores
+                                 selectedAgentName === 'Voice_Quality_Assessment_Agent';    // proper case with underscores (from handoff)
+    
+    if (isVoiceQualityAgent) {
+      console.log('🎤🎤🎤 VOICE QUALITY AGENT ACTIVATED - Starting voice analysis');
+      startAnalysis();
+    } else if (selectedAgentName && !isVoiceQualityAgent) {
+      // If we switched away from Voice Quality Agent, stop analysis
+      console.log('👤 Agent changed from Voice Quality Agent - Stopping voice analysis');
+      stopAnalysis();
+    }
+  }, [selectedAgentName, startAnalysis, stopAnalysis]);
 
   const onToggleConnection = () => {
     if (sessionStatus === "CONNECTED" || sessionStatus === "CONNECTING") {
@@ -652,7 +674,12 @@ function App() {
           }
         />
 
-        <AgentVisualizer isExpanded={isEventsPaneExpanded} currentAgentName={selectedAgentName} sessionStatus={sessionStatus} />
+        <AgentVisualizer 
+          isExpanded={isEventsPaneExpanded} 
+          currentAgentName={selectedAgentName} 
+          sessionStatus={sessionStatus}
+          getMicStream={getMicStream}
+        />
       </div>
 
       <BottomToolbar

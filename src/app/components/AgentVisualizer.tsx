@@ -24,15 +24,18 @@ import {
 import { useDataCollection } from '../contexts/DataCollectionContext';
 import { useSalesData } from '../contexts/SalesDataContext';
 import { useConsultationData } from '../contexts/ConsultationDataContext';
+import VoiceVisualizer from './VoiceVisualizer';
 
 const AgentVisualizer = ({ 
   isExpanded, 
   currentAgentName,
-  sessionStatus 
+  sessionStatus,
+  getMicStream
 }: { 
   isExpanded: boolean;
   currentAgentName?: string;
   sessionStatus?: string;
+  getMicStream?: () => MediaStream | null;
 }) => {
   const { 
     capturedData, 
@@ -58,7 +61,7 @@ const AgentVisualizer = ({
   // Determine which agent we're showing data for
   const isSpotlightAgent = currentAgentName === 'spotlight';
   const isCarDealerAgent = currentAgentName === 'carDealer';
-  const isPersonalisedTeacher = currentAgentName === 'Personalised Teacher';
+  const isEvaluationAgent = currentAgentName === 'Evaluation Agent';
   const dataToShow = isSpotlightAgent ? salesData : isCarDealerAgent ? consultationData : capturedData;
   const completionPercentage = isSpotlightAgent 
     ? getSalesDataProgress().percentage 
@@ -117,7 +120,7 @@ const AgentVisualizer = ({
       const url = URL.createObjectURL(dataBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `topik-onboarding-data-${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `hansa-call-center-evaluation-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -128,23 +131,22 @@ const AgentVisualizer = ({
   // Icon mapping for data points
   const getDataPointIcon = (dataId: string) => {
     const iconMap: Record<string, React.ComponentType<any>> = {
-      // Topik onboarding data icons (Personalised Teacher agent)
-      'preferred_language': GlobeAltIcon,
-      'employee_name': UserCircleIcon,
-      'job_role': IdentificationIcon,
-      'department': BuildingOfficeIcon,
-      'experience_level': ClockIcon,
-      'learning_style': UserIcon,
-      'prior_lms_experience': ClipboardDocumentListIcon,
-      'topik_use_case': WrenchScrewdriverIcon,
-      'community_role': UserIcon,
-      'training_goals': CheckCircleIcon,
-      'collaboration_needs': ChatBubbleLeftRightIcon,
-      'content_creation_needs': ClipboardDocumentListIcon,
-      'analytics_requirements': ClipboardDocumentListIcon,
-      'integration_needs': WrenchScrewdriverIcon,
-      'onboarding_progress': CheckCircleIcon,
-      'questions_answered': ChatBubbleLeftRightIcon,
+      // Hansa Call Center evaluation data icons (Evaluation Agent)
+      'candidate_name': UserCircleIcon,
+      'clarity_articulation': ChatBubbleLeftRightIcon,
+      'pace_rhythm': ClockIcon,
+      'tone_modulation': UserIcon,
+      'filler_usage': ClipboardDocumentListIcon,
+      'active_listening': UserCircleIcon,
+      'confidence_composure': CheckCircleIcon,
+      'empathy_professionalism': UserIcon,
+      'pressure_handling': WrenchScrewdriverIcon,
+      'deescalation_technique': ChatBubbleLeftRightIcon,
+      'solution_orientation': CheckCircleIcon,
+      'overall_score': IdentificationIcon,
+      'key_strengths': CheckCircleIcon,
+      'improvement_areas': ClipboardDocumentListIcon,
+      'evaluation_progress': CheckCircleIcon,
       'next_steps': MapPinIcon,
       // Sales data icons (spotlight agent)
       'full_name': UserCircleIcon,
@@ -172,8 +174,8 @@ const AgentVisualizer = ({
     description: 'Specialized automotive consultation and sales.',
     status: 'Active',
   } : {
-    name: 'Personalised Teacher',
-    description: 'Guiding Topik platform onboarding experience.',
+    name: 'Evaluation Agent',
+    description: 'Eva - AI interviewer for Hansa Call Center Operations.',
     status: 'Active',
   };
 
@@ -186,6 +188,9 @@ const AgentVisualizer = ({
     { name: 'Returns' },
     { name: 'Sales' },
     { name: 'Spotlight' },
+    { name: 'Human Agent' },
+  ] : isEvaluationAgent ? [
+    { name: 'Voice Quality Assessment Agent' },
     { name: 'Human Agent' },
   ] : [
     { name: 'Returns' },
@@ -218,12 +223,12 @@ const AgentVisualizer = ({
           <h2 className="text-xl font-bold">
             {isSpotlightAgent ? 'Sales Data Center' : 
              isCarDealerAgent ? 'Consultation Center' : 
-             'Onboarding Progress Center'}
+             'Hansa Call Center Evaluation'}
           </h2>
           <p className="text-sm text-purple-200">
             {isSpotlightAgent ? 'Live Sales Lead Collection' : 
              isCarDealerAgent ? 'Live Automotive Consultation' : 
-             'Live Topik Onboarding Session'}
+             'Live Candidate Assessment Session'}
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -234,12 +239,21 @@ const AgentVisualizer = ({
           <span className="text-sm font-medium">
             {isSpotlightAgent ? 'COLLECTING' : 
              isCarDealerAgent ? 'CONSULTING' : 
-             'ONBOARDING'}
+             'INTERVIEWING'}
           </span>
         </div>
       </div>
 
       <div className="p-4 overflow-y-auto space-y-6">
+        {/* Voice Visualizer - Show for Evaluation Agent (always visible once session starts) */}
+        {!isSpotlightAgent && !isCarDealerAgent && (
+          <VoiceVisualizer 
+            isRecording={sessionStatus === 'CONNECTED'} 
+            sessionStatus={sessionStatus || 'DISCONNECTED'}
+            getMicStream={getMicStream}
+          />
+        )}
+
         {/* Current Agent */}
         <div className="bg-blue-500 text-white p-4 rounded-lg shadow-lg flex items-center justify-between">
           <div className="flex items-center">
@@ -262,7 +276,7 @@ const AgentVisualizer = ({
               <ClipboardDocumentListIcon className="h-5 w-5 mr-2 text-gray-500" />
               {isSpotlightAgent ? 'Sales Data Collection' : 
                isCarDealerAgent ? 'Consultation Progress' : 
-               'Onboarding Progress'}
+               'Candidate Evaluation Metrics'}
             </h3>
             <button
               onClick={downloadData}
@@ -358,40 +372,46 @@ const AgentVisualizer = ({
           <p className="text-sm text-yellow-700 mb-2 font-medium">
             {isSpotlightAgent ? 'Demo: Simulate Sales Data' : 
              isCarDealerAgent ? 'Demo: Simulate Consultation Data' : 
-             'Demo: Simulate Onboarding Data'}
+             'Demo: Simulate Call Center Evaluation'}
           </p>
           <div className="flex flex-wrap gap-2">
             {!isSpotlightAgent && !isCarDealerAgent && (
               <>
                 <button
-                  onClick={() => captureDataPoint('preferred_language', 'English')}
-                  className="text-xs bg-blue-500 text-white px-2 py-1 rounded"
+                  onClick={() => captureDataPoint('candidate_name', 'John Smith')}
+                  className="text-xs bg-green-500 text-white px-2 py-1 rounded"
                 >
-                  Language
+                  Candidate Name
                 </button>
                 <button
-                  onClick={() => captureDataPoint('employee_name', 'Alex Johnson')}
+                  onClick={() => captureDataPoint('clarity_articulation', '4')}
                   className="text-xs bg-blue-500 text-white px-2 py-1 rounded"
                 >
-                  Employee Name
+                  Clarity (4)
                 </button>
                 <button
-                  onClick={() => captureDataPoint('job_role', 'Customer Success Manager')}
+                  onClick={() => captureDataPoint('confidence_composure', '3')}
                   className="text-xs bg-blue-500 text-white px-2 py-1 rounded"
                 >
-                  Job Role
+                  Confidence (3)
                 </button>
                 <button
-                  onClick={() => captureDataPoint('topik_use_case', 'Team Training & Community Building')}
+                  onClick={() => captureDataPoint('empathy_professionalism', '5')}
                   className="text-xs bg-blue-500 text-white px-2 py-1 rounded"
                 >
-                  Use Case
+                  Empathy (5)
                 </button>
                 <button
-                  onClick={() => captureDataPoint('community_role', 'Administrator')}
+                  onClick={() => captureDataPoint('deescalation_technique', '2')}
                   className="text-xs bg-blue-500 text-white px-2 py-1 rounded"
                 >
-                  Community Role
+                  De-escalation (2)
+                </button>
+                <button
+                  onClick={() => captureDataPoint('overall_score', '3.4')}
+                  className="text-xs bg-purple-500 text-white px-2 py-1 rounded"
+                >
+                  Overall (3.4)
                 </button>
               </>
             )}

@@ -104,6 +104,10 @@ export function useHandleSessionHistory() {
   /* ----------------------- event handlers ------------------------- */
 
   function handleAgentToolStart(details: any, _agent: any, functionCall: any) {
+    if (!functionCall || !functionCall.name) {
+      console.warn('[handleAgentToolStart] functionCall is undefined or missing name:', functionCall);
+      return;
+    }
     const lastFunctionCall = extractFunctionCallByName(functionCall.name, details?.context?.history);
     const function_name = lastFunctionCall?.name;
     const function_args = lastFunctionCall?.arguments;
@@ -114,6 +118,10 @@ export function useHandleSessionHistory() {
     );    
   }
   function handleAgentToolEnd(details: any, _agent: any, _functionCall: any, result: any) {
+    if (!_functionCall || !_functionCall.name) {
+      console.warn('[handleAgentToolEnd] functionCall is undefined or missing name:', _functionCall);
+      return;
+    }
     const lastFunctionCall = extractFunctionCallByName(_functionCall.name, details?.context?.history);
     addTranscriptBreadcrumb(
       `function call result: ${lastFunctionCall?.name}`,
@@ -123,6 +131,13 @@ export function useHandleSessionHistory() {
 
   async function handleHistoryAdded(item: any) {
     console.log("[handleHistoryAdded] ", item);
+    
+    // Check if this is an agent change (look for agent property)
+    if (item.agent) {
+      console.log("🔄 AGENT DETECTED IN HISTORY:", item.agent);
+      console.log("🔄 Agent name:", item.agent.name);
+    }
+    
     if (!item || item.type !== 'message') return;
 
     const { itemId, role, content = [] } = item;

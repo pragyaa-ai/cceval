@@ -5,6 +5,7 @@ import { EventProvider } from "@/app/contexts/EventContext";
 import { DataCollectionProvider } from "@/app/contexts/DataCollectionContext";
 import { SalesDataProvider } from "@/app/contexts/SalesDataContext";
 import { ConsultationDataProvider } from "@/app/contexts/ConsultationDataContext";
+import { VoiceAnalysisProvider } from "@/app/contexts/VoiceAnalysisContext";
 import App from "@/app/App";
 
 export default function Page() {
@@ -16,7 +17,9 @@ export default function Page() {
             <ConsultationDataProvider>
               <TranscriptProvider>
                 <EventProvider>
-                  <App />
+                  <VoiceAnalysisProvider>
+                    <App />
+                  </VoiceAnalysisProvider>
                 </EventProvider>
               </TranscriptProvider>
             </ConsultationDataProvider>

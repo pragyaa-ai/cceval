@@ -79,10 +79,27 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
   );
 
   const handleAgentHandoff = (item: any) => {
-    const history = item.context.history;
-    const lastMessage = history[history.length - 1];
-    const agentName = lastMessage.name.split("transfer_to_")[1];
-    callbacks.onAgentHandoff?.(agentName);
+    console.log('🔄🔄🔄 HANDOFF DETECTED - Full item:', JSON.stringify(item, null, 2));
+    
+    // The item should contain the actual agent object with the real name
+    const agentName = item.agent?.name || item.name;
+    console.log('🎯 Agent name from item:', agentName);
+    
+    // Fallback: try to extract from history if agent name not directly available
+    if (!agentName) {
+      const history = item.context?.history;
+      console.log('📜 Handoff history:', history);
+      const lastMessage = history?.[history.length - 1];
+      console.log('📩 Last message in history:', lastMessage);
+      console.log('🏷️ Tool name called:', lastMessage?.name);
+      
+      const extractedName = lastMessage?.name?.split("transfer_to_")[1];
+      console.log('🎯 Extracted agent name from tool:', extractedName);
+      callbacks.onAgentHandoff?.(extractedName);
+    } else {
+      console.log('🔀 Calling onAgentHandoff callback with agent name:', agentName);
+      callbacks.onAgentHandoff?.(agentName);
+    }
   };
 
   useEffect(() => {
@@ -97,8 +114,14 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
 
       // history events
       sessionRef.current.on("agent_handoff", handleAgentHandoff);
-      sessionRef.current.on("agent_tool_start", historyHandlers.handleAgentToolStart);
-      sessionRef.current.on("agent_tool_end", historyHandlers.handleAgentToolEnd);
+      sessionRef.current.on("agent_tool_start", (item: any) => {
+        console.log('🔧 TOOL START:', item);
+        historyHandlers.handleAgentToolStart(item);
+      });
+      sessionRef.current.on("agent_tool_end", (item: any) => {
+        console.log('✅ TOOL END:', item);
+        historyHandlers.handleAgentToolEnd(item);
+      });
       sessionRef.current.on("history_updated", historyHandlers.handleHistoryUpdated);
       sessionRef.current.on("history_added", historyHandlers.handleHistoryAdded);
       sessionRef.current.on("guardrail_tripped", historyHandlers.handleGuardrailTripped);
@@ -122,6 +145,12 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
 
       const ek = await getEphemeralKey();
       const rootAgent = initialAgents[0];
+      
+      console.log('🚀🚀🚀 INITIALIZING SESSION');
+      console.log('📋 All initial agents:', initialAgents.map((a: any) => a.name));
+      console.log('🎯 Root agent:', rootAgent.name);
+      console.log('🔗 Root agent handoffs:', rootAgent.handoffs?.map((h: any) => h.name) || []);
+      console.log('🛠️ Root agent tools:', rootAgent.tools?.map((t: any) => t.name) || []);
 
       // This lets you use the codec selector in the UI to force narrow-band (8 kHz) codecs to
       //  simulate how the voice agent sounds over a PSTN/SIP phone call.
@@ -137,7 +166,7 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
             return pc;
           },
         }),
-        model: 'gpt-4o-realtime-preview-2025-06-03',
+        model: 'gpt-realtime',
         config: {
           inputAudioFormat: audioFormat,
           outputAudioFormat: audioFormat,

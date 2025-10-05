@@ -6,6 +6,8 @@ function useAudioDownload() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   // Ref to collect all recorded Blob chunks.
   const recordedChunksRef = useRef<Blob[]>([]);
+  // Ref to store the microphone stream for voice analysis
+  const micStreamRef = useRef<MediaStream | null>(null);
 
   /**
    * Starts recording by combining the provided remote stream with
@@ -15,7 +17,19 @@ function useAudioDownload() {
   const startRecording = async (remoteStream: MediaStream) => {
     let micStream: MediaStream;
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request microphone with noise suppression and echo cancellation
+      micStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,      // Prevents audio feedback loops
+          noiseSuppression: true,       // Reduces background noise
+          autoGainControl: true,        // Normalizes volume levels
+          sampleRate: 48000,            // High quality audio
+          channelCount: 1               // Mono audio (reduces processing)
+        }
+      });
+      // Store the mic stream reference for voice analysis
+      micStreamRef.current = micStream;
+      console.log('🎤 Microphone stream captured with noise suppression enabled');
     } catch (err) {
       console.error("Error getting microphone stream:", err);
       // Fallback to an empty MediaStream if microphone access fails.
@@ -115,7 +129,12 @@ function useAudioDownload() {
     }
   };
 
-  return { startRecording, stopRecording, downloadRecording };
+  /**
+   * Get the microphone stream for voice analysis
+   */
+  const getMicStream = () => micStreamRef.current;
+
+  return { startRecording, stopRecording, downloadRecording, getMicStream };
 }
 
 export default useAudioDownload; 
