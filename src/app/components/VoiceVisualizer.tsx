@@ -2,16 +2,24 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useVoiceQualityAnalysis } from '../hooks/useVoiceAnalysis';
 import { useVoiceAnalysis } from '../contexts/VoiceAnalysisContext';
 
+interface CandidateInfo {
+  name: string;
+  date: string;
+  time: string;
+}
+
 interface VoiceVisualizerProps {
   isRecording: boolean;
   sessionStatus: string;
   getMicStream?: () => MediaStream | null;
+  candidateInfo?: CandidateInfo;
 }
 
 const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({ 
   isRecording, 
   sessionStatus,
-  getMicStream 
+  getMicStream,
+  candidateInfo 
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { startAnalysis, stopAnalysis, currentMetrics, metricsHistory, isAnalyzing, setCollectingSamples, clearHistory } = useVoiceQualityAnalysis();
@@ -329,10 +337,17 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
     const canvas = canvasRef.current;
     const chartImage = canvas ? canvas.toDataURL('image/png') : '';
 
-    // Get current date/time
+    // Get candidate info or use defaults
+    const candidateName = candidateInfo?.name || 'Not Provided';
+    const interviewDate = candidateInfo?.date 
+      ? new Date(candidateInfo.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+      : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const interviewTime = candidateInfo?.time || new Date().toTimeString().split(' ')[0].substring(0, 5);
+
+    // Get current date/time for report generation
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const reportGeneratedDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const reportGeneratedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
     // Create HTML report
     const reportHTML = `
@@ -340,7 +355,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Voice Quality Analysis Report</title>
+  <title>Voice Quality Analysis Report - ${candidateName}</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
@@ -366,6 +381,33 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       color: #666;
       margin: 5px 0;
       font-size: 14px;
+    }
+    .candidate-info {
+      background: #f3f4f6;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    .candidate-info h3 {
+      color: #374151;
+      font-size: 16px;
+      margin: 0 0 10px 0;
+      font-weight: 600;
+    }
+    .candidate-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .candidate-info-item {
+      font-size: 14px;
+    }
+    .candidate-info-item strong {
+      color: #1f2937;
+      display: inline-block;
+      min-width: 120px;
     }
     .section {
       margin: 30px 0;
@@ -546,8 +588,28 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   <div class="header">
     <h1>Voice Quality Analysis Report</h1>
     <p><strong>Hansa Call Center Evaluation</strong></p>
-    <p>Generated on ${dateStr} at ${timeStr}</p>
-    <p>Analysis Duration: ${breakdown.duration}s | Samples Collected: ${breakdown.sampleCount}</p>
+    <p>Report Generated: ${reportGeneratedDate} at ${reportGeneratedTime}</p>
+  </div>
+
+  <div class="candidate-info">
+    <h3>Candidate Information</h3>
+    <div class="candidate-info-grid">
+      <div class="candidate-info-item">
+        <strong>Candidate Name:</strong> ${candidateName}
+      </div>
+      <div class="candidate-info-item">
+        <strong>Interview Date:</strong> ${interviewDate}
+      </div>
+      <div class="candidate-info-item">
+        <strong>Interview Time:</strong> ${interviewTime}
+      </div>
+      <div class="candidate-info-item">
+        <strong>Analysis Duration:</strong> ${breakdown.duration}s
+      </div>
+    </div>
+    <div style="margin-top: 10px; font-size: 12px; color: #6b7280;">
+      Samples Collected: ${breakdown.sampleCount} • Sampling Rate: 200ms
+    </div>
   </div>
 
   <div class="section">

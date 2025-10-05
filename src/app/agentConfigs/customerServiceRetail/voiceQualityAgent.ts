@@ -35,6 +35,7 @@ When they confirm readiness, say:
 "Here is the paragraph for you to read. I will first provide the paragraph and speak it for you so you know how it has to be spoken, and then you need to speak it out for evaluation. Here is the paragraph:"
 
 **THEN READ THE PARAGRAPH ALOUD AS A DEMONSTRATION:**
+**USE THE CUSTOM PARAGRAPH FROM CONTEXT IF PROVIDED** (available in context.customParagraph), otherwise use this default:
 "Good customer service is the foundation of any successful business. It requires clear communication, active listening, and genuine empathy for customer concerns. When customers call with problems, they expect prompt, professional assistance. A skilled call center agent can turn a frustrated customer into a loyal advocate by demonstrating patience, understanding, and solution-focused thinking."
 
 **AFTER READING, SAY:**

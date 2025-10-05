@@ -25,6 +25,7 @@ import { useLanguage } from "@/app/contexts/LanguageContext";
 import { useDataCollection } from "./contexts/DataCollectionContext";
 import { useSalesData } from "./contexts/SalesDataContext";
 import { useConsultationData } from "./contexts/ConsultationDataContext";
+import { useEvaluationSession } from "./contexts/EvaluationSessionContext";
 
 // Agent configs
 import { allAgentSets, defaultAgentSetKey } from "@/app/agentConfigs";
@@ -96,6 +97,8 @@ function App() {
     verifyConsultationData,
     downloadConsultationData
   } = useConsultationData();
+
+  const { customParagraph } = useEvaluationSession();
 
   // Codec selector – lets you toggle between wide-band Opus (48 kHz)
   // and narrow-band PCMU/PCMA (8 kHz) to hear what the agent sounds like on
@@ -265,6 +268,8 @@ function App() {
           // Consultation data functions for Car Dealer agent
           captureConsultationData,
           verifyConsultationData,
+          // Custom paragraph for Voice Quality Agent
+          customParagraph: customParagraph,
         },
         });
         

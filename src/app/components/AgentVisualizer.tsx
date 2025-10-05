@@ -24,7 +24,10 @@ import {
 import { useDataCollection } from '../contexts/DataCollectionContext';
 import { useSalesData } from '../contexts/SalesDataContext';
 import { useConsultationData } from '../contexts/ConsultationDataContext';
+import { useEvaluationSession } from '../contexts/EvaluationSessionContext';
 import VoiceVisualizer from './VoiceVisualizer';
+import CandidateInfoForm from './CandidateInfoForm';
+import CustomParagraphInput from './CustomParagraphInput';
 
 const AgentVisualizer = ({ 
   isExpanded, 
@@ -57,6 +60,13 @@ const AgentVisualizer = ({
     exportConsultationData,
     downloadConsultationData
   } = useConsultationData();
+
+  const {
+    candidateInfo,
+    setCandidateInfo,
+    customParagraph,
+    setCustomParagraph
+  } = useEvaluationSession();
 
   // Determine which agent we're showing data for
   const isSpotlightAgent = currentAgentName === 'spotlight';
@@ -245,12 +255,29 @@ const AgentVisualizer = ({
       </div>
 
       <div className="p-4 overflow-y-auto space-y-6">
+        {/* Candidate Info Form - Show for Evaluation Agent only */}
+        {!isSpotlightAgent && !isCarDealerAgent && (
+          <CandidateInfoForm 
+            onInfoChange={setCandidateInfo}
+            initialInfo={candidateInfo}
+          />
+        )}
+
+        {/* Custom Paragraph Input - Show for Evaluation Agent only */}
+        {!isSpotlightAgent && !isCarDealerAgent && (
+          <CustomParagraphInput 
+            onParagraphChange={setCustomParagraph}
+            initialParagraph={customParagraph}
+          />
+        )}
+
         {/* Voice Visualizer - Show for Evaluation Agent (always visible once session starts) */}
         {!isSpotlightAgent && !isCarDealerAgent && (
           <VoiceVisualizer 
             isRecording={sessionStatus === 'CONNECTED'} 
             sessionStatus={sessionStatus || 'DISCONNECTED'}
             getMicStream={getMicStream}
+            candidateInfo={candidateInfo}
           />
         )}
 
