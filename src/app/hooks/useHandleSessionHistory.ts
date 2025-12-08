@@ -103,28 +103,37 @@ export function useHandleSessionHistory() {
 
   /* ----------------------- event handlers ------------------------- */
 
-  function handleAgentToolStart(details: any, _agent: any, functionCall: any) {
+  function handleAgentToolStart(item: any) {
+    // Extract function call info from the event item
+    const functionCall = item?.functionCall || item?.function_call || item;
+    const details = item?.details || item;
+    
     if (!functionCall || !functionCall.name) {
       console.warn('[handleAgentToolStart] functionCall is undefined or missing name:', functionCall);
       return;
     }
     const lastFunctionCall = extractFunctionCallByName(functionCall.name, details?.context?.history);
-    const function_name = lastFunctionCall?.name;
-    const function_args = lastFunctionCall?.arguments;
+    const function_name = lastFunctionCall?.name || functionCall.name;
+    const function_args = lastFunctionCall?.arguments || functionCall.arguments;
 
     addTranscriptBreadcrumb(
       `function call: ${function_name}`,
       function_args
     );    
   }
-  function handleAgentToolEnd(details: any, _agent: any, _functionCall: any, result: any) {
-    if (!_functionCall || !_functionCall.name) {
-      console.warn('[handleAgentToolEnd] functionCall is undefined or missing name:', _functionCall);
+  function handleAgentToolEnd(item: any) {
+    // Extract function call info from the event item
+    const functionCall = item?.functionCall || item?.function_call || item;
+    const details = item?.details || item;
+    const result = item?.result || item?.output;
+    
+    if (!functionCall || !functionCall.name) {
+      console.warn('[handleAgentToolEnd] functionCall is undefined or missing name:', functionCall);
       return;
     }
-    const lastFunctionCall = extractFunctionCallByName(_functionCall.name, details?.context?.history);
+    const lastFunctionCall = extractFunctionCallByName(functionCall.name, details?.context?.history);
     addTranscriptBreadcrumb(
-      `function call result: ${lastFunctionCall?.name}`,
+      `function call result: ${lastFunctionCall?.name || functionCall.name}`,
       maybeParseJson(result)
     );
   }
