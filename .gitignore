@@ -41,3 +41,5 @@ next-env.d.ts
 todo.md
 
 .next-dev.log
+
+/src/generated/prisma

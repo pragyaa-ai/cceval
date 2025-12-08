@@ -1,0 +1,184 @@
+// Prisma schema for HCE Evaluations
+// PostgreSQL database hosted on GCP VM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth.js required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Evaluator (extends NextAuth User)
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("evaluator") // evaluator, admin
+  
+  accounts Account[]
+  sessions Session[]
+  
+  // Evaluation relationships
+  batchesCreated    Batch[]      @relation("BatchCreator")
+  evaluationsScored Evaluation[] @relation("EvaluationScorer")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Evaluation Batch
+model Batch {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Creator
+  creatorId String
+  creator   User   @relation("BatchCreator", fields: [creatorId], references: [id])
+  
+  // Candidates in this batch
+  candidates Candidate[]
+  
+  // Status
+  status String @default("active") // active, archived, completed
+}
+
+// Candidate
+model Candidate {
+  id         String   @id @default(cuid())
+  name       String
+  email      String?
+  phone      String?
+  accessCode String   @unique
+  status     String   @default("pending") // pending, in_progress, completed, cancelled
+  
+  // Batch relationship
+  batchId String
+  batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  
+  // Evaluation settings
+  selectedPassage  String @default("safety_adas")
+  selectedScenario String @default("beginner")
+  
+  // Evaluation data
+  evaluation Evaluation?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Evaluation Session
+model Evaluation {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique // MHCE-xxx format
+  
+  // Candidate relationship
+  candidateId String   @unique
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  
+  // Evaluator who scored this
+  scorerId    String?
+  scorer      User?    @relation("EvaluationScorer", fields: [scorerId], references: [id])
+  
+  // Phase tracking
+  currentPhase String @default("not_started")
+  
+  // Timing
+  startTime DateTime?
+  endTime   DateTime?
+  
+  // Recording
+  recordingUrl      String?
+  recordingDuration Int      @default(0) // in seconds
+  
+  // Related data
+  scores          Score[]
+  transcriptItems TranscriptItem[]
+  phaseResults    PhaseResult[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Score Entry
+model Score {
+  id          String @id @default(cuid())
+  parameterId String // clarity_pace, product_knowledge, etc.
+  score       Int    // 1-5
+  notes       String @default("")
+  
+  evaluationId String
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([evaluationId, parameterId])
+}
+
+// Transcript Item
+model TranscriptItem {
+  id       String @id @default(cuid())
+  role     String // candidate, agent, system
+  content  String @db.Text
+  phase    String
+  
+  evaluationId String
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+}
+
+// Phase Result
+model PhaseResult {
+  id          String @id @default(cuid())
+  phase       String
+  duration    Int    @default(0) // in seconds
+  notes       String @default("")
+  
+  evaluationId String
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  
+  completedAt DateTime @default(now())
+}
