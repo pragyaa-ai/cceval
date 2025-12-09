@@ -82,7 +82,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-slate-500 text-sm">
-            © 2025 Mahindra HCE Evaluations • Powered by Pragyaa
+            © 2025 Pragyaa.ai • Call Center Evaluation Platform
           </p>
         </div>
       </div>

@@ -26,21 +26,21 @@ export default function V2LandingPage() {
               className="opacity-90"
             />
           </div>
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 bg-clip-text text-transparent">
-            Mahindra HCE Evaluation
+          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-violet-600 via-purple-500 to-indigo-500 bg-clip-text text-transparent">
+            CCEval
           </h1>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Human Communication Excellence Assessment Platform
+            Call Center Evaluation Platform
           </p>
           <p className="text-sm text-slate-400 mt-2">
-            Powered by VoiceAgent 2.0
+            Powered by Pragyaa.ai
           </p>
         </div>
 
         {/* Version Badge */}
         <div className="mb-12">
-          <span className="px-4 py-2 bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 rounded-full text-amber-700 text-sm font-medium shadow-sm">
-            Version 2.0 • Automotive Edition
+          <span className="px-4 py-2 bg-gradient-to-r from-violet-100 to-purple-100 border border-violet-300 rounded-full text-violet-700 text-sm font-medium shadow-sm">
+            Version 2.0
           </span>
         </div>
 
@@ -63,7 +63,7 @@ export default function V2LandingPage() {
                 I'm a Candidate
               </h2>
               <p className="text-slate-500 mb-6 leading-relaxed">
-                Start your voice-based evaluation for Mahindra call center position. Enter your access code to begin your personalized assessment.
+                Start your voice-based evaluation for call center position. Enter your access code to begin your personalized assessment.
               </p>
 
               {/* Features */}
@@ -78,13 +78,13 @@ export default function V2LandingPage() {
                   <svg className="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
-                  Automobile feature reading task
+                  Reading comprehension task
                 </li>
                 <li className="flex items-center gap-2">
                   <svg className="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
-                  Mahindra PV & EV call scenarios
+                  Customer call simulation scenarios
                 </li>
               </ul>
 
@@ -154,15 +154,8 @@ export default function V2LandingPage() {
         {/* Footer Info */}
         <div className="mt-16 text-center">
           <p className="text-slate-400 text-sm">
-            Mahindra & Mahindra • PV & EV Customer Experience Evaluation
+            © 2025 Pragyaa.ai • Call Center Evaluation Platform
           </p>
-          <div className="flex items-center justify-center gap-4 mt-4 text-xs text-slate-400">
-            <span>Bolero Neo</span>
-            <span>•</span>
-            <span>XUV700</span>
-            <span>•</span>
-            <span>XUV400 EV</span>
-          </div>
         </div>
 
         {/* Link to v1 */}
