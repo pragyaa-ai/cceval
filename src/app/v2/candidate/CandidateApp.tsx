@@ -248,11 +248,36 @@ function CandidateAppContent() {
     }
   };
 
-  // Disconnect
-  const handleDisconnect = () => {
+  // Disconnect and complete evaluation
+  const handleDisconnect = async () => {
     disconnect();
     stopAnalysis();
     setCurrentPhase("completed");
+
+    // Update candidate status to completed in database
+    if (authenticatedCandidate) {
+      try {
+        await fetch(`/api/v2/candidates/${authenticatedCandidate.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "completed" }),
+        });
+
+        // Also end the evaluation session if exists
+        if (authenticatedCandidate.evaluation?.id) {
+          await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              currentPhase: "completed",
+              endTime: new Date().toISOString(),
+            }),
+          });
+        }
+      } catch (error) {
+        console.error("Error updating evaluation status:", error);
+      }
+    }
   };
 
   // If not authenticated, show access code screen

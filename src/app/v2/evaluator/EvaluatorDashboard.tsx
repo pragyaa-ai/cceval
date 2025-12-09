@@ -732,7 +732,7 @@ function CandidatesTab({
                         handleUpdateCandidate(candidate.id, { selectedPassage: e.target.value })
                       }
                       disabled={candidate.status !== "pending"}
-                      className="px-2 py-1 border border-slate-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-2 py-1 border border-slate-300 rounded text-sm text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {Object.entries(READING_PASSAGES).map(([key, passage]) => (
                         <option key={key} value={key}>
@@ -748,7 +748,7 @@ function CandidatesTab({
                         handleUpdateCandidate(candidate.id, { selectedScenario: e.target.value })
                       }
                       disabled={candidate.status !== "pending"}
-                      className="px-2 py-1 border border-slate-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-2 py-1 border border-slate-300 rounded text-sm text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {Object.entries(CALL_SCENARIOS).map(([key, scenario]) => (
                         <option key={key} value={key}>
