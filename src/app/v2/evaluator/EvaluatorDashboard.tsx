@@ -290,7 +290,7 @@ function BatchHistoryTab({
               placeholder="Batch name (e.g., Morning Session - Dec 5)"
               value={newBatchName}
               onChange={(e) => setNewBatchName(e.target.value)}
-              className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
             <button
               onClick={handleCreateBatch}
@@ -318,7 +318,7 @@ function BatchHistoryTab({
               type="date"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -326,7 +326,7 @@ function BatchHistoryTab({
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
               <option value="">All</option>
               <option value="active">Active</option>
@@ -608,7 +608,7 @@ function CandidatesTab({
                   placeholder="Full Name *"
                   value={newCandidate.name}
                   onChange={(e) => setNewCandidate({ ...newCandidate, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <input
@@ -616,14 +616,14 @@ function CandidatesTab({
                     placeholder="Email (optional)"
                     value={newCandidate.email}
                     onChange={(e) => setNewCandidate({ ...newCandidate, email: e.target.value })}
-                    className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
                   <input
                     type="tel"
                     placeholder="Phone (optional)"
                     value={newCandidate.phone}
                     onChange={(e) => setNewCandidate({ ...newCandidate, phone: e.target.value })}
-                    className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
                 </div>
                 <button
@@ -647,7 +647,7 @@ function CandidatesTab({
                 value={bulkInput}
                 onChange={(e) => setBulkInput(e.target.value)}
                 rows={4}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
               />
               <button
                 onClick={handleBulkAdd}
@@ -1149,7 +1149,7 @@ function SettingsTab({
                 type="text"
                 value={batchNameInput}
                 onChange={(e) => setBatchNameInput(e.target.value)}
-                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
               <button
                 onClick={handleSaveName}
