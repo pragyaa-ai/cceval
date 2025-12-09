@@ -60,7 +60,7 @@ function CandidateAppContent() {
   // Contexts
   const { transcriptItems, addTranscriptBreadcrumb } = useTranscript();
   const { logClientEvent } = useEvent();
-  const { startAnalysis, stopAnalysis, analysisData } = useVoiceAnalysis();
+  const { startAnalysis, stopAnalysis, isAnalysisActive } = useVoiceAnalysis();
 
   // Audio element ref for SDK
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
@@ -572,7 +572,11 @@ function EvaluationInterface({
               </svg>
               Voice Quality Analysis
             </h3>
-            <VoiceVisualizer getMicStream={getMicStream} />
+            <VoiceVisualizer 
+              isRecording={sessionStatus === "CONNECTED"} 
+              sessionStatus={sessionStatus} 
+              getMicStream={getMicStream} 
+            />
           </div>
 
           {/* Current Phase */}
