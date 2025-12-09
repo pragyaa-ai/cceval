@@ -203,7 +203,7 @@ export default function CandidateApp() {
               Welcome, <span className="font-medium text-slate-800">{authenticatedCandidate.name}</span>
             </div>
             
-            {activeEvaluation?.startTime && (
+            {authenticatedCandidate?.evaluation?.startTime && (
               <div className="flex items-center gap-2 text-slate-500 text-sm">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
