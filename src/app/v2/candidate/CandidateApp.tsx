@@ -355,8 +355,8 @@ function WelcomeScreen({
   candidate: CandidateInfo;
   onStart: () => void;
 }) {
-  const passage = candidate.selectedPassage ? READING_PASSAGES[candidate.selectedPassage] : null;
-  const scenario = candidate.selectedScenario ? CALL_SCENARIOS[candidate.selectedScenario] : null;
+  const passage = candidate.selectedPassage ? READING_PASSAGES[candidate.selectedPassage as keyof typeof READING_PASSAGES] : null;
+  const scenario = candidate.selectedScenario ? CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS] : null;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
@@ -523,8 +523,8 @@ function VoiceVisualization({ isActive }: { isActive: boolean }) {
 
 // Phase-specific instructions
 function PhaseInstructions({ phase, candidate }: { phase: EvaluationPhase; candidate: CandidateInfo }) {
-  const passage = candidate.selectedPassage ? READING_PASSAGES[candidate.selectedPassage] : READING_PASSAGES.safety_adas;
-  const scenario = candidate.selectedScenario ? CALL_SCENARIOS[candidate.selectedScenario] : CALL_SCENARIOS.beginner;
+  const passage = candidate.selectedPassage ? READING_PASSAGES[candidate.selectedPassage as keyof typeof READING_PASSAGES] : READING_PASSAGES.safety_adas;
+  const scenario = candidate.selectedScenario ? CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS] : CALL_SCENARIOS.beginner;
 
   const instructions: Record<EvaluationPhase, React.ReactNode> = {
     not_started: null,
