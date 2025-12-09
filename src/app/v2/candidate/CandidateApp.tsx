@@ -3,8 +3,26 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useV2Evaluation, READING_PASSAGES, CALL_SCENARIOS, PERSONAL_QUESTIONS } from "../contexts/V2EvaluationContext";
-import type { EvaluationPhase, CandidateInfo } from "../contexts/V2EvaluationContext";
+import { READING_PASSAGES, CALL_SCENARIOS, PERSONAL_QUESTIONS } from "../contexts/V2EvaluationContext";
+import type { EvaluationPhase } from "../contexts/V2EvaluationContext";
+
+// Candidate info from database
+interface CandidateInfo {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  accessCode: string;
+  status: string;
+  selectedPassage: string;
+  selectedScenario: string;
+  evaluation?: {
+    id: string;
+    sessionId: string;
+    currentPhase: string;
+    startTime: string | null;
+  } | null;
+}
 
 // Phase display configuration
 const PHASE_CONFIG: Record<EvaluationPhase, { title: string; description: string; icon: string }> = {
@@ -46,37 +64,25 @@ const PHASE_CONFIG: Record<EvaluationPhase, { title: string; description: string
 };
 
 export default function CandidateApp() {
-  const { 
-    state, 
-    getCandidateByAccessCode, 
-    setActiveCandidate,
-    getActiveCandidate,
-    getActiveEvaluation,
-    startEvaluation,
-    setCurrentPhase,
-    setIsConnected 
-  } = useV2Evaluation();
-  
   const [accessCode, setAccessCode] = useState("");
   const [accessError, setAccessError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [authenticatedCandidate, setAuthenticatedCandidate] = useState<CandidateInfo | null>(null);
   const [sessionDuration, setSessionDuration] = useState(0);
-
-  const activeCandidate = getActiveCandidate();
-  const activeEvaluation = getActiveEvaluation();
-  const currentPhase = activeEvaluation?.currentPhase || "not_started";
+  const [isConnected, setIsConnected] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState<EvaluationPhase>("not_started");
 
   // Update time every second
   useEffect(() => {
     const timer = setInterval(() => {
-      if (activeEvaluation?.startTime) {
-        const start = new Date(activeEvaluation.startTime).getTime();
+      if (authenticatedCandidate?.evaluation?.startTime) {
+        const start = new Date(authenticatedCandidate.evaluation.startTime).getTime();
         const now = Date.now();
         setSessionDuration(Math.floor((now - start) / 1000));
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [activeEvaluation?.startTime]);
+  }, [authenticatedCandidate?.evaluation?.startTime]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -84,38 +90,78 @@ export default function CandidateApp() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleAccessCodeSubmit = (e: React.FormEvent) => {
+  const handleAccessCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAccessError("");
+    setIsLoading(true);
     
-    const candidate = getCandidateByAccessCode(accessCode.trim());
-    if (!candidate) {
-      setAccessError("Invalid access code. Please check and try again.");
-      return;
+    try {
+      const response = await fetch(`/api/v2/candidates?accessCode=${accessCode.trim()}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setAccessError(data.error || "Invalid access code. Please check and try again.");
+        return;
+      }
+      
+      if (data.status === "completed") {
+        setAccessError("This evaluation has already been completed.");
+        return;
+      }
+      
+      setAuthenticatedCandidate(data);
+      if (data.evaluation) {
+        setCurrentPhase(data.evaluation.currentPhase as EvaluationPhase);
+      }
+    } catch (error) {
+      console.error("Error validating access code:", error);
+      setAccessError("Failed to validate access code. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-    
-    if (candidate.status === "completed") {
-      setAccessError("This evaluation has already been completed.");
-      return;
-    }
-    
-    setAuthenticatedCandidate(candidate);
-    setActiveCandidate(candidate.id);
   };
 
-  const handleStartEvaluation = () => {
+  const handleStartEvaluation = async () => {
     if (!authenticatedCandidate) return;
-    startEvaluation(authenticatedCandidate.id);
-    setIsConnected(true);
+    
+    try {
+      const response = await fetch("/api/v2/evaluations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidateId: authenticatedCandidate.id }),
+      });
+      
+      if (response.ok) {
+        const evaluation = await response.json();
+        setAuthenticatedCandidate({
+          ...authenticatedCandidate,
+          evaluation,
+        });
+        setCurrentPhase("personal_questions");
+        setIsConnected(true);
+      }
+    } catch (error) {
+      console.error("Error starting evaluation:", error);
+    }
   };
 
   // Demo: Auto-advance phases for testing (remove in production)
-  const advancePhase = () => {
-    if (!authenticatedCandidate) return;
+  const advancePhase = async () => {
+    if (!authenticatedCandidate?.evaluation) return;
     const phases: EvaluationPhase[] = ["personal_questions", "reading_task", "call_scenario", "empathy_scenario", "closure_task", "completed"];
     const currentIndex = phases.indexOf(currentPhase);
     if (currentIndex < phases.length - 1) {
-      setCurrentPhase(authenticatedCandidate.id, phases[currentIndex + 1]);
+      const nextPhase = phases[currentIndex + 1];
+      try {
+        await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ currentPhase: nextPhase }),
+        });
+        setCurrentPhase(nextPhase);
+      } catch (error) {
+        console.error("Error advancing phase:", error);
+      }
     }
   };
 
@@ -168,9 +214,9 @@ export default function CandidateApp() {
             
             {/* Connection status */}
             <div className="flex items-center gap-2">
-              <span className={`h-2 w-2 rounded-full ${state.isConnected ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+              <span className={`h-2 w-2 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
               <span className="text-xs text-slate-500">
-                {state.isConnected ? "Connected" : "Offline"}
+                {isConnected ? "Connected" : "Offline"}
               </span>
             </div>
           </div>
@@ -201,6 +247,7 @@ export default function CandidateApp() {
             phase={currentPhase}
             candidate={authenticatedCandidate}
             onAdvancePhase={advancePhase}
+            isConnected={isConnected}
           />
         )}
       </main>
@@ -263,7 +310,7 @@ function AccessCodeScreen({
               onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
               placeholder="Enter 4-digit code"
               maxLength={4}
-              className="w-full px-4 py-4 text-center text-3xl font-mono tracking-widest border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+              className="w-full px-4 py-4 text-center text-3xl font-mono tracking-widest text-slate-900 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
               autoFocus
             />
             {error && (
@@ -391,14 +438,15 @@ function WelcomeScreen({
 function EvaluationScreen({ 
   phase, 
   candidate,
-  onAdvancePhase 
+  onAdvancePhase,
+  isConnected
 }: { 
   phase: EvaluationPhase;
   candidate: CandidateInfo;
   onAdvancePhase: () => void;
+  isConnected: boolean;
 }) {
   const config = PHASE_CONFIG[phase];
-  const { state } = useV2Evaluation();
   
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -413,7 +461,7 @@ function EvaluationScreen({
       <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
         {/* Voice visualization area */}
         <div className="p-8 border-b border-slate-100 bg-slate-50">
-          <VoiceVisualization isActive={state.isConnected} />
+          <VoiceVisualization isActive={isConnected} />
         </div>
 
         {/* Instructions panel */}
