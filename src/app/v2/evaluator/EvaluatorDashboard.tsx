@@ -845,9 +845,46 @@ function CandidatesTab({
 // Live Evaluation Tab
 function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () => void }) {
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState<Array<{ role: string; content: string; timestamp: string }>>([]);
+  const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
+  const [endingSession, setEndingSession] = useState(false);
 
   const activeCandidates = batch.candidates.filter((c) => c.status === "in_progress");
   const activeCandidate = batch.candidates.find((c) => c.id === activeCandidateId);
+
+  // Fetch transcript for active candidate
+  useEffect(() => {
+    if (activeCandidate?.evaluation?.id) {
+      const fetchTranscript = async () => {
+        setIsLoadingTranscript(true);
+        try {
+          const response = await fetch(`/api/v2/evaluations/${activeCandidate.evaluation!.id}/transcript`);
+          if (response.ok) {
+            const data = await response.json();
+            // API returns array directly, not wrapped in { transcript: [] }
+            setTranscript(Array.isArray(data) ? data : []);
+          }
+        } catch (error) {
+          console.error("Failed to fetch transcript:", error);
+        } finally {
+          setIsLoadingTranscript(false);
+        }
+      };
+      fetchTranscript();
+      
+      // Poll for transcript updates every 3 seconds
+      const interval = setInterval(fetchTranscript, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [activeCandidate?.evaluation?.id]);
+
+  // Poll for batch updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      onRefresh();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [onRefresh]);
 
   const handleAddScore = async (evaluationId: string, parameterId: string, score: number) => {
     try {
@@ -855,6 +892,37 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
       onRefresh();
     } catch (error) {
       console.error("Failed to add score:", error);
+    }
+  };
+
+  const handleEndSession = async (candidateId: string) => {
+    if (!confirm("Are you sure you want to end this evaluation session?")) return;
+    
+    setEndingSession(true);
+    try {
+      // Update candidate status to completed
+      await updateCandidate(candidateId, { status: "completed" });
+      
+      // Update evaluation end time
+      const candidate = batch.candidates.find((c) => c.id === candidateId);
+      if (candidate?.evaluation?.id) {
+        await fetch(`/api/v2/evaluations/${candidate.evaluation.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            currentPhase: "completed",
+            endTime: new Date().toISOString(),
+          }),
+        });
+      }
+      
+      setActiveCandidateId(null);
+      onRefresh();
+    } catch (error) {
+      console.error("Failed to end session:", error);
+      alert("Failed to end session");
+    } finally {
+      setEndingSession(false);
     }
   };
 
@@ -890,6 +958,7 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-200">
             <h3 className="font-medium text-slate-800">Active Sessions</h3>
+            <p className="text-xs text-slate-500 mt-1">{activeCandidates.length} in progress</p>
           </div>
           <div className="divide-y divide-slate-100">
             {activeCandidates.map((candidate) => (
@@ -900,8 +969,18 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
                   activeCandidateId === candidate.id ? "bg-violet-50 border-l-4 border-violet-500" : ""
                 }`}
               >
-                <p className="font-medium text-slate-800">{candidate.name}</p>
-                <p className="text-xs text-slate-500 mt-1">Code: {candidate.accessCode}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-slate-800">{candidate.name}</p>
+                    <p className="text-xs text-slate-500 mt-1">Code: {candidate.accessCode}</p>
+                  </div>
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" title="Live"></span>
+                </div>
+                {candidate.evaluation && (
+                  <p className="text-xs text-violet-600 mt-2 capitalize">
+                    {candidate.evaluation.currentPhase.replace(/_/g, " ")}
+                  </p>
+                )}
               </button>
             ))}
           </div>
@@ -917,13 +996,117 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-slate-800">{activeCandidate.name}</h2>
-                  <p className="text-slate-500">Session: {activeCandidate.evaluation.sessionId}</p>
+                  <p className="text-slate-500 text-sm">Session: {activeCandidate.evaluation.sessionId}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-slate-500">Current Phase</p>
-                  <p className="text-lg font-medium text-violet-600 capitalize">
-                    {activeCandidate.evaluation.currentPhase.replace(/_/g, " ")}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-sm text-slate-500">Current Phase</p>
+                    <p className="text-lg font-medium text-violet-600 capitalize flex items-center gap-2">
+                      <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                      {activeCandidate.evaluation.currentPhase.replace(/_/g, " ")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleEndSession(activeCandidate.id)}
+                    disabled={endingSession}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    {endingSession ? "Ending..." : "End Session"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Two Column Layout: Transcript + Scoring */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Live Transcript */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+                  <h3 className="font-medium text-slate-800 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    Live Transcript
+                  </h3>
+                  <span className="text-xs text-slate-500">{transcript.length} messages</span>
+                </div>
+                <div className="h-80 overflow-y-auto p-4 space-y-3 bg-slate-50">
+                  {isLoadingTranscript && transcript.length === 0 ? (
+                    <p className="text-slate-500 text-center py-4">Loading transcript...</p>
+                  ) : transcript.length === 0 ? (
+                    <p className="text-slate-500 text-center py-4">Waiting for conversation...</p>
+                  ) : (
+                    transcript.map((item, index) => (
+                      <div
+                        key={index}
+                        className={`flex ${item.role === "user" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                            item.role === "user"
+                              ? "bg-violet-100 text-violet-900"
+                              : "bg-white border border-slate-200 text-slate-700"
+                          }`}
+                        >
+                          <p className="text-xs font-medium mb-1 opacity-60">
+                            {item.role === "user" ? "Candidate" : "Eva"}
+                          </p>
+                          <p>{item.content}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Voice Quality Analysis - Show during reading phase */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-200">
+                  <h3 className="font-medium text-slate-800 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    </svg>
+                    {activeCandidate.evaluation.currentPhase === "reading_task" 
+                      ? "Voice Analysis (Live)" 
+                      : "Voice Analysis"}
+                  </h3>
+                </div>
+                <div className="p-4">
+                  {activeCandidate.evaluation.currentPhase === "reading_task" ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-sm text-emerald-600">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                        Analyzing voice quality...
+                      </div>
+                      <div className="space-y-3">
+                        {["Clarity", "Volume", "Tone", "Pace"].map((metric) => (
+                          <div key={metric} className="flex items-center gap-3">
+                            <span className="text-sm text-slate-600 w-16">{metric}</span>
+                            <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-violet-400 to-violet-600 rounded-full animate-pulse"
+                                style={{ width: "60%" }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-4">
+                        Voice metrics are being collected during paragraph reading. 
+                        Final scores will be available after this phase completes.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-slate-500">
+                      <svg className="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                      </svg>
+                      <p className="text-sm">Voice analysis available during Reading Task phase</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -105,6 +105,42 @@ function CandidateAppContent() {
   // Session history handler
   useHandleSessionHistory();
 
+  // Sync transcript to database for evaluator view
+  const lastSyncedCountRef = useRef(0);
+  useEffect(() => {
+    const syncTranscript = async () => {
+      if (!authenticatedCandidate?.evaluation?.id) return;
+      if (transcriptItems.length <= lastSyncedCountRef.current) return;
+      
+      // Get new items to sync
+      const newItems = transcriptItems.slice(lastSyncedCountRef.current);
+      lastSyncedCountRef.current = transcriptItems.length;
+      
+      // Filter to only conversation items (not breadcrumbs)
+      const conversationItems = newItems.filter(
+        item => item.role === "user" || item.role === "assistant"
+      );
+      
+      for (const item of conversationItems) {
+        try {
+          await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation!.id}/transcript`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              role: item.role,
+              content: item.displayText || item.title || "",
+              phase: currentPhase,
+            }),
+          });
+        } catch (error) {
+          console.error("Failed to sync transcript item:", error);
+        }
+      }
+    };
+    
+    syncTranscript();
+  }, [transcriptItems, authenticatedCandidate?.evaluation?.id, currentPhase]);
+
   // Timer effect
   useEffect(() => {
     const timer = setInterval(() => {
@@ -377,7 +413,7 @@ function CandidateAppContent() {
             candidate={authenticatedCandidate}
             onStart={handleStartEvaluation}
           />
-        ) : currentPhase === "completed" ? (
+        ) : sessionStatus === "DISCONNECTED" && currentPhase === "completed" ? (
           <CompletedScreen candidateName={authenticatedCandidate.name} />
         ) : (
           <EvaluationInterface
