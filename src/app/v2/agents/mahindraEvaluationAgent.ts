@@ -523,6 +523,17 @@ Use advance_phase tool when completing each phase:
         if (context?.getVoiceAnalysisReport) {
           const report = context.getVoiceAnalysisReport();
           console.log('[Voice Analysis] Report generated:', report);
+          
+          // Save to database if saveVoiceAnalysis function is available
+          if (context?.saveVoiceAnalysis && report) {
+            try {
+              await context.saveVoiceAnalysis(report);
+              console.log('[Voice Analysis] Report saved to database');
+            } catch (error) {
+              console.error('[Voice Analysis] Failed to save report:', error);
+            }
+          }
+          
           return { 
             success: true, 
             report,

@@ -171,6 +171,22 @@ function CandidateAppContent() {
   // Function to get voice analysis report - will be populated by VoiceVisualizer
   const getVoiceAnalysisReportRef = useRef<(() => any) | null>(null);
 
+  // Save voice analysis report to database
+  const handleSaveVoiceAnalysis = useCallback(async (report: any) => {
+    if (!authenticatedCandidate?.evaluation?.id || !report) return;
+    
+    try {
+      await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voiceAnalysisData: report }),
+      });
+      console.log("[v2] Voice analysis saved to database");
+    } catch (error) {
+      console.error("[v2] Failed to save voice analysis:", error);
+    }
+  }, [authenticatedCandidate?.evaluation?.id]);
+
   // Start recording when connected
   useEffect(() => {
     if (sessionStatus === "CONNECTED" && audioElementRef.current?.srcObject) {
@@ -298,6 +314,7 @@ function CandidateAppContent() {
             }
             return null;
           },
+          saveVoiceAnalysis: handleSaveVoiceAnalysis,
         },
       });
 

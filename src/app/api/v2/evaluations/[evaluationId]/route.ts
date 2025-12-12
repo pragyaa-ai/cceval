@@ -48,7 +48,7 @@ export async function PATCH(
     const session = await getServerSession(authOptions);
     const { evaluationId } = await params;
     const body = await request.json();
-    const { currentPhase, recordingUrl, recordingDuration, endSession } = body;
+    const { currentPhase, recordingUrl, recordingDuration, endSession, voiceAnalysisData, endTime } = body;
 
     const updateData: {
       currentPhase?: string;
@@ -56,11 +56,16 @@ export async function PATCH(
       recordingDuration?: number;
       endTime?: Date;
       scorerId?: string;
+      voiceAnalysisData?: string;
     } = {};
 
     if (currentPhase) updateData.currentPhase = currentPhase;
     if (recordingUrl) updateData.recordingUrl = recordingUrl;
     if (recordingDuration !== undefined) updateData.recordingDuration = recordingDuration;
+    if (voiceAnalysisData) updateData.voiceAnalysisData = typeof voiceAnalysisData === 'string' 
+      ? voiceAnalysisData 
+      : JSON.stringify(voiceAnalysisData);
+    if (endTime) updateData.endTime = new Date(endTime);
     
     if (endSession) {
       updateData.endTime = new Date();

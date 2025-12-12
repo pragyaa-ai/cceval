@@ -132,6 +132,9 @@ model Evaluation {
   recordingUrl      String?
   recordingDuration Int      @default(0) // in seconds
   
+  // Voice Quality Analysis (JSON data from reading phase)
+  voiceAnalysisData String? @db.Text // JSON containing clarity, volume, tone, pace, overall score, recommendations
+  
   // Related data
   scores          Score[]
   transcriptItems TranscriptItem[]

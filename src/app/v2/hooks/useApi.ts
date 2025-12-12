@@ -34,6 +34,19 @@ export interface CandidateData {
   evaluation?: EvaluationData | null;
 }
 
+export interface VoiceAnalysisReport {
+  clarityScore: number;
+  volumeScore: number;
+  toneScore: number;
+  paceScore: number;
+  overallScore: number;
+  assessment: string;
+  strengths: string[];
+  recommendations: string[];
+  sampleCount: number;
+  duration: string;
+}
+
 export interface EvaluationData {
   id: string;
   sessionId: string;
@@ -43,6 +56,7 @@ export interface EvaluationData {
   endTime: string | null;
   recordingUrl: string | null;
   recordingDuration: number;
+  voiceAnalysisData: string | null; // JSON string of VoiceAnalysisReport
   scores: ScoreData[];
   scorer?: {
     id: string;
