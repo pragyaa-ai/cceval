@@ -128,7 +128,7 @@ function CandidateAppContent() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               role: item.role,
-              content: item.displayText || item.title || "",
+              content: item.title || "",
               phase: currentPhase,
             }),
           });

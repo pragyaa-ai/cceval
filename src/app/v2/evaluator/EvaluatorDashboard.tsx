@@ -19,6 +19,7 @@ import {
   BatchSummary,
   BatchDetail,
   CandidateData,
+  EvaluationData,
 } from "../hooks/useApi";
 
 type TabType = "batches" | "candidates" | "evaluation" | "results" | "settings";

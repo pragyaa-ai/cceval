@@ -4,12 +4,16 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy-load OpenAI client to avoid build-time errors
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
+    const openai = getOpenAIClient();
     const { url } = await req.json();
 
     if (!url) {
