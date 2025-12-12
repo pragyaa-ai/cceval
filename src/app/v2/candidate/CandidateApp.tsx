@@ -106,32 +106,34 @@ function CandidateAppContent() {
   useHandleSessionHistory();
 
   // Sync transcript to database for evaluator view
-  const lastSyncedCountRef = useRef(0);
+  const syncedItemIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const syncTranscript = async () => {
       if (!authenticatedCandidate?.evaluation?.id) return;
-      if (transcriptItems.length <= lastSyncedCountRef.current) return;
       
-      // Get new items to sync
-      const newItems = transcriptItems.slice(lastSyncedCountRef.current);
-      lastSyncedCountRef.current = transcriptItems.length;
-      
-      // Filter to only conversation items (not breadcrumbs)
-      const conversationItems = newItems.filter(
-        item => item.role === "user" || item.role === "assistant"
+      // Filter to only DONE conversation items with actual content
+      const completedItems = transcriptItems.filter(
+        item => 
+          (item.role === "user" || item.role === "assistant") &&
+          item.status === "DONE" &&
+          item.title && 
+          item.title.trim() !== "" &&
+          !item.title.includes("[Transcribing") &&
+          !syncedItemIdsRef.current.has(item.itemId)
       );
       
-      for (const item of conversationItems) {
+      for (const item of completedItems) {
         try {
           await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation!.id}/transcript`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               role: item.role,
-              content: item.title || "",
+              content: item.title,
               phase: currentPhase,
             }),
           });
+          syncedItemIdsRef.current.add(item.itemId);
         } catch (error) {
           console.error("Failed to sync transcript item:", error);
         }
@@ -163,10 +165,24 @@ function CandidateAppContent() {
     stopAnalysis();
   }, [stopAnalysis]);
 
-  const handleSetCurrentPhase = useCallback((phase: EvaluationPhase) => {
+  const handleSetCurrentPhase = useCallback(async (phase: EvaluationPhase) => {
     console.log("[v2] Agent triggered: Setting phase to", phase);
     setCurrentPhase(phase);
-  }, []);
+    
+    // Persist phase to database for evaluator view
+    if (authenticatedCandidate?.evaluation?.id) {
+      try {
+        await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ currentPhase: phase }),
+        });
+        console.log("[v2] Phase synced to database:", phase);
+      } catch (error) {
+        console.error("[v2] Failed to sync phase to database:", error);
+      }
+    }
+  }, [authenticatedCandidate?.evaluation?.id]);
 
   // Function to get voice analysis report - will be populated by VoiceVisualizer
   const getVoiceAnalysisReportRef = useRef<(() => any) | null>(null);

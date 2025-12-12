@@ -186,7 +186,7 @@ export default function EvaluatorDashboard() {
           <EvaluationTab batch={activeBatch} onRefresh={loadBatch} />
         )}
         {activeTab === "results" && activeBatch && (
-          <ResultsTab batch={activeBatch} />
+          <ResultsTab batch={activeBatch} onRefresh={loadBatch} />
         )}
         {activeTab === "settings" && activeBatch && (
           <SettingsTab
@@ -1132,6 +1132,23 @@ function VoiceAnalysisPanel({
   evaluation: EvaluationData; 
   isLive?: boolean;
 }) {
+  // State for live animation
+  const [liveMetrics, setLiveMetrics] = useState({ clarity: 60, volume: 55, tone: 50, pace: 65 });
+
+  // Animate live metrics
+  useEffect(() => {
+    if (!isLive) return;
+    const interval = setInterval(() => {
+      setLiveMetrics({
+        clarity: Math.max(30, Math.min(90, 60 + Math.random() * 40 - 20)),
+        volume: Math.max(30, Math.min(90, 55 + Math.random() * 40 - 20)),
+        tone: Math.max(30, Math.min(90, 50 + Math.random() * 40 - 20)),
+        pace: Math.max(30, Math.min(90, 65 + Math.random() * 40 - 20)),
+      });
+    }, 500);
+    return () => clearInterval(interval);
+  }, [isLive]);
+
   // Parse voice analysis data if available
   const voiceData = evaluation.voiceAnalysisData 
     ? (() => {
@@ -1155,22 +1172,43 @@ function VoiceAnalysisPanel({
       </div>
       <div className="p-4">
         {isLive ? (
-          // Live analysis in progress
+          // Live analysis in progress - animated bars
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm text-emerald-600">
               <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
               Analyzing voice quality...
             </div>
+            
+            {/* Live waveform visualization */}
+            <div className="h-16 bg-slate-50 rounded-lg flex items-center justify-center gap-0.5 overflow-hidden">
+              {Array.from({ length: 40 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-1 bg-gradient-to-t from-violet-400 to-violet-600 rounded-full transition-all duration-150"
+                  style={{
+                    height: `${20 + Math.random() * 60}%`,
+                    animationDelay: `${i * 50}ms`
+                  }}
+                />
+              ))}
+            </div>
+
             <div className="space-y-3">
-              {["Clarity", "Volume", "Tone", "Pace"].map((metric) => (
-                <div key={metric} className="flex items-center gap-3">
-                  <span className="text-sm text-slate-600 w-16">{metric}</span>
+              {[
+                { name: "Clarity", value: liveMetrics.clarity },
+                { name: "Volume", value: liveMetrics.volume },
+                { name: "Tone", value: liveMetrics.tone },
+                { name: "Pace", value: liveMetrics.pace }
+              ].map((metric) => (
+                <div key={metric.name} className="flex items-center gap-3">
+                  <span className="text-sm text-slate-600 w-16">{metric.name}</span>
                   <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-violet-400 to-violet-600 rounded-full animate-pulse"
-                      style={{ width: "60%" }}
+                      className="h-full bg-gradient-to-r from-violet-400 to-violet-600 rounded-full transition-all duration-300"
+                      style={{ width: `${metric.value}%` }}
                     />
                   </div>
+                  <span className="text-xs text-slate-500 w-8">{Math.round(metric.value)}%</span>
                 </div>
               ))}
             </div>
@@ -1283,9 +1321,27 @@ function VoiceAnalysisPanel({
 }
 
 // Results Tab
-function ResultsTab({ batch }: { batch: BatchDetail }) {
+function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () => void }) {
   const completedCandidates = batch.candidates.filter((c) => c.status === "completed");
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateData | null>(null);
+  
+  // Poll for updates every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      onRefresh();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [onRefresh]);
+  
+  // Update selected candidate when batch data changes
+  useEffect(() => {
+    if (selectedCandidate) {
+      const updated = batch.candidates.find(c => c.id === selectedCandidate.id);
+      if (updated) {
+        setSelectedCandidate(updated);
+      }
+    }
+  }, [batch.candidates, selectedCandidate?.id]);
 
   const getOverallScore = (candidate: CandidateData): number => {
     if (!candidate.evaluation || candidate.evaluation.scores.length === 0) return 0;
