@@ -468,6 +468,7 @@ Use advance_phase tool when completing each phase:
       parameters: {
         type: "object",
         properties: {},
+        required: [],
         additionalProperties: false,
       },
       execute: async (_input, details) => {
@@ -490,6 +491,7 @@ Use advance_phase tool when completing each phase:
       parameters: {
         type: "object",
         properties: {},
+        required: [],
         additionalProperties: false,
       },
       execute: async (_input, details) => {
@@ -512,6 +514,7 @@ Use advance_phase tool when completing each phase:
       parameters: {
         type: "object",
         properties: {},
+        required: [],
         additionalProperties: false,
       },
       execute: async (_input, details) => {
