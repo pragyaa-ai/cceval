@@ -1217,34 +1217,6 @@ function CandidateDetailsModal({
             </div>
           </div>
 
-          {/* Voice Quality Analysis (if available) */}
-          {candidate.evaluation?.voiceAnalysis && (
-            <div>
-              <h3 className="font-medium text-slate-800 mb-4">Voice Quality Analysis</h3>
-              <div className="bg-slate-50 rounded-xl p-4">
-                <div className="grid grid-cols-4 gap-4">
-                  {['clarity', 'volume', 'tone', 'pace'].map((metric) => {
-                    const value = (candidate.evaluation?.voiceAnalysis as any)?.[metric] || 0;
-                    return (
-                      <div key={metric} className="text-center">
-                        <p className="text-2xl font-bold text-violet-600">{Math.round(value)}%</p>
-                        <p className="text-xs text-slate-500 capitalize">{metric}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-                {(candidate.evaluation?.voiceAnalysis as any)?.overallScore && (
-                  <div className="mt-4 pt-4 border-t border-slate-200 text-center">
-                    <p className="text-sm text-slate-500">Overall Voice Score</p>
-                    <p className="text-3xl font-bold text-violet-600">
-                      {(candidate.evaluation?.voiceAnalysis as any).overallScore}%
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Session Info */}
           {candidate.evaluation && (
             <div className="bg-slate-50 rounded-xl p-4">
