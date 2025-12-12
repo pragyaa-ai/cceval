@@ -616,16 +616,10 @@ function EvaluationInterface({
           </div>
         </div>
 
-        {/* Right side - Voice Visualizer and Controls */}
+        {/* Right side - Phase Progress and Controls */}
         <div className="col-span-5 space-y-6">
-          {/* Voice Visualizer */}
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
-            <h3 className="font-medium text-white mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
-              Voice Quality Analysis
-            </h3>
+          {/* Hidden Voice Visualizer for data collection only */}
+          <div className="hidden">
             <VoiceVisualizer 
               isRecording={sessionStatus === "CONNECTED"} 
               sessionStatus={sessionStatus} 
@@ -634,28 +628,59 @@ function EvaluationInterface({
             />
           </div>
 
-          {/* Current Phase */}
+          {/* Evaluation Progress */}
           <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
-            <h3 className="font-medium text-white mb-4">Current Phase</h3>
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">
+            <h3 className="font-medium text-white mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              Evaluation Progress
+            </h3>
+            <PhaseProgressIndicator currentPhase={currentPhase} />
+          </div>
+
+          {/* Current Phase Info */}
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
+            <h3 className="font-medium text-white mb-4">Current Task</h3>
+            <div className="flex items-center gap-4">
+              <span className="text-4xl">
                 {currentPhase === "personal_questions" && "💬"}
                 {currentPhase === "reading_task" && "📖"}
                 {currentPhase === "call_scenario" && "📞"}
                 {currentPhase === "empathy_scenario" && "🤝"}
                 {currentPhase === "closure_task" && "✅"}
+                {currentPhase === "not_started" && "⏳"}
+                {currentPhase === "completed" && "🎉"}
               </span>
               <div>
-                <p className="font-medium text-white capitalize">
-                  {currentPhase.replace(/_/g, " ")}
+                <p className="font-medium text-white text-lg capitalize">
+                  {currentPhase === "not_started" ? "Getting Ready" : 
+                   currentPhase === "completed" ? "Completed" :
+                   currentPhase.replace(/_/g, " ")}
                 </p>
-                <p className="text-sm text-slate-400">
-                  {currentPhase === "personal_questions" && "Answering interview questions"}
-                  {currentPhase === "reading_task" && "Reading passage for voice analysis"}
-                  {currentPhase === "call_scenario" && "Handling customer simulation"}
+                <p className="text-sm text-slate-400 mt-1">
+                  {currentPhase === "personal_questions" && "Answer questions about yourself and experience"}
+                  {currentPhase === "reading_task" && "Read the paragraph aloud for voice analysis"}
+                  {currentPhase === "call_scenario" && "Handle a simulated customer call"}
+                  {currentPhase === "empathy_scenario" && "Handle an upset customer scenario"}
+                  {currentPhase === "closure_task" && "Deliver a professional call closing"}
+                  {currentPhase === "not_started" && "Waiting to begin..."}
+                  {currentPhase === "completed" && "Your evaluation is complete!"}
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Tips */}
+          <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-4">
+            <p className="text-sm text-slate-400 flex items-start gap-2">
+              <svg className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>
+                <strong className="text-amber-400">Tip:</strong> Speak clearly and naturally. Take your time to think before responding.
+              </span>
+            </p>
           </div>
 
           {/* End Session Button */}
@@ -670,6 +695,78 @@ function EvaluationInterface({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Phase Progress Indicator Component
+function PhaseProgressIndicator({ currentPhase }: { currentPhase: EvaluationPhase }) {
+  const phases = [
+    { id: "personal_questions", label: "Introduction", icon: "💬", description: "Personal questions" },
+    { id: "reading_task", label: "Reading", icon: "📖", description: "Paragraph reading" },
+    { id: "call_scenario", label: "Call Scenario", icon: "📞", description: "Customer simulation" },
+    { id: "empathy_scenario", label: "Empathy", icon: "🤝", description: "Difficult customer" },
+    { id: "closure_task", label: "Closure", icon: "✅", description: "Professional closing" },
+  ];
+
+  const phaseOrder = ["not_started", "personal_questions", "reading_task", "call_scenario", "empathy_scenario", "closure_task", "completed"];
+  const currentIndex = phaseOrder.indexOf(currentPhase);
+
+  const getPhaseStatus = (phaseId: string): "completed" | "current" | "pending" => {
+    const phaseIndex = phaseOrder.indexOf(phaseId);
+    if (phaseIndex < currentIndex) return "completed";
+    if (phaseIndex === currentIndex) return "current";
+    return "pending";
+  };
+
+  return (
+    <div className="space-y-3">
+      {phases.map((phase, index) => {
+        const status = getPhaseStatus(phase.id);
+        
+        return (
+          <div key={phase.id} className="flex items-center gap-3">
+            {/* Status indicator */}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              status === "completed" ? "bg-emerald-500 text-white" :
+              status === "current" ? "bg-violet-500 text-white ring-4 ring-violet-500/30" :
+              "bg-slate-700 text-slate-400"
+            }`}>
+              {status === "completed" ? (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <span className="text-sm">{index + 1}</span>
+              )}
+            </div>
+            
+            {/* Phase info */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{phase.icon}</span>
+                <span className={`font-medium ${
+                  status === "completed" ? "text-emerald-400" :
+                  status === "current" ? "text-white" :
+                  "text-slate-500"
+                }`}>
+                  {phase.label}
+                </span>
+                {status === "current" && (
+                  <span className="px-2 py-0.5 bg-violet-500/20 text-violet-300 text-xs rounded-full">
+                    In Progress
+                  </span>
+                )}
+              </div>
+              <p className={`text-xs mt-0.5 ${
+                status === "current" ? "text-slate-400" : "text-slate-500"
+              }`}>
+                {phase.description}
+              </p>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

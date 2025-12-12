@@ -985,6 +985,7 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
 // Results Tab
 function ResultsTab({ batch }: { batch: BatchDetail }) {
   const completedCandidates = batch.candidates.filter((c) => c.status === "completed");
+  const [selectedCandidate, setSelectedCandidate] = useState<CandidateData | null>(null);
 
   const getOverallScore = (candidate: CandidateData): number => {
     if (!candidate.evaluation || candidate.evaluation.scores.length === 0) return 0;
@@ -1084,7 +1085,10 @@ function ResultsTab({ batch }: { batch: BatchDetail }) {
                       <span className="text-slate-400">/5</span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button className="px-3 py-1 bg-slate-100 text-slate-700 rounded text-sm hover:bg-slate-200 transition-colors">
+                      <button 
+                        onClick={() => setSelectedCandidate(candidate)}
+                        className="px-3 py-1 bg-slate-100 text-slate-700 rounded text-sm hover:bg-slate-200 transition-colors"
+                      >
                         View Details
                       </button>
                     </td>
@@ -1095,6 +1099,219 @@ function ResultsTab({ batch }: { batch: BatchDetail }) {
           </table>
         </div>
       )}
+
+      {/* Candidate Details Modal */}
+      {selectedCandidate && (
+        <CandidateDetailsModal 
+          candidate={selectedCandidate} 
+          onClose={() => setSelectedCandidate(null)} 
+        />
+      )}
+    </div>
+  );
+}
+
+// Candidate Details Modal Component
+function CandidateDetailsModal({ 
+  candidate, 
+  onClose 
+}: { 
+  candidate: CandidateData; 
+  onClose: () => void;
+}) {
+  const getOverallScore = (): number => {
+    if (!candidate.evaluation || candidate.evaluation.scores.length === 0) return 0;
+    const total = candidate.evaluation.scores.reduce((sum, s) => sum + s.score, 0);
+    return Math.round((total / candidate.evaluation.scores.length) * 10) / 10;
+  };
+
+  const overallScore = getOverallScore();
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="p-6 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">{candidate.name}</h2>
+            <p className="text-slate-500 text-sm">{candidate.email || "No email provided"}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+          >
+            <svg className="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Overall Score */}
+          <div className="bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-violet-200 text-sm">Overall Score</p>
+                <p className="text-4xl font-bold mt-1">{overallScore}/5</p>
+                <p className="text-violet-200 text-sm mt-2">
+                  {overallScore >= 4 ? "Excellent Performance" : 
+                   overallScore >= 3 ? "Good Performance" : 
+                   overallScore >= 2 ? "Needs Improvement" : "Below Expectations"}
+                </p>
+              </div>
+              <div className="text-6xl opacity-20">📊</div>
+            </div>
+          </div>
+
+          {/* Configuration */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-slate-50 rounded-xl p-4">
+              <p className="text-sm text-slate-500">Reading Passage</p>
+              <p className="font-medium text-slate-800 mt-1">
+                {READING_PASSAGES[candidate.selectedPassage as keyof typeof READING_PASSAGES]?.title || candidate.selectedPassage}
+              </p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-4">
+              <p className="text-sm text-slate-500">Call Scenario</p>
+              <p className="font-medium text-slate-800 mt-1">
+                {CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.level || candidate.selectedScenario} Level
+              </p>
+            </div>
+          </div>
+
+          {/* Detailed Scores */}
+          <div>
+            <h3 className="font-medium text-slate-800 mb-4">Detailed Scores</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {SCORING_PARAMETERS.map((param) => {
+                const scoreEntry = candidate.evaluation?.scores.find((s) => s.parameterId === param.id);
+                const score = scoreEntry?.score || 0;
+                
+                return (
+                  <div key={param.id} className="bg-slate-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-700">{param.label}</span>
+                      <span className={`text-lg font-bold ${
+                        score >= 4 ? "text-emerald-600" : 
+                        score >= 3 ? "text-amber-600" : 
+                        score > 0 ? "text-red-600" : "text-slate-400"
+                      }`}>
+                        {score || "—"}/5
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">{param.description}</p>
+                    {/* Score bar */}
+                    <div className="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all ${
+                          score >= 4 ? "bg-emerald-500" : 
+                          score >= 3 ? "bg-amber-500" : 
+                          score > 0 ? "bg-red-500" : "bg-slate-300"
+                        }`}
+                        style={{ width: `${(score / 5) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Voice Quality Analysis (if available) */}
+          {candidate.evaluation?.voiceAnalysis && (
+            <div>
+              <h3 className="font-medium text-slate-800 mb-4">Voice Quality Analysis</h3>
+              <div className="bg-slate-50 rounded-xl p-4">
+                <div className="grid grid-cols-4 gap-4">
+                  {['clarity', 'volume', 'tone', 'pace'].map((metric) => {
+                    const value = (candidate.evaluation?.voiceAnalysis as any)?.[metric] || 0;
+                    return (
+                      <div key={metric} className="text-center">
+                        <p className="text-2xl font-bold text-violet-600">{Math.round(value)}%</p>
+                        <p className="text-xs text-slate-500 capitalize">{metric}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                {(candidate.evaluation?.voiceAnalysis as any)?.overallScore && (
+                  <div className="mt-4 pt-4 border-t border-slate-200 text-center">
+                    <p className="text-sm text-slate-500">Overall Voice Score</p>
+                    <p className="text-3xl font-bold text-violet-600">
+                      {(candidate.evaluation?.voiceAnalysis as any).overallScore}%
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Session Info */}
+          {candidate.evaluation && (
+            <div className="bg-slate-50 rounded-xl p-4">
+              <h3 className="font-medium text-slate-800 mb-3">Session Information</h3>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-slate-500">Session ID</p>
+                  <p className="font-mono text-slate-700 mt-1">{candidate.evaluation.sessionId}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Start Time</p>
+                  <p className="text-slate-700 mt-1">
+                    {candidate.evaluation.startTime 
+                      ? new Date(candidate.evaluation.startTime).toLocaleString() 
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500">End Time</p>
+                  <p className="text-slate-700 mt-1">
+                    {candidate.evaluation.endTime 
+                      ? new Date(candidate.evaluation.endTime).toLocaleString() 
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors"
+          >
+            Close
+          </button>
+          <button
+            onClick={() => {
+              const data = {
+                candidate: {
+                  name: candidate.name,
+                  email: candidate.email,
+                  phone: candidate.phone,
+                },
+                configuration: {
+                  passage: candidate.selectedPassage,
+                  scenario: candidate.selectedScenario,
+                },
+                evaluation: candidate.evaluation,
+                overallScore: getOverallScore(),
+                exportedAt: new Date().toISOString(),
+              };
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `evaluation-${candidate.name}-${new Date().toISOString().split("T")[0]}.json`;
+              a.click();
+            }}
+            className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors"
+          >
+            Export Details
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

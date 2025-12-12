@@ -107,22 +107,47 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
   }, []);
 
   const calculateClarity = useCallback((frequencyData: Uint8Array): number => {
-    // Measure spectral clarity by analyzing frequency distribution
+    // Measure spectral clarity by analyzing frequency distribution in speech range
+    // Focus on frequencies relevant to human speech (roughly bins 2-100 for typical sample rates)
+    const speechStart = 2;
+    const speechEnd = Math.min(100, frequencyData.length);
+    
     let totalEnergy = 0;
     let peakEnergy = 0;
+    let energyVariance = 0;
+    const energyValues: number[] = [];
     
-    for (let i = 0; i < frequencyData.length; i++) {
+    for (let i = speechStart; i < speechEnd; i++) {
       const energy = frequencyData[i];
       totalEnergy += energy;
+      energyValues.push(energy);
       if (energy > peakEnergy) peakEnergy = energy;
     }
     
-    if (totalEnergy === 0) return 0;
+    const binCount = speechEnd - speechStart;
+    if (totalEnergy === 0 || binCount === 0) return 0;
     
-    // Clarity is the ratio of peak to average (higher = clearer)
-    const avgEnergy = totalEnergy / frequencyData.length;
-    const clarity = (peakEnergy / avgEnergy) * 10;
-    return Math.min(100, clarity);
+    const avgEnergy = totalEnergy / binCount;
+    
+    // Calculate variance for spectral spread
+    for (const energy of energyValues) {
+      energyVariance += Math.pow(energy - avgEnergy, 2);
+    }
+    energyVariance = Math.sqrt(energyVariance / binCount);
+    
+    // Clarity score based on:
+    // 1. Peak-to-average ratio (higher = clearer, but capped)
+    // 2. Low variance indicates focused speech
+    const peakRatio = Math.min(5, peakEnergy / Math.max(1, avgEnergy)); // Cap at 5x
+    const spreadFactor = Math.max(0.5, 1 - (energyVariance / 100)); // Less spread = better
+    
+    // Combine factors: base clarity from peak ratio, adjusted by spread
+    const rawClarity = (peakRatio / 5) * 100 * spreadFactor;
+    
+    // Apply a curve to make scores more distributed (not always 100%)
+    const curvedClarity = Math.pow(rawClarity / 100, 0.7) * 100;
+    
+    return Math.min(100, Math.max(0, curvedClarity));
   }, []);
 
   const calculatePace = useCallback((timeData: Uint8Array): number => {

@@ -118,9 +118,11 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       }
 
       // Calculate average scores from history
+      // Require minimum 5 samples before showing data to avoid initial spikes
       let avgScores = { clarity: 0, volume: 0, pitch: 0, pace: 0 };
+      const MIN_SAMPLES_FOR_DISPLAY = 5;
       
-      if (metricsHistory.length > 0) {
+      if (metricsHistory.length >= MIN_SAMPLES_FOR_DISPLAY) {
         const recentSamples = metricsHistory.slice(-50); // Last 50 samples
         avgScores = {
           clarity: recentSamples.reduce((sum, s) => sum + s.clarity, 0) / recentSamples.length,
@@ -167,8 +169,8 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
         ctx.fillStyle = '#f3f4f6';
         ctx.fillRect(barX, y, barWidth, barHeight);
         
-        // Average score bar - green (always show if we have data)
-        if (metricsHistory.length > 0) {
+        // Average score bar - green (show if we have enough samples)
+        if (metricsHistory.length >= MIN_SAMPLES_FOR_DISPLAY) {
           const scoreWidth = (metric.score / 100) * barWidth;
           ctx.fillStyle = '#10b981';
           ctx.fillRect(barX, y, scoreWidth, barHeight);
@@ -201,7 +203,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
         ctx.font = 'bold 12px system-ui, -apple-system';
         ctx.textAlign = 'left';
         
-        if (metricsHistory.length > 0) {
+        if (metricsHistory.length >= MIN_SAMPLES_FOR_DISPLAY) {
           ctx.fillText(`${Math.round(metric.score)}%`, barX + barWidth + 10, y + 17);
         } else {
           ctx.fillStyle = '#6b7280';
@@ -214,8 +216,8 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       ctx.font = '11px system-ui, -apple-system';
       ctx.textAlign = 'left';
       
-      // Green box - always show if we have data
-      if (metricsHistory.length > 0) {
+      // Green box - show if we have enough data
+      if (metricsHistory.length >= MIN_SAMPLES_FOR_DISPLAY) {
         ctx.fillStyle = '#10b981';
         ctx.fillRect(20, legendY, 15, 10);
         ctx.fillStyle = '#6b7280';
@@ -254,7 +256,9 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
 
   // Calculate average scores and generate recommendations
   const getAnalysisBreakdown = () => {
-    if (metricsHistory.length === 0) return null;
+    // Require minimum samples for meaningful analysis
+    const MIN_SAMPLES = 5;
+    if (metricsHistory.length < MIN_SAMPLES) return null;
 
     // Calculate averages
     const avgPitch = metricsHistory.reduce((sum, m) => sum + m.pitch, 0) / metricsHistory.length;
