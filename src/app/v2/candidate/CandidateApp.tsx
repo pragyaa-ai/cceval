@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { READING_PASSAGES, CALL_SCENARIOS, PERSONAL_QUESTIONS } from "../contexts/V2EvaluationContext";
@@ -10,6 +10,7 @@ import type { EvaluationPhase } from "../contexts/V2EvaluationContext";
 import { useTranscript, TranscriptProvider } from "@/app/contexts/TranscriptContext";
 import { useEvent, EventProvider } from "@/app/contexts/EventContext";
 import { useVoiceAnalysis, VoiceAnalysisProvider } from "@/app/contexts/VoiceAnalysisContext";
+import { useVoiceQualityAnalysis } from "@/app/hooks/useVoiceAnalysis";
 import { useRealtimeSession } from "@/app/hooks/useRealtimeSession";
 import { useHandleSessionHistory } from "@/app/hooks/useHandleSessionHistory";
 import useAudioDownload from "@/app/hooks/useAudioDownload";
@@ -61,6 +62,9 @@ function CandidateAppContent() {
   const { transcriptItems, addTranscriptBreadcrumb } = useTranscript();
   const { logClientEvent } = useEvent();
   const { startAnalysis, stopAnalysis, isAnalysisActive } = useVoiceAnalysis();
+  
+  // Voice quality analysis hook for getting metrics
+  const voiceAnalysisRef = useRef<ReturnType<typeof useVoiceQualityAnalysis> | null>(null);
 
   // Audio element ref for SDK
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
@@ -111,15 +115,25 @@ function CandidateAppContent() {
     return () => clearInterval(timer);
   }, [sessionStatus, authenticatedCandidate]);
 
-  // Start voice analysis when in reading phase
-  useEffect(() => {
-    if (currentPhase === "reading_task" && sessionStatus === "CONNECTED") {
-      console.log("[v2] Starting voice analysis for reading task");
-      startAnalysis();
-    } else if (currentPhase !== "reading_task") {
-      stopAnalysis();
-    }
-  }, [currentPhase, sessionStatus, startAnalysis, stopAnalysis]);
+  // Callbacks for agent tools
+  const handleStartVoiceAnalysis = useCallback(() => {
+    console.log("[v2] Agent triggered: Starting voice analysis for reading task");
+    startAnalysis();
+    setCurrentPhase("reading_task");
+  }, [startAnalysis]);
+
+  const handleStopVoiceAnalysis = useCallback(() => {
+    console.log("[v2] Agent triggered: Stopping voice analysis");
+    stopAnalysis();
+  }, [stopAnalysis]);
+
+  const handleSetCurrentPhase = useCallback((phase: EvaluationPhase) => {
+    console.log("[v2] Agent triggered: Setting phase to", phase);
+    setCurrentPhase(phase);
+  }, []);
+
+  // Function to get voice analysis report - will be populated by VoiceVisualizer
+  const getVoiceAnalysisReportRef = useRef<(() => any) | null>(null);
 
   // Start recording when connected
   useEffect(() => {
@@ -238,6 +252,16 @@ function CandidateAppContent() {
           passageText: passage?.text,
           scenarioLevel: scenario?.level,
           customParagraph: passage?.text,
+          // Voice analysis controls for agent tools
+          startVoiceAnalysis: handleStartVoiceAnalysis,
+          stopVoiceAnalysis: handleStopVoiceAnalysis,
+          setCurrentPhase: handleSetCurrentPhase,
+          getVoiceAnalysisReport: () => {
+            if (getVoiceAnalysisReportRef.current) {
+              return getVoiceAnalysisReportRef.current();
+            }
+            return null;
+          },
         },
       });
 
@@ -363,6 +387,9 @@ function CandidateAppContent() {
             transcriptItems={transcriptItems}
             getMicStream={getMicStream}
             onDisconnect={handleDisconnect}
+            onReportReady={(getReport) => {
+              getVoiceAnalysisReportRef.current = getReport;
+            }}
           />
         )}
       </main>
@@ -527,6 +554,7 @@ function EvaluationInterface({
   transcriptItems,
   getMicStream,
   onDisconnect,
+  onReportReady,
 }: {
   candidate: CandidateInfo;
   sessionStatus: string;
@@ -534,6 +562,7 @@ function EvaluationInterface({
   transcriptItems: any[];
   getMicStream: () => MediaStream | null;
   onDisconnect: () => void;
+  onReportReady?: (getReport: () => any) => void;
 }) {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -600,7 +629,8 @@ function EvaluationInterface({
             <VoiceVisualizer 
               isRecording={sessionStatus === "CONNECTED"} 
               sessionStatus={sessionStatus} 
-              getMicStream={getMicStream} 
+              getMicStream={getMicStream}
+              onReportReady={onReportReady}
             />
           </div>
 

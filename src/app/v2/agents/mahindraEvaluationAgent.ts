@@ -132,23 +132,36 @@ After each response, acknowledge briefly and move to the next question.
 ### PHASE 3: READING TASK
 **Duration:** 2-3 minutes
 
-1. Introduce the task:
+1. First, call advance_phase with completed_phase="personal_questions" to signal personal questions are done.
+
+2. Introduce the task:
    "Excellent! Now let's move to the reading assessment. This helps us evaluate your clarity, pace, and tone."
 
-2. Provide the passage (use context.selectedPassage or default to safety_adas):
+3. Provide the passage (use context.selectedPassage or default to safety_adas):
    "I will first read the paragraph to demonstrate, then you will read it for evaluation."
 
-3. **DEMONSTRATE** by reading the paragraph aloud clearly
+4. **DEMONSTRATE** by reading the paragraph aloud clearly
 
-4. Then say: "Now please read that same paragraph aloud. Take your time and speak naturally."
+5. **CRITICAL: Call start_voice_analysis tool** BEFORE asking candidate to read
 
-5. **REMAIN SILENT** while candidate reads - do not interrupt
+6. Then say: "Now please read that same paragraph aloud. Take your time and speak naturally."
 
-6. After completion: "Thank you. That gives me a good baseline of your voice qualities."
+7. **REMAIN SILENT** while candidate reads - do not interrupt
 
-7. Capture scores:
-   - clarity_pace
-   - confidence
+8. After candidate finishes (wait for 2-3 seconds of silence):
+   - **Call stop_voice_analysis tool** to end metrics collection
+   - **Call get_voice_analysis_report tool** to get the analysis results
+   
+9. Say: "Thank you. That gives me a good baseline of your voice qualities."
+
+10. Use the voice analysis report to inform your assessment. Share brief feedback:
+    - If overall score >= 80: "Your voice clarity and pace are excellent."
+    - If overall score >= 60: "Good voice projection. Some minor areas for improvement."
+    - If overall score < 60: "We noted some areas for voice clarity improvement."
+
+11. Capture scores using the report data:
+    - clarity_pace (based on report clarity and pace scores)
+    - confidence
 
 ### PHASE 4: CALL SCENARIO SIMULATION
 **Duration:** 3-4 minutes
@@ -250,6 +263,7 @@ Score each parameter on 1-5 scale:
 
 ## TOOL USAGE
 
+### Data Capture
 Use capture_evaluation_data tool throughout:
 - After collecting candidate name: capture_evaluation_data("candidate_name", "[name]")
 - After each phase section: capture relevant scores
@@ -259,6 +273,19 @@ Example:
 capture_evaluation_data("clarity_pace", "4", "Clear articulation throughout, good pacing")
 capture_evaluation_data("product_knowledge", "3", "Basic awareness of Mahindra lineup")
 capture_evaluation_data("empathy", "5", "Excellent empathetic responses during escalation")
+
+### Phase Management
+Use advance_phase tool when completing each phase:
+- advance_phase("personal_questions") - after completing personal questions
+- advance_phase("reading_task") - after completing reading assessment
+- etc.
+
+### Voice Analysis (CRITICAL for Reading Task)
+1. Call start_voice_analysis() BEFORE asking candidate to read
+2. Wait silently while candidate reads
+3. Call stop_voice_analysis() AFTER candidate finishes reading
+4. Call get_voice_analysis_report() to get metrics and recommendations
+5. Use the report to provide feedback and capture scores
 
 ---
 
@@ -419,6 +446,11 @@ capture_evaluation_data("empathy", "5", "Excellent empathetic responses during e
           context.captureDataPoint("phase_completed", typedInput.completed_phase, 'captured');
         }
         
+        // Update phase in the UI
+        if (context?.setCurrentPhase) {
+          context.setCurrentPhase(nextPhase);
+        }
+        
         console.log(`[Phase Transition] ${typedInput.completed_phase} → ${nextPhase}`);
         
         return {
@@ -429,12 +461,89 @@ capture_evaluation_data("empathy", "5", "Excellent empathetic responses during e
         };
       },
     }),
+
+    tool({
+      name: "start_voice_analysis",
+      description: "Start collecting voice quality metrics. Call this BEFORE asking the candidate to read the paragraph aloud. This begins the voice analysis phase.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+      execute: async (_input, details) => {
+        const context = details?.context as any;
+        
+        if (context?.startVoiceAnalysis) {
+          context.startVoiceAnalysis();
+          console.log('[Voice Analysis] Started collecting voice metrics');
+          return { success: true, message: 'Voice analysis started - candidate voice metrics are now being collected' };
+        }
+        
+        console.warn('[Voice Analysis] startVoiceAnalysis not available in context');
+        return { success: false, message: 'Voice analysis context not available' };
+      },
+    }),
+
+    tool({
+      name: "stop_voice_analysis",
+      description: "Stop collecting voice quality metrics. Call this AFTER the candidate finishes reading the paragraph. This ends the voice analysis phase and prepares the report.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+      execute: async (_input, details) => {
+        const context = details?.context as any;
+        
+        if (context?.stopVoiceAnalysis) {
+          context.stopVoiceAnalysis();
+          console.log('[Voice Analysis] Stopped collecting voice metrics');
+          return { success: true, message: 'Voice analysis stopped - metrics collection complete' };
+        }
+        
+        console.warn('[Voice Analysis] stopVoiceAnalysis not available in context');
+        return { success: false, message: 'Voice analysis context not available' };
+      },
+    }),
+
+    tool({
+      name: "get_voice_analysis_report",
+      description: "Get the voice quality analysis report after the candidate has finished reading. Call this AFTER stop_voice_analysis to get the metrics and recommendations.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+      execute: async (_input, details) => {
+        const context = details?.context as any;
+        
+        if (context?.getVoiceAnalysisReport) {
+          const report = context.getVoiceAnalysisReport();
+          console.log('[Voice Analysis] Report generated:', report);
+          return { 
+            success: true, 
+            report,
+            message: 'Voice analysis report generated successfully'
+          };
+        }
+        
+        console.warn('[Voice Analysis] getVoiceAnalysisReport not available in context');
+        return { 
+          success: false, 
+          message: 'Voice analysis report not available',
+          report: null
+        };
+      },
+    }),
   ],
 
   handoffs: [], // Will be populated in index.ts if needed
 });
 
 export default mahindraEvaluationAgent;
+
+
+
 
 
 

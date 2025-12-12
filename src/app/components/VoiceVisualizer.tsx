@@ -13,13 +13,15 @@ interface VoiceVisualizerProps {
   sessionStatus: string;
   getMicStream?: () => MediaStream | null;
   candidateInfo?: CandidateInfo;
+  onReportReady?: (getReport: () => any) => void;
 }
 
 const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({ 
   isRecording, 
   sessionStatus,
   getMicStream,
-  candidateInfo 
+  candidateInfo,
+  onReportReady
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { startAnalysis, stopAnalysis, currentMetrics, metricsHistory, isAnalyzing, setCollectingSamples, clearHistory } = useVoiceQualityAnalysis();
@@ -328,6 +330,13 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   };
 
   const breakdown = getAnalysisBreakdown();
+
+  // Expose the report function to parent components via callback
+  useEffect(() => {
+    if (onReportReady) {
+      onReportReady(getAnalysisBreakdown);
+    }
+  }, [onReportReady, metricsHistory.length]);
 
   // Function to download the voice quality report
   const downloadReport = () => {
