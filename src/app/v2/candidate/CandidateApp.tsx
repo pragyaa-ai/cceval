@@ -230,16 +230,23 @@ function CandidateAppContent() {
     }
     
     console.log("[v2] 📤 Sending voice analysis report to database...");
+    console.log("[v2] 📊 Report summary:", {
+      overallScore: report.overallScore,
+      sampleCount: report.sampleCount,
+      duration: report.duration,
+      hasRecommendations: report.recommendations?.length > 0
+    });
     
     try {
       const response = await fetch(`/api/v2/evaluations/${evalId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voiceAnalysisData: report }),
+        body: JSON.stringify({ voiceAnalysisData: JSON.stringify(report) }),
       });
       
       if (!response.ok) {
         const errorText = await response.text();
+        console.error("[v2] ❌ Server error response:", errorText);
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
       
@@ -248,6 +255,8 @@ function CandidateAppContent() {
       console.log("[v2] Updated evaluation data:", updated);
     } catch (error) {
       console.error("[v2] ❌ Failed to save voice analysis:", error);
+      console.error("[v2] Report data that failed:", report);
+      // Don't throw - let the agent continue even if save fails
     }
   }, []); // No dependencies - use ref
 
