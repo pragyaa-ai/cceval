@@ -813,19 +813,15 @@ function EvaluationInterface({
 
         {/* Right side - Phase Progress and Controls */}
         <div className="col-span-5 space-y-6">
-          {/* Voice Quality Analysis - Show during and after reading phase */}
-          {(currentPhase === "reading_task" || 
-            currentPhase === "call_scenario" || 
-            currentPhase === "empathy_scenario" || 
-            currentPhase === "closure_task" || 
-            currentPhase === "completed") && (
+          {/* Voice Quality Analysis - Hidden from candidate, data collection only */}
+          <div className="hidden">
             <VoiceVisualizer 
               isRecording={sessionStatus === "CONNECTED"} 
               sessionStatus={sessionStatus} 
               getMicStream={getMicStream}
               onReportReady={onReportReady}
             />
-          )}
+          </div>
 
           {/* Evaluation Progress */}
           <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
