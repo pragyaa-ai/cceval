@@ -1156,16 +1156,27 @@ function VoiceAnalysisPanel({
         try {
           console.log('[VoiceAnalysisPanel] Raw voiceAnalysisData:', evaluation.voiceAnalysisData);
           const parsed = JSON.parse(evaluation.voiceAnalysisData);
-          console.log('[VoiceAnalysisPanel] Parsed voiceData:', parsed);
+          console.log('[VoiceAnalysisPanel] ✅ Successfully parsed voiceData:', {
+            hasData: !!parsed,
+            overallScore: parsed?.overallScore,
+            sampleCount: parsed?.sampleCount,
+            hasStrengths: Array.isArray(parsed?.strengths) && parsed.strengths.length > 0,
+            hasRecommendations: Array.isArray(parsed?.recommendations) && parsed.recommendations.length > 0
+          });
           return parsed;
         } catch (error) {
-          console.error('[VoiceAnalysisPanel] Failed to parse voiceAnalysisData:', error);
+          console.error('[VoiceAnalysisPanel] ❌ Failed to parse voiceAnalysisData:', error);
           return null;
         }
       })()
-    : null;
+    : (console.log('[VoiceAnalysisPanel] ⚠️ No voiceAnalysisData available in evaluation'), null);
   
-  console.log('[VoiceAnalysisPanel] isLive:', isLive, 'voiceData:', voiceData);
+  console.log('[VoiceAnalysisPanel] Display state:', {
+    isLive,
+    hasVoiceData: !!voiceData,
+    currentPhase: evaluation.currentPhase,
+    evaluationId: evaluation.id
+  });
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -1515,12 +1526,18 @@ function CandidateDetailsModal({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-violet-200 text-sm">Overall Score</p>
-                <p className="text-4xl font-bold mt-1">{overallScore}/5</p>
+                <p className="text-4xl font-bold mt-1">{overallScore > 0 ? `${overallScore}/5` : "No scores yet"}</p>
                 <p className="text-violet-200 text-sm mt-2">
                   {overallScore >= 4 ? "Excellent Performance" : 
                    overallScore >= 3 ? "Good Performance" : 
-                   overallScore >= 2 ? "Needs Improvement" : "Below Expectations"}
+                   overallScore >= 2 ? "Needs Improvement" : 
+                   overallScore > 0 ? "Below Expectations" : "Waiting for evaluation scores"}
                 </p>
+                {overallScore === 0 && (
+                  <p className="text-xs text-violet-300 mt-2">
+                    {candidate.evaluation?.scores.length || 0} parameters scored
+                  </p>
+                )}
               </div>
               <div className="text-6xl opacity-20">📊</div>
             </div>

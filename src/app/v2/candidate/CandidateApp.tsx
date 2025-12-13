@@ -225,14 +225,19 @@ function CandidateAppContent() {
 
   // Capture evaluation data point (scores) and save to database
   const handleCaptureDataPoint = useCallback(async (dataType: string, value: string, _status: string) => {
-    if (!authenticatedCandidate?.evaluation?.id) return;
+    console.log(`[v2] 📊 captureDataPoint called:`, { dataType, value, evaluationId: authenticatedCandidate?.evaluation?.id });
+    
+    if (!authenticatedCandidate?.evaluation?.id) {
+      console.warn('[v2] ⚠️ Cannot save data point - no evaluation ID');
+      return;
+    }
     
     // Check if this is a score parameter
     if (SCORE_PARAMETERS.includes(dataType)) {
       const numericScore = parseInt(value, 10);
       if (numericScore >= 1 && numericScore <= 5) {
         try {
-          await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}/scores`, {
+          const response = await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}/scores`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -240,13 +245,20 @@ function CandidateAppContent() {
               score: numericScore,
             }),
           });
-          console.log(`[v2] Score saved: ${dataType} = ${numericScore}`);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+          }
+          
+          console.log(`[v2] ✅ Score saved: ${dataType} = ${numericScore}`);
         } catch (error) {
-          console.error(`[v2] Failed to save score ${dataType}:`, error);
+          console.error(`[v2] ❌ Failed to save score ${dataType}:`, error);
         }
+      } else {
+        console.warn(`[v2] ⚠️ Invalid score value: ${value} (must be 1-5)`);
       }
     } else {
-      console.log(`[v2] Data captured (not a score): ${dataType} = ${value}`);
+      console.log(`[v2] 📝 Data captured (not a score parameter): ${dataType} = ${value}`);
     }
   }, [authenticatedCandidate?.evaluation?.id]);
 

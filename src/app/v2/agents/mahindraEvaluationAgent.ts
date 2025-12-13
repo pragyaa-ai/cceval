@@ -544,29 +544,51 @@ Use advance_phase tool when completing each phase:
         
         if (context?.getVoiceAnalysisReport) {
           const report = context.getVoiceAnalysisReport();
-          console.log('[Voice Analysis] Report generated:', report);
+          console.log('[Voice Analysis] Report retrieval attempted');
+          
+          if (!report) {
+            console.error('[Voice Analysis] Report is null - not enough voice samples collected');
+            return {
+              success: false,
+              message: 'Insufficient voice samples collected. Need at least 5 samples (1 second of speech).',
+              report: null
+            };
+          }
+          
+          console.log('[Voice Analysis] Report generated successfully:', {
+            overallScore: report.overallScore,
+            sampleCount: report.sampleCount,
+            duration: report.duration
+          });
           
           // Save to database if saveVoiceAnalysis function is available
-          if (context?.saveVoiceAnalysis && report) {
+          if (context?.saveVoiceAnalysis) {
             try {
               await context.saveVoiceAnalysis(report);
-              console.log('[Voice Analysis] Report saved to database');
+              console.log('[Voice Analysis] ✅ Report saved to database');
             } catch (error) {
-              console.error('[Voice Analysis] Failed to save report:', error);
+              console.error('[Voice Analysis] ❌ Failed to save report:', error);
+              return {
+                success: false,
+                message: `Failed to save report: ${error}`,
+                report: null
+              };
             }
+          } else {
+            console.warn('[Voice Analysis] ⚠️ saveVoiceAnalysis function not available in context');
           }
           
           return { 
             success: true, 
             report,
-            message: 'Voice analysis report generated successfully'
+            message: `Voice analysis report generated with ${report.sampleCount} samples (${report.duration}s) - Overall score: ${report.overallScore}%`
           };
         }
         
         console.warn('[Voice Analysis] getVoiceAnalysisReport not available in context');
         return { 
           success: false, 
-          message: 'Voice analysis report not available',
+          message: 'Voice analysis report function not available in context',
           report: null
         };
       },
