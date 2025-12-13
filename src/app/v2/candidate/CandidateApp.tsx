@@ -203,6 +203,39 @@ function CandidateAppContent() {
     }
   }, [authenticatedCandidate?.evaluation?.id]);
 
+  // Score parameter IDs that should be saved to the database
+  const SCORE_PARAMETERS = [
+    "clarity_pace", "product_knowledge", "empathy", "customer_understanding",
+    "handling_pressure", "confidence", "process_accuracy", "closure_quality"
+  ];
+
+  // Capture evaluation data point (scores) and save to database
+  const handleCaptureDataPoint = useCallback(async (dataType: string, value: string, _status: string) => {
+    if (!authenticatedCandidate?.evaluation?.id) return;
+    
+    // Check if this is a score parameter
+    if (SCORE_PARAMETERS.includes(dataType)) {
+      const numericScore = parseInt(value, 10);
+      if (numericScore >= 1 && numericScore <= 5) {
+        try {
+          await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}/scores`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              parameterId: dataType,
+              score: numericScore,
+            }),
+          });
+          console.log(`[v2] Score saved: ${dataType} = ${numericScore}`);
+        } catch (error) {
+          console.error(`[v2] Failed to save score ${dataType}:`, error);
+        }
+      }
+    } else {
+      console.log(`[v2] Data captured (not a score): ${dataType} = ${value}`);
+    }
+  }, [authenticatedCandidate?.evaluation?.id]);
+
   // Start recording when connected
   useEffect(() => {
     if (sessionStatus === "CONNECTED" && audioElementRef.current?.srcObject) {
@@ -331,6 +364,8 @@ function CandidateAppContent() {
             return null;
           },
           saveVoiceAnalysis: handleSaveVoiceAnalysis,
+          // Score capture for saving to database
+          captureDataPoint: handleCaptureDataPoint,
         },
       });
 
@@ -775,7 +810,7 @@ function PhaseProgressIndicator({ currentPhase }: { currentPhase: EvaluationPhas
     { id: "reading_task", label: "Reading", icon: "📖", description: "Paragraph reading" },
     { id: "call_scenario", label: "Call Scenario", icon: "📞", description: "Customer simulation" },
     { id: "empathy_scenario", label: "Empathy", icon: "🤝", description: "Difficult customer" },
-    { id: "closure_task", label: "Closure", icon: "✅", description: "Professional closing" },
+    { id: "closure_task", label: "Closure", icon: "🎯", description: "Professional closing" },
   ];
 
   const phaseOrder = ["not_started", "personal_questions", "reading_task", "call_scenario", "empathy_scenario", "closure_task", "completed"];

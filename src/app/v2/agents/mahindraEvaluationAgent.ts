@@ -132,39 +132,41 @@ After each response, acknowledge briefly and move to the next question.
 ### PHASE 3: READING TASK
 **Duration:** 2-3 minutes
 
-1. First, call advance_phase with completed_phase="personal_questions" to signal personal questions are done.
+**CRITICAL: Call advance_phase("personal_questions") FIRST** to signal you are starting the reading phase.
 
-2. Introduce the task:
+1. Introduce the task:
    "Excellent! Now let's move to the reading assessment. This helps us evaluate your clarity, pace, and tone."
 
-3. Provide the passage (use context.selectedPassage or default to safety_adas):
+2. Provide the passage (use context.selectedPassage or default to safety_adas):
    "I will first read the paragraph to demonstrate, then you will read it for evaluation."
 
-4. **DEMONSTRATE** by reading the paragraph aloud clearly
+3. **DEMONSTRATE** by reading the paragraph aloud clearly
 
-5. **CRITICAL: Call start_voice_analysis tool** BEFORE asking candidate to read
+4. **CRITICAL: Call start_voice_analysis tool** BEFORE asking candidate to read
 
-6. Then say: "Now please read that same paragraph aloud. Take your time and speak naturally."
+5. Then say: "Now please read that same paragraph aloud. Take your time and speak naturally."
 
-7. **REMAIN SILENT** while candidate reads - do not interrupt
+6. **REMAIN SILENT** while candidate reads - do not interrupt
 
-8. After candidate finishes (wait for 2-3 seconds of silence):
+7. After candidate finishes (wait for 2-3 seconds of silence):
    - **Call stop_voice_analysis tool** to end metrics collection
    - **Call get_voice_analysis_report tool** to get the analysis results
    
-9. Say: "Thank you. That gives me a good baseline of your voice qualities."
+8. Say: "Thank you. That gives me a good baseline of your voice qualities."
 
-10. Use the voice analysis report to inform your assessment. Share brief feedback:
+9. Use the voice analysis report to inform your assessment. Share brief feedback:
     - If overall score >= 80: "Your voice clarity and pace are excellent."
     - If overall score >= 60: "Good voice projection. Some minor areas for improvement."
     - If overall score < 60: "We noted some areas for voice clarity improvement."
 
-11. Capture scores using the report data:
+10. Capture scores using the report data:
     - clarity_pace (based on report clarity and pace scores)
     - confidence
 
 ### PHASE 4: CALL SCENARIO SIMULATION
 **Duration:** 3-4 minutes
+
+**CRITICAL: Call advance_phase("reading_task") FIRST** to signal you are starting the call scenario phase.
 
 Select scenario based on context.selectedScenario or use progressive difficulty:
 
@@ -205,6 +207,8 @@ Capture throughout:
 ### PHASE 5: EMPATHY & DE-ESCALATION CHALLENGE
 **Duration:** 2-3 minutes
 
+**CRITICAL: Call advance_phase("call_scenario") FIRST** to signal you are starting the empathy phase.
+
 Transform into angry customer:
 "My service bill is too high! No one explained anything and I've been waiting forever."
 
@@ -224,6 +228,8 @@ Capture:
 
 ### PHASE 6: CLOSURE TASK & CONCLUSION
 **Duration:** 1-2 minutes
+
+**CRITICAL: Call advance_phase("empathy_scenario") FIRST** to signal you are starting the closure phase.
 
 1. Exit role-play: "Okay, that concludes our scenario exercises."
 
@@ -464,7 +470,7 @@ Use advance_phase tool when completing each phase:
 
     tool({
       name: "start_voice_analysis",
-      description: "Start collecting voice quality metrics. Call this BEFORE asking the candidate to read the paragraph aloud. This begins the voice analysis phase.",
+      description: "Start collecting voice quality metrics. Call this BEFORE asking the candidate to read the paragraph aloud. This begins the voice analysis phase and automatically sets the current phase to 'reading_task'.",
       parameters: {
         type: "object",
         properties: {},
@@ -473,6 +479,12 @@ Use advance_phase tool when completing each phase:
       },
       execute: async (_input, details) => {
         const context = details?.context as any;
+        
+        // Also set the phase to reading_task when starting voice analysis
+        if (context?.setCurrentPhase) {
+          context.setCurrentPhase('reading_task');
+          console.log('[Voice Analysis] Set phase to reading_task');
+        }
         
         if (context?.startVoiceAnalysis) {
           context.startVoiceAnalysis();
