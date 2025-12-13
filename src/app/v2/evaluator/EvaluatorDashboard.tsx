@@ -1133,22 +1133,6 @@ function VoiceAnalysisPanel({
   evaluation: EvaluationData; 
   isLive?: boolean;
 }) {
-  // State for live animation
-  const [liveMetrics, setLiveMetrics] = useState({ clarity: 60, volume: 55, tone: 50, pace: 65 });
-
-  // Animate live metrics
-  useEffect(() => {
-    if (!isLive) return;
-    const interval = setInterval(() => {
-      setLiveMetrics({
-        clarity: Math.max(30, Math.min(90, 60 + Math.random() * 40 - 20)),
-        volume: Math.max(30, Math.min(90, 55 + Math.random() * 40 - 20)),
-        tone: Math.max(30, Math.min(90, 50 + Math.random() * 40 - 20)),
-        pace: Math.max(30, Math.min(90, 65 + Math.random() * 40 - 20)),
-      });
-    }, 500);
-    return () => clearInterval(interval);
-  }, [isLive]);
 
   // Parse voice analysis data if available
   const voiceData = evaluation.voiceAnalysisData 
@@ -1190,49 +1174,52 @@ function VoiceAnalysisPanel({
       </div>
       <div className="p-4">
         {isLive ? (
-          // Live analysis in progress - animated bars
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm text-emerald-600">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-              Analyzing voice quality...
-            </div>
-            
-            {/* Live waveform visualization */}
-            <div className="h-16 bg-slate-50 rounded-lg flex items-center justify-center gap-0.5 overflow-hidden">
-              {Array.from({ length: 40 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="w-1 bg-gradient-to-t from-violet-400 to-violet-600 rounded-full transition-all duration-150"
-                  style={{
-                    height: `${20 + Math.random() * 60}%`,
-                    animationDelay: `${i * 50}ms`
-                  }}
-                />
-              ))}
+          // Live analysis in progress - professional waiting state
+          <div className="space-y-6">
+            <div className="text-center py-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-violet-100 mb-4">
+                <svg className="w-8 h-8 text-violet-600 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              </div>
+              <h4 className="font-medium text-slate-800 mb-2">Voice Analysis in Progress</h4>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                Candidate is currently reading the paragraph. Voice quality metrics are being collected and analyzed in real-time.
+              </p>
             </div>
 
-            <div className="space-y-3">
-              {[
-                { name: "Clarity", value: liveMetrics.clarity },
-                { name: "Volume", value: liveMetrics.volume },
-                { name: "Tone", value: liveMetrics.tone },
-                { name: "Pace", value: liveMetrics.pace }
-              ].map((metric) => (
-                <div key={metric.name} className="flex items-center gap-3">
-                  <span className="text-sm text-slate-600 w-16">{metric.name}</span>
-                  <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-violet-400 to-violet-600 rounded-full transition-all duration-300"
-                      style={{ width: `${metric.value}%` }}
-                    />
+            <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg p-4 border border-violet-100">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-2 h-2 rounded-full bg-violet-500 mt-1.5 animate-pulse"></div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-700 mb-1">Analyzing Parameters:</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                    <div className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Voice Clarity
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                      Volume Level
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                      Tone Quality
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                      Speaking Pace
+                    </div>
                   </div>
-                  <span className="text-xs text-slate-500 w-8">{Math.round(metric.value)}%</span>
                 </div>
-              ))}
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-4">
-              Voice metrics are being collected during paragraph reading.
-            </p>
+
+            <div className="text-center">
+              <p className="text-xs text-slate-400">
+                Detailed report with scores, strengths, and recommendations will be available after the reading phase completes.
+              </p>
+            </div>
           </div>
         ) : voiceData ? (
           // Show completed voice analysis
