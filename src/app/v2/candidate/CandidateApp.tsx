@@ -65,6 +65,9 @@ function CandidateAppContent() {
   
   // Voice quality analysis hook for getting metrics
   const voiceAnalysisRef = useRef<ReturnType<typeof useVoiceQualityAnalysis> | null>(null);
+  
+  // Ref to store evaluation ID to avoid stale closures
+  const evaluationIdRef = useRef<string | undefined>(undefined);
 
   // Audio element ref for SDK
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
@@ -109,7 +112,11 @@ function CandidateAppContent() {
   const syncedItemIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const syncTranscript = async () => {
-      if (!authenticatedCandidate?.evaluation?.id) return;
+      const evalId = evaluationIdRef.current;
+      if (!evalId) {
+        // Evaluation not created yet
+        return;
+      }
       
       // Filter to only DONE conversation items with actual content
       const completedItems = transcriptItems.filter(
@@ -124,7 +131,7 @@ function CandidateAppContent() {
       
       for (const item of completedItems) {
         try {
-          await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation!.id}/transcript`, {
+          await fetch(`/api/v2/evaluations/${evalId}/transcript`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -141,7 +148,7 @@ function CandidateAppContent() {
     };
     
     syncTranscript();
-  }, [transcriptItems, authenticatedCandidate?.evaluation?.id, currentPhase]);
+  }, [transcriptItems, currentPhase]); // Use ref for eval ID
 
   // Timer effect
   useEffect(() => {
@@ -156,11 +163,11 @@ function CandidateAppContent() {
   // Callbacks for agent tools
   const handleStartVoiceAnalysis = useCallback(() => {
     console.log("[v2] 🎤 handleStartVoiceAnalysis called - Starting voice analysis for reading task");
-    console.log("[v2] Current evaluation ID:", authenticatedCandidate?.evaluation?.id);
+    console.log("[v2] Current evaluation ID from ref:", evaluationIdRef.current);
     startAnalysis();
     // Note: Phase is also set by handleSetCurrentPhase via the tool, so we don't need to set it here
     console.log("[v2] ✅ Voice analysis context activated");
-  }, [startAnalysis, authenticatedCandidate?.evaluation?.id]);
+  }, [startAnalysis]);
 
   const handleStopVoiceAnalysis = useCallback(() => {
     console.log("[v2] 🛑 handleStopVoiceAnalysis called - Stopping voice analysis");
@@ -170,20 +177,21 @@ function CandidateAppContent() {
 
   const handleSetCurrentPhase = useCallback(async (phase: EvaluationPhase) => {
     console.log("[v2] 🔄 handleSetCurrentPhase called with phase:", phase);
-    console.log("[v2] Evaluation ID:", authenticatedCandidate?.evaluation?.id);
+    console.log("[v2] Evaluation ID from ref:", evaluationIdRef.current);
     
     // Update local state first
     setCurrentPhase(phase);
     console.log("[v2] ✅ Local state updated to:", phase);
     
     // Persist phase to database for evaluator view
-    if (!authenticatedCandidate?.evaluation?.id) {
-      console.error("[v2] ❌ Cannot sync phase - no evaluation ID");
+    const evalId = evaluationIdRef.current;
+    if (!evalId) {
+      console.error("[v2] ❌ Cannot sync phase - no evaluation ID in ref");
       return;
     }
     
     try {
-      const response = await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}`, {
+      const response = await fetch(`/api/v2/evaluations/${evalId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPhase: phase }),
@@ -199,7 +207,7 @@ function CandidateAppContent() {
     } catch (error) {
       console.error("[v2] ❌ Failed to sync phase to database:", error);
     }
-  }, [authenticatedCandidate?.evaluation?.id]);
+  }, []); // No dependencies - use ref
 
   // Function to get voice analysis report - will be populated by VoiceVisualizer
   const getVoiceAnalysisReportRef = useRef<(() => any) | null>(null);
@@ -207,11 +215,12 @@ function CandidateAppContent() {
   // Save voice analysis report to database
   const handleSaveVoiceAnalysis = useCallback(async (report: any) => {
     console.log("[v2] 💾 handleSaveVoiceAnalysis called");
-    console.log("[v2] Evaluation ID:", authenticatedCandidate?.evaluation?.id);
+    console.log("[v2] Evaluation ID from ref:", evaluationIdRef.current);
     console.log("[v2] Report data:", report);
     
-    if (!authenticatedCandidate?.evaluation?.id) {
-      console.error("[v2] ❌ Cannot save voice analysis - no evaluation ID!");
+    const evalId = evaluationIdRef.current;
+    if (!evalId) {
+      console.error("[v2] ❌ Cannot save voice analysis - no evaluation ID in ref!");
       return;
     }
     
@@ -223,7 +232,7 @@ function CandidateAppContent() {
     console.log("[v2] 📤 Sending voice analysis report to database...");
     
     try {
-      const response = await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}`, {
+      const response = await fetch(`/api/v2/evaluations/${evalId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ voiceAnalysisData: report }),
@@ -240,7 +249,7 @@ function CandidateAppContent() {
     } catch (error) {
       console.error("[v2] ❌ Failed to save voice analysis:", error);
     }
-  }, [authenticatedCandidate?.evaluation?.id]);
+  }, []); // No dependencies - use ref
 
   // Score parameter IDs that should be saved to the database
   const SCORE_PARAMETERS = [
@@ -250,10 +259,11 @@ function CandidateAppContent() {
 
   // Capture evaluation data point (scores) and save to database
   const handleCaptureDataPoint = useCallback(async (dataType: string, value: string, _status: string) => {
-    console.log(`[v2] 📊 captureDataPoint called:`, { dataType, value, evaluationId: authenticatedCandidate?.evaluation?.id });
+    const evalId = evaluationIdRef.current;
+    console.log(`[v2] 📊 captureDataPoint called:`, { dataType, value, evaluationId: evalId });
     
-    if (!authenticatedCandidate?.evaluation?.id) {
-      console.warn('[v2] ⚠️ Cannot save data point - no evaluation ID');
+    if (!evalId) {
+      console.error('[v2] ❌ Cannot save data point - no evaluation ID in ref');
       return;
     }
     
@@ -262,7 +272,7 @@ function CandidateAppContent() {
       const numericScore = parseInt(value, 10);
       if (numericScore >= 1 && numericScore <= 5) {
         try {
-          const response = await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}/scores`, {
+          const response = await fetch(`/api/v2/evaluations/${evalId}/scores`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -285,7 +295,7 @@ function CandidateAppContent() {
     } else {
       console.log(`[v2] 📝 Data captured (not a score parameter): ${dataType} = ${value}`);
     }
-  }, [authenticatedCandidate?.evaluation?.id]);
+  }, []); // No dependencies - use ref
 
   // Start recording when connected
   useEffect(() => {
@@ -355,8 +365,10 @@ function CandidateAppContent() {
   const handleStartEvaluation = async () => {
     if (!authenticatedCandidate) return;
 
-    // Create evaluation in database
+    // Create evaluation in database FIRST and get the evaluation object
+    let evaluationId: string | undefined;
     try {
+      console.log("[v2] 🔨 Creating evaluation for candidate:", authenticatedCandidate.id);
       const evalResponse = await fetch("/api/v2/evaluations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -365,13 +377,30 @@ function CandidateAppContent() {
 
       if (evalResponse.ok) {
         const evaluation = await evalResponse.json();
-        setAuthenticatedCandidate({
+        evaluationId = evaluation.id;
+        
+        // Store in ref for immediate access (no waiting for state update)
+        evaluationIdRef.current = evaluationId;
+        
+        console.log("[v2] ✅ Evaluation created with ID:", evaluationId);
+        console.log("[v2] ✅ Evaluation ID stored in ref for handlers");
+        
+        // Update state with evaluation
+        const updatedCandidate = {
           ...authenticatedCandidate,
           evaluation,
-        });
+        };
+        setAuthenticatedCandidate(updatedCandidate);
+      } else {
+        console.error("[v2] ❌ Failed to create evaluation:", await evalResponse.text());
       }
     } catch (error) {
-      console.error("Error creating evaluation:", error);
+      console.error("[v2] ❌ Error creating evaluation:", error);
+    }
+
+    if (!evaluationId) {
+      console.error("[v2] ❌ Cannot start evaluation - no evaluation ID created");
+      return;
     }
 
     // Connect to VoiceAgent
@@ -390,6 +419,8 @@ function CandidateAppContent() {
       const scenario = authenticatedCandidate.selectedScenario
         ? CALL_SCENARIOS[authenticatedCandidate.selectedScenario as keyof typeof CALL_SCENARIOS]
         : CALL_SCENARIOS.beginner;
+
+      console.log("[v2] 🚀 Connecting to agent with evaluation ID:", evaluationId);
 
       await connect({
         getEphemeralKey: async () => ephemeralKey,
