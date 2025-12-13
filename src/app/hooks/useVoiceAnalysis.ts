@@ -204,10 +204,17 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
             const lastEntry = prev[prev.length - 1];
             
             if (!lastEntry || now - lastEntry.timestamp > 200) {
-              return [...prev, metrics].slice(-100); // Keep last 100 samples
+              const newHistory = [...prev, metrics].slice(-100); // Keep last 100 samples
+              if (newHistory.length % 5 === 0 || newHistory.length === 1) { // Log every 5 samples
+                console.log(`🎵 Voice sample collected: #${newHistory.length} (volume: ${metrics.volume.toFixed(1)}, clarity: ${metrics.clarity.toFixed(1)})`);
+              }
+              return newHistory;
             }
             return prev;
           });
+        } else if (collectingSamplesRef.current === false && Math.random() < 0.01) {
+          // Occasional log when not collecting (1% of frames)
+          console.log('⏸️ Audio detected but sample collection disabled (waiting for reading phase)');
         }
       }
 

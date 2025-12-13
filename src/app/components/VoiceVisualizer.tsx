@@ -29,21 +29,36 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   const [hasConnectedStream, setHasConnectedStream] = useState(false);
 
   // Connect the mic stream for analysis when session is connected
+  // Implements retry logic to handle race conditions with mic stream availability
   useEffect(() => {
-    if (sessionStatus === 'CONNECTED' && getMicStream && !hasConnectedStream) {
-      // Wait a bit for the mic stream to be ready
-      const timer = setTimeout(() => {
-        const micStream = getMicStream();
-        if (micStream && micStream.active) {
-          console.log('🎤 Connecting mic stream to voice analysis engine');
-          startAnalysis(micStream);
-          setHasConnectedStream(true);
-        } else {
-          console.warn('⚠️ Mic stream not ready yet');
+    let retryTimer: NodeJS.Timeout | null = null;
+    let attemptCount = 0;
+    const maxAttempts = 30; // 15 seconds max (500ms * 30)
+    
+    const tryConnectMicStream = () => {
+      if (!getMicStream || hasConnectedStream) return;
+      
+      const micStream = getMicStream();
+      if (micStream && micStream.active) {
+        console.log('🎤 Connecting mic stream to voice analysis engine');
+        console.log('🎤 Stream tracks:', micStream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
+        startAnalysis(micStream);
+        setHasConnectedStream(true);
+      } else if (attemptCount < maxAttempts) {
+        attemptCount++;
+        if (attemptCount % 4 === 0) { // Log every 2 seconds
+          console.log(`⏳ Waiting for mic stream... (attempt ${attemptCount}/${maxAttempts})`);
         }
-      }, 1000);
-
-      return () => clearTimeout(timer);
+        retryTimer = setTimeout(tryConnectMicStream, 500);
+      } else {
+        console.error('❌ Mic stream not available after 15 seconds. Voice analysis will not work.');
+      }
+    };
+    
+    if (sessionStatus === 'CONNECTED' && getMicStream && !hasConnectedStream) {
+      // Start trying after initial 500ms delay
+      console.log('🔄 Session connected, beginning mic stream connection attempts...');
+      retryTimer = setTimeout(tryConnectMicStream, 500);
     }
     
     if (sessionStatus === 'DISCONNECTED' && hasConnectedStream) {
@@ -52,18 +67,27 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       setHasConnectedStream(false);
       // Don't clear history - keep the data for final display
     }
+    
+    return () => {
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [sessionStatus, getMicStream, hasConnectedStream, startAnalysis, stopAnalysis]);
 
   // Control sample collection based on analysis phase
   useEffect(() => {
     if (isAnalysisActive) {
-      console.log('📊 Voice analysis phase ACTIVE - collecting samples');
+      console.log('📊📊📊 Voice analysis phase ACTIVE - collecting samples NOW');
+      console.log('📊 hasConnectedStream:', hasConnectedStream);
+      console.log('📊 isAnalyzing:', isAnalyzing);
+      console.log('📊 Current metricsHistory length:', metricsHistory.length);
       setCollectingSamples(true);
     } else {
       console.log('⏸️ Voice analysis phase INACTIVE - not collecting samples');
+      console.log('⏸️ hasConnectedStream:', hasConnectedStream);
+      console.log('⏸️ metricsHistory length:', metricsHistory.length);
       setCollectingSamples(false);
     }
-  }, [isAnalysisActive, setCollectingSamples]);
+  }, [isAnalysisActive, setCollectingSamples, hasConnectedStream, isAnalyzing, metricsHistory.length]);
 
   // Clear history when new session starts
   useEffect(() => {

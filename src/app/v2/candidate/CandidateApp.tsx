@@ -306,18 +306,48 @@ function CandidateAppContent() {
     }
   }, []); // No dependencies - use ref
 
-  // Start recording when connected
+  // Start recording when connected - poll for audio stream availability
+  // This fixes a race condition where srcObject might not be set when sessionStatus changes
+  const hasStartedRecordingRef = useRef(false);
+  
   useEffect(() => {
-    if (sessionStatus === "CONNECTED" && audioElementRef.current?.srcObject) {
-      const remoteStream = audioElementRef.current.srcObject as MediaStream;
-      startRecording(remoteStream);
+    let checkInterval: NodeJS.Timeout | null = null;
+    let timeout: NodeJS.Timeout | null = null;
+
+    if (sessionStatus === "CONNECTED" && !hasStartedRecordingRef.current) {
+      console.log('[v2] 🎙️ Session connected, waiting for audio stream...');
+      
+      // Poll for audio stream availability
+      checkInterval = setInterval(() => {
+        if (audioElementRef.current?.srcObject && !hasStartedRecordingRef.current) {
+          const remoteStream = audioElementRef.current.srcObject as MediaStream;
+          console.log('[v2] ✅ Audio stream ready, starting recording');
+          startRecording(remoteStream);
+          hasStartedRecordingRef.current = true;
+          if (checkInterval) clearInterval(checkInterval);
+          if (timeout) clearTimeout(timeout);
+        }
+      }, 100);
+
+      // Stop polling after 15 seconds
+      timeout = setTimeout(() => {
+        if (checkInterval) clearInterval(checkInterval);
+        if (!hasStartedRecordingRef.current) {
+          console.error('[v2] ❌ Audio stream not available after 15 seconds');
+        }
+      }, 15000);
     }
+
+    if (sessionStatus === "DISCONNECTED") {
+      hasStartedRecordingRef.current = false;
+      stopRecording();
+    }
+
     return () => {
-      if (sessionStatus === "DISCONNECTED") {
-        stopRecording();
-      }
+      if (checkInterval) clearInterval(checkInterval);
+      if (timeout) clearTimeout(timeout);
     };
-  }, [sessionStatus]);
+  }, [sessionStatus, startRecording, stopRecording]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
