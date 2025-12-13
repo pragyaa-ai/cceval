@@ -189,15 +189,29 @@ function CandidateAppContent() {
 
   // Save voice analysis report to database
   const handleSaveVoiceAnalysis = useCallback(async (report: any) => {
-    if (!authenticatedCandidate?.evaluation?.id || !report) return;
+    if (!authenticatedCandidate?.evaluation?.id || !report) {
+      console.warn("[v2] Cannot save voice analysis - missing evaluation ID or report", {
+        hasEvaluation: !!authenticatedCandidate?.evaluation?.id,
+        hasReport: !!report
+      });
+      return;
+    }
+    
+    console.log("[v2] Saving voice analysis report:", report);
     
     try {
-      await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}`, {
+      const response = await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ voiceAnalysisData: report }),
       });
-      console.log("[v2] Voice analysis saved to database");
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      }
+      
+      const updated = await response.json();
+      console.log("[v2] Voice analysis saved to database successfully", updated);
     } catch (error) {
       console.error("[v2] Failed to save voice analysis:", error);
     }

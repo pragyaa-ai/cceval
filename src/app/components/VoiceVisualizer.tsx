@@ -258,7 +258,11 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   const getAnalysisBreakdown = () => {
     // Require minimum samples for meaningful analysis
     const MIN_SAMPLES = 5;
-    if (metricsHistory.length < MIN_SAMPLES) return null;
+    console.log('[VoiceVisualizer] getAnalysisBreakdown called, samples:', metricsHistory.length);
+    if (metricsHistory.length < MIN_SAMPLES) {
+      console.warn('[VoiceVisualizer] Insufficient samples for analysis:', metricsHistory.length, 'min:', MIN_SAMPLES);
+      return null;
+    }
 
     // Calculate averages
     const avgPitch = metricsHistory.reduce((sum, m) => sum + m.pitch, 0) / metricsHistory.length;
@@ -314,7 +318,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       assessmentColor = "text-red-600";
     }
 
-    return {
+    const report = {
       avgPitch: avgPitch.toFixed(1),
       avgVolume: avgVolume.toFixed(1),
       avgClarity: avgClarity.toFixed(1),
@@ -331,6 +335,9 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       sampleCount: metricsHistory.length,
       duration: ((metricsHistory.length * 200) / 1000).toFixed(1) // seconds
     };
+    
+    console.log('[VoiceVisualizer] Generated report:', report);
+    return report;
   };
 
   const breakdown = getAnalysisBreakdown();

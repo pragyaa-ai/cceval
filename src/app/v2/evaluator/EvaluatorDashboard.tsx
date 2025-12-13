@@ -882,6 +882,7 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
   // Poll for batch updates
   useEffect(() => {
     const interval = setInterval(() => {
+      console.log('[EvaluationTab] Polling for updates...');
       onRefresh();
     }, 5000);
     return () => clearInterval(interval);
@@ -1153,12 +1154,18 @@ function VoiceAnalysisPanel({
   const voiceData = evaluation.voiceAnalysisData 
     ? (() => {
         try {
-          return JSON.parse(evaluation.voiceAnalysisData);
-        } catch {
+          console.log('[VoiceAnalysisPanel] Raw voiceAnalysisData:', evaluation.voiceAnalysisData);
+          const parsed = JSON.parse(evaluation.voiceAnalysisData);
+          console.log('[VoiceAnalysisPanel] Parsed voiceData:', parsed);
+          return parsed;
+        } catch (error) {
+          console.error('[VoiceAnalysisPanel] Failed to parse voiceAnalysisData:', error);
           return null;
         }
       })()
     : null;
+  
+  console.log('[VoiceAnalysisPanel] isLive:', isLive, 'voiceData:', voiceData);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
