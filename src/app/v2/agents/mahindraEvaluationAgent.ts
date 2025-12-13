@@ -490,19 +490,28 @@ Use advance_phase tool when completing each phase:
       execute: async (_input, details) => {
         const context = details?.context as any;
         
-        // Also set the phase to reading_task when starting voice analysis
+        console.log('[Voice Analysis Tool] 🎬 start_voice_analysis called');
+        
+        // CRITICAL: Set the phase to reading_task FIRST (this persists to DB)
         if (context?.setCurrentPhase) {
-          context.setCurrentPhase('reading_task');
-          console.log('[Voice Analysis] Set phase to reading_task');
+          try {
+            await context.setCurrentPhase('reading_task');
+            console.log('[Voice Analysis Tool] ✅ Phase set to reading_task (should be in DB now)');
+          } catch (error) {
+            console.error('[Voice Analysis Tool] ❌ Failed to set phase:', error);
+          }
+        } else {
+          console.error('[Voice Analysis Tool] ❌ setCurrentPhase not available in context!');
         }
         
+        // Then start voice analysis
         if (context?.startVoiceAnalysis) {
           context.startVoiceAnalysis();
-          console.log('[Voice Analysis] Started collecting voice metrics');
-          return { success: true, message: 'Voice analysis started - candidate voice metrics are now being collected' };
+          console.log('[Voice Analysis Tool] ✅ Voice metrics collection started');
+          return { success: true, message: 'Voice analysis started - phase set to reading_task, metrics collection enabled' };
         }
         
-        console.warn('[Voice Analysis] startVoiceAnalysis not available in context');
+        console.error('[Voice Analysis Tool] ❌ startVoiceAnalysis not available in context');
         return { success: false, message: 'Voice analysis context not available' };
       },
     }),

@@ -155,32 +155,49 @@ function CandidateAppContent() {
 
   // Callbacks for agent tools
   const handleStartVoiceAnalysis = useCallback(() => {
-    console.log("[v2] Agent triggered: Starting voice analysis for reading task");
+    console.log("[v2] 🎤 handleStartVoiceAnalysis called - Starting voice analysis for reading task");
+    console.log("[v2] Current evaluation ID:", authenticatedCandidate?.evaluation?.id);
     startAnalysis();
-    setCurrentPhase("reading_task");
-  }, [startAnalysis]);
+    // Note: Phase is also set by handleSetCurrentPhase via the tool, so we don't need to set it here
+    console.log("[v2] ✅ Voice analysis context activated");
+  }, [startAnalysis, authenticatedCandidate?.evaluation?.id]);
 
   const handleStopVoiceAnalysis = useCallback(() => {
-    console.log("[v2] Agent triggered: Stopping voice analysis");
+    console.log("[v2] 🛑 handleStopVoiceAnalysis called - Stopping voice analysis");
     stopAnalysis();
+    console.log("[v2] ✅ Voice analysis context deactivated");
   }, [stopAnalysis]);
 
   const handleSetCurrentPhase = useCallback(async (phase: EvaluationPhase) => {
-    console.log("[v2] Agent triggered: Setting phase to", phase);
+    console.log("[v2] 🔄 handleSetCurrentPhase called with phase:", phase);
+    console.log("[v2] Evaluation ID:", authenticatedCandidate?.evaluation?.id);
+    
+    // Update local state first
     setCurrentPhase(phase);
+    console.log("[v2] ✅ Local state updated to:", phase);
     
     // Persist phase to database for evaluator view
-    if (authenticatedCandidate?.evaluation?.id) {
-      try {
-        await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ currentPhase: phase }),
-        });
-        console.log("[v2] Phase synced to database:", phase);
-      } catch (error) {
-        console.error("[v2] Failed to sync phase to database:", error);
+    if (!authenticatedCandidate?.evaluation?.id) {
+      console.error("[v2] ❌ Cannot sync phase - no evaluation ID");
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPhase: phase }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
       }
+      
+      const updated = await response.json();
+      console.log("[v2] ✅ Phase synced to database successfully:", phase);
+      console.log("[v2] Updated evaluation:", updated);
+    } catch (error) {
+      console.error("[v2] ❌ Failed to sync phase to database:", error);
     }
   }, [authenticatedCandidate?.evaluation?.id]);
 
