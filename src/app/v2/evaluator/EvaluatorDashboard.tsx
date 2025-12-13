@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { SCORING_PARAMETERS, READING_PASSAGES, CALL_SCENARIOS } from "../contexts/V2EvaluationContext";
-import VoiceVisualizer from "@/app/components/VoiceVisualizer";
 import {
   useBatches,
   useBatch,
@@ -1066,18 +1065,10 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
               </div>
 
               {/* Voice Quality Analysis */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                <h3 className="font-medium text-slate-800 mb-4 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                  </svg>
-                  Voice Analysis {activeCandidate.evaluation.currentPhase === "reading_task" ? "(Live)" : ""}
-                </h3>
-                <VoiceVisualizer 
-                  isRecording={false}
-                  sessionStatus="DISCONNECTED"
-                />
-              </div>
+              <VoiceAnalysisDisplay 
+                evaluation={activeCandidate.evaluation}
+                isLive={activeCandidate.evaluation.currentPhase === "reading_task"}
+              />
             </div>
 
             {/* Scoring Grid */}
@@ -1130,6 +1121,181 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Voice Analysis Display Component (Release 1 style - display saved data)
+function VoiceAnalysisDisplay({ 
+  evaluation, 
+  isLive = false 
+}: { 
+  evaluation: EvaluationData; 
+  isLive?: boolean;
+}) {
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
+  // Parse voice analysis data
+  const voiceData = evaluation.voiceAnalysisData 
+    ? (() => {
+        try {
+          const parsed = JSON.parse(evaluation.voiceAnalysisData);
+          return parsed;
+        } catch (error) {
+          console.error('[VoiceAnalysisDisplay] Failed to parse:', error);
+          return null;
+        }
+      })()
+    : null;
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+      <h3 className="font-medium text-slate-800 mb-4 flex items-center gap-2">
+        <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+        </svg>
+        Voice Quality Analysis {isLive && "(Live)"}
+      </h3>
+
+      {isLive ? (
+        // Live - show waiting state
+        <div className="text-center py-12">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-violet-100 mb-4">
+            <svg className="w-8 h-8 text-violet-600 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+          </div>
+          <p className="text-sm text-slate-600 font-medium mb-2">Analyzing voice quality...</p>
+          <p className="text-xs text-slate-500">Collecting clarity, volume, tone, and pace metrics</p>
+        </div>
+      ) : voiceData ? (
+        // Show saved voice analysis data (Release 1 style)
+        <div className="space-y-6">
+          {/* Overall Score */}
+          <div className="text-center p-6 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl">
+            <p className="text-sm text-slate-600 mb-2">Overall Voice Quality Score</p>
+            <p className={`text-5xl font-bold mb-2 ${
+              voiceData.overallScore >= 80 ? "text-emerald-600" :
+              voiceData.overallScore >= 60 ? "text-amber-600" :
+              "text-red-600"
+            }`}>
+              {voiceData.overallScore}%
+            </p>
+            <p className={`text-sm font-medium ${
+              voiceData.overallScore >= 80 ? "text-emerald-600" :
+              voiceData.overallScore >= 60 ? "text-amber-600" :
+              "text-red-600"
+            }`}>
+              {voiceData.overallScore >= 80 ? "Excellent" :
+               voiceData.overallScore >= 60 ? "Good" :
+               "Needs Improvement"}
+            </p>
+          </div>
+
+          {/* Metrics Breakdown */}
+          <div>
+            <button
+              onClick={() => setShowBreakdown(!showBreakdown)}
+              className="w-full flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              <span className="text-sm font-medium text-slate-700">Detailed Metrics</span>
+              <svg 
+                className={`w-5 h-5 text-slate-500 transition-transform ${showBreakdown ? 'rotate-180' : ''}`}
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showBreakdown && (
+              <div className="mt-4 space-y-4">
+                {[
+                  { name: "Clarity", score: voiceData.clarityScore, target: 85, color: "emerald" },
+                  { name: "Volume", score: voiceData.volumeScore, target: 70, color: "blue" },
+                  { name: "Tone", score: voiceData.toneScore, target: 80, color: "purple" },
+                  { name: "Pace", score: voiceData.paceScore, target: 75, color: "amber" },
+                ].map((metric) => (
+                  <div key={metric.name}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-700">{metric.name}</span>
+                      <span className="text-sm font-bold text-slate-800">{Math.round(metric.score || 0)}%</span>
+                    </div>
+                    <div className="h-4 bg-slate-100 rounded-full overflow-hidden relative">
+                      <div 
+                        className={`h-full bg-${metric.color}-500 rounded-full transition-all`}
+                        style={{ width: `${Math.min(100, metric.score || 0)}%` }}
+                      />
+                      {/* Target line */}
+                      <div 
+                        className="absolute top-0 bottom-0 w-1 bg-red-500"
+                        style={{ left: `${metric.target}%` }}
+                        title={`Target: ${metric.target}%`}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Strengths */}
+          {voiceData.strengths && voiceData.strengths.length > 0 && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <p className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-2">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                Strengths
+              </p>
+              <ul className="space-y-2">
+                {voiceData.strengths.map((strength: string, idx: number) => (
+                  <li key={idx} className="text-sm text-emerald-700 flex items-start gap-2">
+                    <span className="text-emerald-500 mt-1">•</span>
+                    <span>{strength}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Recommendations */}
+          {voiceData.recommendations && voiceData.recommendations.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <p className="text-sm font-semibold text-amber-800 mb-3 flex items-center gap-2">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                Recommendations
+              </p>
+              <ul className="space-y-2">
+                {voiceData.recommendations.map((rec: string, idx: number) => (
+                  <li key={idx} className="text-sm text-amber-700 flex items-start gap-2">
+                    <span className="text-amber-500 mt-1">•</span>
+                    <span>{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Metadata */}
+          {voiceData.sampleCount && (
+            <p className="text-xs text-center text-slate-400">
+              Based on {voiceData.sampleCount} samples • {voiceData.duration}s of speech
+            </p>
+          )}
+        </div>
+      ) : (
+        // No data
+        <div className="text-center py-12 text-slate-400">
+          <svg className="w-16 h-16 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          </svg>
+          <p className="text-sm">Voice analysis will appear after the reading task</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1395,18 +1561,7 @@ function CandidateDetailsModal({
 
           {/* Voice Quality Analysis */}
           {candidate.evaluation && (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-              <h3 className="font-medium text-slate-800 mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                </svg>
-                Voice Quality Analysis
-              </h3>
-              <VoiceVisualizer 
-                isRecording={false}
-                sessionStatus="DISCONNECTED"
-              />
-            </div>
+            <VoiceAnalysisDisplay evaluation={candidate.evaluation} />
           )}
 
           {/* Session Info */}
