@@ -149,15 +149,16 @@ After each response, acknowledge briefly and move to the next question.
 6. **REMAIN SILENT** while candidate reads - do not interrupt
 
 7. After candidate finishes (wait for 2-3 seconds of silence):
-   - **Call stop_voice_analysis tool** to end metrics collection
-   - **Call get_voice_analysis_report tool** to get the analysis results
+   - **MANDATORY: Call stop_voice_analysis tool** to end metrics collection
+   - **MANDATORY: Immediately call get_voice_analysis_report tool** to retrieve and save the analysis results
+   - **YOU MUST call get_voice_analysis_report - the report will not be saved otherwise!**
    
 8. Say: "Thank you. That gives me a good baseline of your voice qualities."
 
 9. Use the voice analysis report to inform your assessment. Share brief feedback:
     - If overall score >= 80: "Your voice clarity and pace are excellent."
     - If overall score >= 60: "Good voice projection. Some minor areas for improvement."
-    - If overall score < 60: "We noted some areas for voice clarity improvement."
+    - If overall score < 60: "We noted some areas for voice clarity improvement, such as articulation and volume. You can work on projection and pace for better engagement."
 
 10. Capture scores using the report data:
     - clarity_pace (based on report clarity and pace scores)
@@ -167,7 +168,7 @@ After each response, acknowledge briefly and move to the next question.
 **Duration:** 3-4 minutes
 
 **CRITICAL PHASE TRANSITION:**
-1. **FIRST, call advance_phase("reading_task")** to signal you are starting the call scenario phase
+1. **MANDATORY: Call advance_phase("call_scenario")** to update the phase to call scenario
 2. **Wait for tool confirmation before proceeding**
 3. Then introduce the scenario
 
