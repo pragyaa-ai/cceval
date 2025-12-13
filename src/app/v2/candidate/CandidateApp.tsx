@@ -813,8 +813,8 @@ function EvaluationInterface({
 
         {/* Right side - Phase Progress and Controls */}
         <div className="col-span-5 space-y-6">
-          {/* Voice Quality Analysis - Hidden from candidate, data collection only */}
-          <div className="hidden">
+          {/* Voice Quality Analysis - Visually hidden from candidate but functionally active for data collection */}
+          <div style={{ position: 'absolute', left: '-9999px', visibility: 'hidden', pointerEvents: 'none' }}>
             <VoiceVisualizer 
               isRecording={sessionStatus === "CONNECTED"} 
               sessionStatus={sessionStatus} 
