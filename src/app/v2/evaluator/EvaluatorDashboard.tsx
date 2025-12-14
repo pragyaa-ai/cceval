@@ -1126,33 +1126,20 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
   );
 }
 
-// Live Voice Visualization Component - Matches Candidate UI VoiceVisualizer style
-function LiveVoiceVisualization() {
+// Canvas-based Voice Visualizer for Evaluator - Matches Candidate UI exactly
+// This component replicates the VoiceVisualizer component from the candidate UI
+function EvaluatorVoiceVisualizer({ 
+  voiceData,
+  status, // 'waiting' | 'analyzing' | 'complete'
+  sampleCount = 0,
+}: { 
+  voiceData?: VoiceAnalysisReport | null;
+  status: 'waiting' | 'analyzing' | 'complete';
+  sampleCount?: number;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [sampleCount, setSampleCount] = useState(0);
   const animationRef = useRef<number | null>(null);
-  const metricsRef = useRef({
-    clarity: 0,
-    volume: 0,
-    tone: 0,
-    pace: 0,
-  });
-
-  // Simulate collecting samples and updating metrics
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSampleCount((prev) => prev + 1);
-      // Simulate gradual metric changes (like real analysis would show)
-      metricsRef.current = {
-        clarity: Math.min(100, metricsRef.current.clarity + (Math.random() * 3 - 0.5)),
-        volume: Math.min(100, metricsRef.current.volume + (Math.random() * 3 - 0.5)),
-        tone: Math.min(100, metricsRef.current.tone + (Math.random() * 2 - 0.3)),
-        pace: Math.min(100, metricsRef.current.pace + (Math.random() * 3 - 0.5)),
-      };
-    }, 200);
-
-    return () => clearInterval(interval);
-  }, []);
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   // Canvas drawing - matches VoiceVisualizer exactly
   useEffect(() => {
@@ -1183,18 +1170,28 @@ function LiveVoiceVisualization() {
       ctx.textAlign = 'center';
       ctx.fillText('Voice Quality Analysis', width / 2, 25);
 
-      // Status indicator - analyzing
+      // Status indicator based on state
       ctx.font = '12px system-ui, -apple-system';
-      ctx.fillStyle = '#10b981';
-      ctx.fillText(`🎤 ANALYZING PARAGRAPH - ${sampleCount} samples`, width / 2, 45);
+      if (status === 'analyzing') {
+        ctx.fillStyle = '#10b981';
+        ctx.fillText(`🎤 ANALYZING PARAGRAPH - ${sampleCount} samples`, width / 2, 45);
+      } else if (status === 'complete' && voiceData) {
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText(`○ Analysis complete - ${voiceData.sampleCount || sampleCount} samples collected`, width / 2, 45);
+      } else {
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText('○ Waiting for paragraph reading phase...', width / 2, 45);
+      }
 
-      // Get current simulated metrics
-      const displayScores = {
-        clarity: Math.max(0, Math.min(100, metricsRef.current.clarity)),
-        volume: Math.max(0, Math.min(100, metricsRef.current.volume)),
-        tone: Math.max(0, Math.min(100, metricsRef.current.tone)),
-        pace: Math.max(0, Math.min(100, metricsRef.current.pace)),
-      };
+      // Get scores - use voice data if available, otherwise show empty state
+      const displayScores = voiceData ? {
+        clarity: voiceData.clarityScore || 0,
+        volume: voiceData.volumeScore || 0,
+        tone: voiceData.toneScore || 0,
+        pace: voiceData.paceScore || 0,
+      } : { clarity: 0, volume: 0, tone: 0, pace: 0 };
+
+      const hasData = status === 'complete' && voiceData;
 
       // Metrics with bars - same structure as VoiceVisualizer
       const metrics = [
@@ -1225,20 +1222,20 @@ function LiveVoiceVisualization() {
         ctx.fillStyle = '#f3f4f6';
         ctx.fillRect(barX, y, barWidth, barHeight);
 
-        // Average score bar - green
-        if (sampleCount >= 5) {
+        // Score bar - green (only show if we have data)
+        if (hasData) {
           const scoreWidth = (metric.score / 100) * barWidth;
           ctx.fillStyle = '#10b981';
           ctx.fillRect(barX, y, scoreWidth, barHeight);
+        } else if (status === 'analyzing') {
+          // Show animated blue bars during analysis
+          const animatedScore = Math.random() * 60 + 20; // Random between 20-80 for animation
+          const currentWidth = (animatedScore / 100) * barWidth;
+          ctx.fillStyle = '#3b82f6';
+          ctx.globalAlpha = 0.5;
+          ctx.fillRect(barX, y, currentWidth, barHeight);
+          ctx.globalAlpha = 1.0;
         }
-
-        // Current value bar - blue overlay (simulated live data)
-        const currentScore = metric.score + (Math.random() * 10 - 5);
-        const currentWidth = (Math.max(0, Math.min(100, currentScore)) / 100) * barWidth;
-        ctx.fillStyle = '#3b82f6';
-        ctx.globalAlpha = 0.5;
-        ctx.fillRect(barX, y, currentWidth, barHeight);
-        ctx.globalAlpha = 1.0;
 
         // Target line - red
         const targetX = barX + (metric.target / 100) * barWidth;
@@ -1253,11 +1250,11 @@ function LiveVoiceVisualization() {
         ctx.fillStyle = '#1f2937';
         ctx.font = 'bold 12px system-ui, -apple-system';
         ctx.textAlign = 'left';
-        if (sampleCount >= 5) {
+        if (hasData) {
           ctx.fillText(`${Math.round(metric.score)}%`, barX + barWidth + 10, y + 17);
         } else {
           ctx.fillStyle = '#6b7280';
-          ctx.fillText('...', barX + barWidth + 10, y + 17);
+          ctx.fillText('No data', barX + barWidth + 10, y + 17);
         }
       });
 
@@ -1266,56 +1263,297 @@ function LiveVoiceVisualization() {
       ctx.font = '11px system-ui, -apple-system';
       ctx.textAlign = 'left';
 
-      // Green box - Average
-      ctx.fillStyle = '#10b981';
-      ctx.fillRect(20, legendY, 15, 10);
-      ctx.fillStyle = '#6b7280';
-      ctx.fillText('Average', 40, legendY + 8);
+      // Green box - Average (show if we have data or analyzing)
+      if (hasData) {
+        ctx.fillStyle = '#10b981';
+        ctx.fillRect(20, legendY, 15, 10);
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText('Average', 40, legendY + 8);
+      }
 
-      // Blue box - Current
-      ctx.fillStyle = '#3b82f6';
-      ctx.fillRect(90, legendY, 15, 10);
-      ctx.fillStyle = '#6b7280';
-      ctx.fillText('Current', 110, legendY + 8);
+      // Blue box - Current (only during analyzing)
+      if (status === 'analyzing') {
+        ctx.fillStyle = '#3b82f6';
+        ctx.fillRect(hasData ? 90 : 20, legendY, 15, 10);
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText('Current', hasData ? 110 : 40, legendY + 8);
+      }
 
-      // Red line - Target
+      // Red line - Target (always show)
+      const redLineX = status === 'analyzing' ? (hasData ? 160 : 90) : (hasData ? 90 : 20);
       ctx.strokeStyle = '#ef4444';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(160, legendY + 5);
-      ctx.lineTo(175, legendY + 5);
+      ctx.moveTo(redLineX, legendY + 5);
+      ctx.lineTo(redLineX + 15, legendY + 5);
       ctx.stroke();
       ctx.fillStyle = '#6b7280';
-      ctx.fillText('Target', 180, legendY + 8);
+      ctx.fillText('Target', redLineX + 20, legendY + 8);
 
-      animationRef.current = requestAnimationFrame(draw);
+      // Continue animation only during analyzing phase
+      if (status === 'analyzing') {
+        animationRef.current = requestAnimationFrame(draw);
+      }
     };
 
     draw();
+
+    // If analyzing, set up animation interval
+    let interval: NodeJS.Timeout | null = null;
+    if (status === 'analyzing') {
+      interval = setInterval(() => {
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
+        draw();
+      }, 100);
+    }
 
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      if (interval) {
+        clearInterval(interval);
+      }
     };
-  }, [sampleCount]);
+  }, [status, voiceData, sampleCount]);
+
+  // Download report function - matches VoiceVisualizer
+  const downloadReport = () => {
+    if (!voiceData) return;
+    
+    const canvas = canvasRef.current;
+    const chartImage = canvas ? canvas.toDataURL('image/png') : '';
+    const now = new Date();
+    
+    const reportHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Voice Quality Analysis Report</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+    .header { text-align: center; border-bottom: 3px solid #8b5cf6; padding-bottom: 20px; margin-bottom: 30px; }
+    .header h1 { color: #8b5cf6; margin: 0 0 10px 0; font-size: 32px; }
+    .overall-score { background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0; }
+    .score-number { font-size: 48px; font-weight: bold; color: ${voiceData.overallScore >= 80 ? '#059669' : voiceData.overallScore >= 60 ? '#d97706' : '#dc2626'}; }
+    .chart-container { text-align: center; margin: 20px 0; }
+    .chart-container img { max-width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; }
+    .metric-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin: 10px 0; }
+    .strengths-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px; margin: 15px 0; }
+    .recommendations-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 15px; margin: 15px 0; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Voice Quality Analysis Report</h1>
+    <p>Generated: ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}</p>
+  </div>
+  <div class="overall-score">
+    <p>Overall Score</p>
+    <div class="score-number">${voiceData.overallScore}%</div>
+    <p>${voiceData.assessment || ''}</p>
+  </div>
+  <div class="chart-container"><img src="${chartImage}" alt="Voice Quality Chart" /></div>
+  <div class="metric-card"><strong>Clarity:</strong> ${voiceData.clarityScore}% (Raw: ${voiceData.avgClarity || 'N/A'})</div>
+  <div class="metric-card"><strong>Volume:</strong> ${voiceData.volumeScore}% (Raw: ${voiceData.avgVolume || 'N/A'})</div>
+  <div class="metric-card"><strong>Tone:</strong> ${voiceData.toneScore}% (Raw: ${voiceData.avgPitch || 'N/A'} Hz)</div>
+  <div class="metric-card"><strong>Pace:</strong> ${voiceData.paceScore}% (Raw: ${voiceData.avgPace || 'N/A'})</div>
+  ${voiceData.strengths?.length ? `<div class="strengths-box"><h4>Strengths</h4><ul>${voiceData.strengths.map(s => `<li>${s}</li>`).join('')}</ul></div>` : ''}
+  ${voiceData.recommendations?.length ? `<div class="recommendations-box"><h4>Recommendations</h4><ul>${voiceData.recommendations.map(r => `<li>${r}</li>`).join('')}</ul></div>` : ''}
+  <p style="text-align:center;color:#9ca3af;font-size:12px;margin-top:40px;">Analysis based on ${voiceData.sampleCount} samples • ${voiceData.duration}s of speech</p>
+</body>
+</html>`;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(reportHTML);
+      printWindow.document.close();
+      printWindow.onload = () => setTimeout(() => printWindow.print(), 250);
+    }
+  };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200">
+    <div className="bg-white rounded-lg p-4 border border-gray-200">
+      {/* Header with Download Button - matches VoiceVisualizer */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-gray-800 text-lg font-semibold">Voice Quality Analysis</h3>
+        {voiceData && (
+          <button
+            onClick={downloadReport}
+            className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+            title="Download Analysis Report"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Download Report
+          </button>
+        )}
+      </div>
+
+      {/* Canvas Visualization */}
       <canvas
         ref={canvasRef}
         className="w-full border border-gray-200 rounded bg-white"
         style={{ width: '100%', height: '280px', display: 'block' }}
       />
-      <div className="px-4 py-2 text-sm text-gray-600 flex justify-between border-t border-gray-100">
-        <span className="text-green-500">● Analyzing paragraph reading</span>
-        <span className="text-gray-400">{sampleCount} samples</span>
+
+      {/* Status Footer - matches VoiceVisualizer */}
+      <div className="mt-2 text-sm text-gray-600 flex justify-between">
+        <span>
+          {status === 'analyzing' ? (
+            <span className="text-green-500">● Analyzing paragraph reading</span>
+          ) : status === 'complete' && voiceData ? (
+            <span className="text-gray-700 font-medium">✓ Analysis complete</span>
+          ) : (
+            <span className="text-gray-500">○ Waiting for paragraph phase</span>
+          )}
+        </span>
+        <span className="text-gray-400">
+          {voiceData?.sampleCount || sampleCount || 0} samples
+        </span>
       </div>
+
+      {/* Detailed Breakdown Section - matches VoiceVisualizer exactly */}
+      {voiceData && (
+        <div className="mt-4 border-t border-gray-200 pt-4">
+          <button
+            onClick={() => setShowBreakdown(!showBreakdown)}
+            className="w-full flex items-center justify-between text-left text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+          >
+            <span className="flex items-center">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              Detailed Analysis & Recommendations
+            </span>
+            <svg 
+              className={`w-5 h-5 transition-transform ${showBreakdown ? 'transform rotate-180' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {showBreakdown && (
+            <div className="mt-4 space-y-4 text-sm">
+              {/* Overall Assessment */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-semibold text-gray-700">Overall Score:</span>
+                  <span className="text-2xl font-bold text-gray-900">{voiceData.overallScore}%</span>
+                </div>
+                <p className={`font-medium ${
+                  voiceData.overallScore >= 80 ? 'text-green-600' :
+                  voiceData.overallScore >= 65 ? 'text-blue-600' :
+                  voiceData.overallScore >= 50 ? 'text-yellow-600' :
+                  'text-red-600'
+                }`}>{voiceData.assessment}</p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Based on {voiceData.sampleCount} audio samples ({voiceData.duration}s of speech)
+                </p>
+              </div>
+
+              {/* Calculation Breakdown */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-700 mb-3 flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  Calculation Breakdown
+                </h4>
+                <div className="space-y-3">
+                  {[
+                    { name: 'Clarity', score: voiceData.clarityScore, raw: voiceData.avgClarity, method: 'Spectral peak-to-average ratio' },
+                    { name: 'Volume', score: voiceData.volumeScore, raw: voiceData.avgVolume, method: 'RMS (Root Mean Square)' },
+                    { name: 'Tone', score: voiceData.toneScore, raw: `${voiceData.avgPitch} Hz`, method: 'Autocorrelation pitch detection' },
+                    { name: 'Pace', score: voiceData.paceScore, raw: voiceData.avgPace, method: 'Voice activity detection' },
+                  ].map((metric) => (
+                    <div key={metric.name} className="bg-white p-3 rounded border border-gray-100">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-medium text-gray-700">{metric.name}</span>
+                        <span className="font-bold text-green-600">{metric.score}%</span>
+                      </div>
+                      <p className="text-xs text-gray-600">Raw: {metric.raw} | Method: {metric.method}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
+                  <p className="text-xs text-blue-800 font-medium">Overall Score Formula:</p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    (Clarity × 35%) + (Volume × 25%) + (Pace × 25%) + (Tone × 15%)
+                  </p>
+                </div>
+              </div>
+
+              {/* Strengths */}
+              {voiceData.strengths && voiceData.strengths.length > 0 && (
+                <div className="border border-green-200 bg-green-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-800 mb-2 flex items-center">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Strengths
+                  </h4>
+                  <ul className="space-y-1">
+                    {voiceData.strengths.map((strength: string, idx: number) => (
+                      <li key={idx} className="text-sm text-green-700 flex items-start">
+                        <span className="mr-2">✓</span>
+                        <span>{strength}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Recommendations */}
+              {voiceData.recommendations && voiceData.recommendations.length > 0 && (
+                <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-yellow-800 mb-2 flex items-center">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Recommendations for Improvement
+                  </h4>
+                  <ul className="space-y-1">
+                    {voiceData.recommendations.map((rec: string, idx: number) => (
+                      <li key={idx} className="text-sm text-yellow-700 flex items-start">
+                        <span className="mr-2">→</span>
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Call Center Suitability */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <h4 className="font-semibold text-gray-700 mb-2">Call Center Agent Suitability</h4>
+                <div className="space-y-2 text-sm text-gray-600">
+                  <p><strong>Voice Clarity:</strong> {(voiceData.clarityScore || 0) >= 70 ? '✓ Meets requirements' : '⚠ Needs improvement'}</p>
+                  <p><strong>Volume Projection:</strong> {(voiceData.volumeScore || 0) >= 50 ? '✓ Adequate' : '⚠ Too soft'}</p>
+                  <p><strong>Speaking Pace:</strong> {(voiceData.paceScore || 0) >= 30 && (voiceData.paceScore || 0) <= 70 ? '✓ Appropriate' : '⚠ Adjust pace'}</p>
+                  <p><strong>Overall Recommendation:</strong> <span className={
+                    voiceData.overallScore >= 65 ? 'text-green-600 font-medium' :
+                    voiceData.overallScore >= 50 ? 'text-yellow-600 font-medium' :
+                    'text-red-600 font-medium'
+                  }>{voiceData.overallScore >= 65 ? 'Recommended' : voiceData.overallScore >= 50 ? 'Conditional' : 'Not Recommended'}</span></p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-// Voice Analysis Display Component (Release 1 style - display saved data)
+// Voice Analysis Display Component - Uses EvaluatorVoiceVisualizer to match Candidate UI exactly
 function VoiceAnalysisDisplay({ 
   evaluation, 
   isLive = false 
@@ -1323,8 +1561,6 @@ function VoiceAnalysisDisplay({
   evaluation: EvaluationData; 
   isLive?: boolean;
 }) {
-  const [showBreakdown, setShowBreakdown] = useState(true); // Default open for better visibility
-
   // Parse voice analysis data with robust error handling
   const voiceData: VoiceAnalysisReport | null = evaluation.voiceAnalysisData 
     ? (() => {
@@ -1355,239 +1591,36 @@ function VoiceAnalysisDisplay({
   const isReadingPhase = evaluation.currentPhase === 'reading_task';
   const hasVoiceData = voiceData !== null && typeof voiceData.overallScore === 'number';
 
+  // Determine visualization status - matches candidate UI VoiceVisualizer behavior
+  const getStatus = (): 'waiting' | 'analyzing' | 'complete' => {
+    if (hasVoiceData) return 'complete';
+    if (isLive && isReadingPhase) return 'analyzing';
+    return 'waiting';
+  };
+
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-      <h3 className="font-medium text-slate-800 mb-4 flex items-center gap-2">
-        <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-        </svg>
-        Voice Quality Analysis
-        {isLive && isReadingPhase && (
-          <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs rounded-full animate-pulse">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+      {/* Header with Live indicator */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-medium text-slate-800 flex items-center gap-2">
+          <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          </svg>
+          Voice Quality Analysis
+        </h3>
+        {isLive && isReadingPhase && !hasVoiceData && (
+          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs rounded-full animate-pulse">
             🔴 Live
           </span>
         )}
-      </h3>
+      </div>
 
-      {/* Live Reading Phase - Match Candidate UI VoiceVisualizer Style */}
-      {isLive && isReadingPhase && !hasVoiceData ? (
-        <LiveVoiceVisualization />
-      ) : hasVoiceData ? (
-        // Show saved voice analysis data (Release 1 style - Full Report)
-        <div className="space-y-6">
-          {/* Overall Score - Prominent Display */}
-          <div className="text-center p-6 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl">
-            <p className="text-sm text-slate-600 mb-2">Overall Voice Quality Score</p>
-            <p className={`text-5xl font-bold mb-2 ${
-              voiceData.overallScore >= 80 ? "text-emerald-600" :
-              voiceData.overallScore >= 60 ? "text-amber-600" :
-              "text-red-600"
-            }`}>
-              {voiceData.overallScore}%
-            </p>
-            <p className={`text-sm font-medium ${
-              voiceData.overallScore >= 80 ? "text-emerald-600" :
-              voiceData.overallScore >= 60 ? "text-amber-600" :
-              "text-red-600"
-            }`}>
-              {voiceData.assessment || (
-                voiceData.overallScore >= 80 ? "Excellent - Highly suitable for call center role" :
-                voiceData.overallScore >= 65 ? "Good - Suitable with minor improvements" :
-                voiceData.overallScore >= 50 ? "Fair - Needs improvement in some areas" :
-                "Needs Significant Improvement"
-              )}
-            </p>
-          </div>
-
-          {/* Detailed Metrics Breakdown - Always Visible */}
-          <div className="border border-slate-200 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setShowBreakdown(!showBreakdown)}
-              className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
-            >
-              <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                Detailed Metrics Breakdown
-              </span>
-              <svg 
-                className={`w-5 h-5 text-slate-500 transition-transform ${showBreakdown ? 'rotate-180' : ''}`}
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            {showBreakdown && (
-              <div className="p-4 space-y-4 bg-white">
-                {[
-                  { name: "Clarity", score: voiceData.clarityScore, target: 85, raw: voiceData.avgClarity, desc: "Spectral peak-to-average ratio" },
-                  { name: "Volume", score: voiceData.volumeScore, target: 70, raw: voiceData.avgVolume, desc: "RMS amplitude analysis" },
-                  { name: "Tone", score: voiceData.toneScore, target: 80, raw: voiceData.avgPitch ? `${voiceData.avgPitch} Hz` : null, desc: "Pitch detection (80-300 Hz)" },
-                  { name: "Pace", score: voiceData.paceScore, target: 75, raw: voiceData.avgPace, desc: "Voice activity detection" },
-                ].map((metric) => (
-                  <div key={metric.name} className="bg-slate-50 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <span className="text-sm font-semibold text-slate-700">{metric.name}</span>
-                        <p className="text-xs text-slate-500">{metric.desc}</p>
-                      </div>
-                      <span className={`text-lg font-bold ${
-                        (metric.score || 0) >= metric.target ? "text-emerald-600" :
-                        (metric.score || 0) >= metric.target * 0.7 ? "text-amber-600" :
-                        "text-red-600"
-                      }`}>
-                        {Math.round(metric.score || 0)}%
-                      </span>
-                    </div>
-                    <div className="h-4 bg-slate-200 rounded-full overflow-hidden relative">
-                      <div 
-                        className={`h-full rounded-full transition-all ${
-                          (metric.score || 0) >= metric.target ? "bg-emerald-500" :
-                          (metric.score || 0) >= metric.target * 0.7 ? "bg-amber-500" :
-                          "bg-red-500"
-                        }`}
-                        style={{ width: `${Math.min(100, metric.score || 0)}%` }}
-                      />
-                      {/* Target line */}
-                      <div 
-                        className="absolute top-0 bottom-0 w-0.5 bg-red-600"
-                        style={{ left: `${metric.target}%` }}
-                        title={`Target: ${metric.target}%`}
-                      />
-                    </div>
-                    {metric.raw && (
-                      <p className="text-xs text-slate-400 mt-1">Raw value: {metric.raw}</p>
-                    )}
-                  </div>
-                ))}
-
-                {/* Formula Explanation */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
-                  <p className="text-xs font-semibold text-blue-800 mb-1">Score Calculation:</p>
-                  <p className="text-xs text-blue-700 font-mono">
-                    (Clarity × 35%) + (Volume × 25%) + (Pace × 25%) + (Tone × 15%)
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Strengths */}
-          {voiceData.strengths && voiceData.strengths.length > 0 && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-              <p className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-2">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Identified Strengths
-              </p>
-              <ul className="space-y-2">
-                {voiceData.strengths.map((strength: string, idx: number) => (
-                  <li key={idx} className="text-sm text-emerald-700 flex items-start gap-2">
-                    <span className="text-emerald-500 mt-0.5">✓</span>
-                    <span>{strength}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Recommendations */}
-          {voiceData.recommendations && voiceData.recommendations.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <p className="text-sm font-semibold text-amber-800 mb-3 flex items-center gap-2">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                Recommendations for Improvement
-              </p>
-              <ul className="space-y-2">
-                {voiceData.recommendations.map((rec: string, idx: number) => (
-                  <li key={idx} className="text-sm text-amber-700 flex items-start gap-2">
-                    <span className="text-amber-500 mt-0.5">→</span>
-                    <span>{rec}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Call Center Suitability Assessment */}
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-            <p className="text-sm font-semibold text-slate-700 mb-3">Call Center Agent Suitability</p>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="flex items-center gap-2">
-                <span className={(voiceData.clarityScore || 0) >= 70 ? "text-emerald-600" : "text-amber-600"}>
-                  {(voiceData.clarityScore || 0) >= 70 ? "✓" : "⚠"}
-                </span>
-                <span className="text-slate-600">
-                  Voice Clarity: {(voiceData.clarityScore || 0) >= 70 ? "Meets requirements" : "Needs improvement"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={(voiceData.volumeScore || 0) >= 50 ? "text-emerald-600" : "text-amber-600"}>
-                  {(voiceData.volumeScore || 0) >= 50 ? "✓" : "⚠"}
-                </span>
-                <span className="text-slate-600">
-                  Volume: {(voiceData.volumeScore || 0) >= 50 ? "Adequate" : "Too soft"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={(voiceData.paceScore || 0) >= 30 && (voiceData.paceScore || 0) <= 70 ? "text-emerald-600" : "text-amber-600"}>
-                  {(voiceData.paceScore || 0) >= 30 && (voiceData.paceScore || 0) <= 70 ? "✓" : "⚠"}
-                </span>
-                <span className="text-slate-600">
-                  Pace: {(voiceData.paceScore || 0) >= 30 && (voiceData.paceScore || 0) <= 70 ? "Appropriate" : "Adjust needed"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={voiceData.overallScore >= 65 ? "text-emerald-600" : voiceData.overallScore >= 50 ? "text-amber-600" : "text-red-600"}>
-                  {voiceData.overallScore >= 65 ? "✓" : voiceData.overallScore >= 50 ? "⚠" : "✗"}
-                </span>
-                <span className={`font-medium ${
-                  voiceData.overallScore >= 65 ? "text-emerald-700" : 
-                  voiceData.overallScore >= 50 ? "text-amber-700" : 
-                  "text-red-700"
-                }`}>
-                  {voiceData.overallScore >= 65 ? "Recommended" : voiceData.overallScore >= 50 ? "Conditional" : "Not Recommended"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Metadata */}
-          {voiceData.sampleCount && (
-            <p className="text-xs text-center text-slate-400">
-              Analysis based on {voiceData.sampleCount} audio samples • {voiceData.duration}s of speech captured
-            </p>
-          )}
-        </div>
-      ) : isLive ? (
-        // Live but not in reading phase yet
-        <div className="text-center py-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
-            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-          </div>
-          <p className="text-sm text-slate-600 font-medium mb-2">Waiting for Reading Phase</p>
-          <p className="text-xs text-slate-500">Voice analysis will begin when candidate reads the paragraph</p>
-          <p className="text-xs text-slate-400 mt-2">Current phase: {evaluation.currentPhase?.replace(/_/g, ' ')}</p>
-        </div>
-      ) : (
-        // No data in results view
-        <div className="text-center py-12 text-slate-400">
-          <svg className="w-16 h-16 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-          </svg>
-          <p className="text-sm font-medium text-slate-500">No Voice Analysis Data</p>
-          <p className="text-xs text-slate-400 mt-1">Voice analysis was not completed for this evaluation</p>
-        </div>
-      )}
+      {/* Use the unified EvaluatorVoiceVisualizer component - matches Candidate UI exactly */}
+      <EvaluatorVoiceVisualizer 
+        voiceData={voiceData}
+        status={getStatus()}
+        sampleCount={voiceData?.sampleCount || 0}
+      />
     </div>
   );
 }
