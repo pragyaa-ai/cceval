@@ -33,32 +33,60 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   useEffect(() => {
     let retryTimer: NodeJS.Timeout | null = null;
     let attemptCount = 0;
-    const maxAttempts = 30; // 15 seconds max (500ms * 30)
+    const maxAttempts = 60; // 30 seconds max (500ms * 60)
     
     const tryConnectMicStream = () => {
-      if (!getMicStream || hasConnectedStream) return;
+      if (!getMicStream) {
+        console.log('⚠️ getMicStream function not available');
+        return;
+      }
+      
+      if (hasConnectedStream) {
+        console.log('✅ Already connected to mic stream');
+        return;
+      }
       
       const micStream = getMicStream();
-      if (micStream && micStream.active) {
-        console.log('🎤 Connecting mic stream to voice analysis engine');
-        console.log('🎤 Stream tracks:', micStream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
-        startAnalysis(micStream);
-        setHasConnectedStream(true);
-      } else if (attemptCount < maxAttempts) {
-        attemptCount++;
+      
+      if (micStream) {
+        const tracks = micStream.getTracks();
+        const audioTracks = tracks.filter(t => t.kind === 'audio');
+        const activeTracks = audioTracks.filter(t => t.readyState === 'live' && t.enabled);
+        
+        console.log('🎤 Mic stream check:', {
+          hasStream: !!micStream,
+          active: micStream.active,
+          totalTracks: tracks.length,
+          audioTracks: audioTracks.length,
+          activeTracks: activeTracks.length,
+          trackDetails: tracks.map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState, muted: t.muted }))
+        });
+        
+        if (micStream.active && activeTracks.length > 0) {
+          console.log('🎤✅ Connecting mic stream to voice analysis engine');
+          startAnalysis(micStream);
+          setHasConnectedStream(true);
+          console.log('🎤✅ Voice analysis engine connected and ready');
+          return;
+        }
+      }
+      
+      attemptCount++;
+      if (attemptCount < maxAttempts) {
         if (attemptCount % 4 === 0) { // Log every 2 seconds
-          console.log(`⏳ Waiting for mic stream... (attempt ${attemptCount}/${maxAttempts})`);
+          console.log(`⏳ Waiting for mic stream... (attempt ${attemptCount}/${maxAttempts}, stream: ${micStream ? 'exists' : 'null'}, active: ${micStream?.active})`);
         }
         retryTimer = setTimeout(tryConnectMicStream, 500);
       } else {
-        console.error('❌ Mic stream not available after 15 seconds. Voice analysis will not work.');
+        console.error('❌ Mic stream not available after 30 seconds. Voice analysis will not work.');
+        console.error('❌ Final stream state:', micStream ? { active: micStream.active, tracks: micStream.getTracks().length } : 'null');
       }
     };
     
     if (sessionStatus === 'CONNECTED' && getMicStream && !hasConnectedStream) {
-      // Start trying after initial 500ms delay
-      console.log('🔄 Session connected, beginning mic stream connection attempts...');
-      retryTimer = setTimeout(tryConnectMicStream, 500);
+      // Start trying after initial 1 second delay to give time for mic stream to be captured
+      console.log('🔄 Session connected, beginning mic stream connection attempts in 1s...');
+      retryTimer = setTimeout(tryConnectMicStream, 1000);
     }
     
     if (sessionStatus === 'DISCONNECTED' && hasConnectedStream) {
@@ -80,6 +108,16 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       console.log('📊 hasConnectedStream:', hasConnectedStream);
       console.log('📊 isAnalyzing:', isAnalyzing);
       console.log('📊 Current metricsHistory length:', metricsHistory.length);
+      
+      if (!hasConnectedStream) {
+        console.warn('⚠️⚠️⚠️ WARNING: Voice analysis active but mic stream NOT connected!');
+        console.warn('⚠️ Samples will NOT be collected until mic stream connects.');
+      }
+      
+      if (!isAnalyzing) {
+        console.warn('⚠️⚠️⚠️ WARNING: Voice analysis active but analyser NOT running!');
+      }
+      
       setCollectingSamples(true);
     } else {
       console.log('⏸️ Voice analysis phase INACTIVE - not collecting samples');
@@ -88,6 +126,12 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       setCollectingSamples(false);
     }
   }, [isAnalysisActive, setCollectingSamples, hasConnectedStream, isAnalyzing, metricsHistory.length]);
+
+  // Log when mic stream connection state changes
+  useEffect(() => {
+    console.log(`🎙️ Mic stream connection state changed: ${hasConnectedStream ? 'CONNECTED' : 'NOT CONNECTED'}`);
+    console.log(`🎙️ isAnalysisActive: ${isAnalysisActive}, isAnalyzing: ${isAnalyzing}`);
+  }, [hasConnectedStream, isAnalysisActive, isAnalyzing]);
 
   // Clear history when new session starts
   useEffect(() => {
@@ -369,9 +413,23 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   // Expose the report function to parent components via callback
   useEffect(() => {
     if (onReportReady) {
-      onReportReady(getAnalysisBreakdown);
+      console.log(`📝 Registering getAnalysisBreakdown callback (samples: ${metricsHistory.length})`);
+      onReportReady(() => {
+        console.log(`📊 getAnalysisBreakdown called by agent tool (samples: ${metricsHistory.length})`);
+        const report = getAnalysisBreakdown();
+        if (report) {
+          console.log(`✅ Report generated successfully:`, {
+            overallScore: report.overallScore,
+            sampleCount: report.sampleCount,
+            duration: report.duration
+          });
+        } else {
+          console.error(`❌ Report generation failed - insufficient samples (${metricsHistory.length} < 5)`);
+        }
+        return report;
+      });
     }
-  }, [onReportReady, metricsHistory.length]);
+  }, [onReportReady, metricsHistory.length, getAnalysisBreakdown]);
 
   // Function to download the voice quality report
   const downloadReport = () => {
