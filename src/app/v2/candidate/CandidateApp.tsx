@@ -873,15 +873,13 @@ function EvaluationInterface({
 
         {/* Right side - Phase Progress and Controls */}
         <div className="col-span-5 space-y-6">
-          {/* Voice Quality Analysis - Visually hidden from candidate but functionally active for data collection */}
-          <div style={{ position: 'absolute', left: '-9999px', visibility: 'hidden', pointerEvents: 'none' }}>
-            <VoiceVisualizer 
-              isRecording={sessionStatus === "CONNECTED"} 
-              sessionStatus={sessionStatus} 
-              getMicStream={getMicStream}
-              onReportReady={onReportReady}
-            />
-          </div>
+          {/* Voice Quality Analysis - Now visible for debugging/testing */}
+          <VoiceVisualizer 
+            isRecording={sessionStatus === "CONNECTED"} 
+            sessionStatus={sessionStatus} 
+            getMicStream={getMicStream}
+            onReportReady={onReportReady}
+          />
 
           {/* Evaluation Progress */}
           <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
