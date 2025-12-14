@@ -47,8 +47,30 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     const { evaluationId } = await params;
-    const body = await request.json();
+    
+    // Validate evaluationId
+    if (!evaluationId) {
+      console.error("[PATCH Evaluation] Missing evaluationId");
+      return NextResponse.json({ error: "Evaluation ID is required" }, { status: 400 });
+    }
+    
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error("[PATCH Evaluation] Failed to parse request body:", parseError);
+      return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
+    }
+    
     const { currentPhase, recordingUrl, recordingDuration, endSession, voiceAnalysisData, endTime } = body;
+
+    console.log(`[PATCH Evaluation] ${evaluationId}:`, {
+      currentPhase: currentPhase || null,
+      hasVoiceAnalysisData: !!voiceAnalysisData,
+      voiceAnalysisDataType: typeof voiceAnalysisData,
+      voiceAnalysisDataLength: voiceAnalysisData ? String(voiceAnalysisData).length : 0,
+      endSession: !!endSession,
+    });
 
     const updateData: {
       currentPhase?: string;
@@ -62,9 +84,30 @@ export async function PATCH(
     if (currentPhase) updateData.currentPhase = currentPhase;
     if (recordingUrl) updateData.recordingUrl = recordingUrl;
     if (recordingDuration !== undefined) updateData.recordingDuration = recordingDuration;
-    if (voiceAnalysisData) updateData.voiceAnalysisData = typeof voiceAnalysisData === 'string' 
-      ? voiceAnalysisData 
-      : JSON.stringify(voiceAnalysisData);
+    
+    // Handle voiceAnalysisData - ensure it's a valid JSON string
+    if (voiceAnalysisData !== undefined && voiceAnalysisData !== null) {
+      try {
+        // If it's already a string, verify it's valid JSON
+        if (typeof voiceAnalysisData === 'string') {
+          // Try to parse to verify it's valid JSON
+          JSON.parse(voiceAnalysisData);
+          updateData.voiceAnalysisData = voiceAnalysisData;
+          console.log(`[PATCH Evaluation] Voice analysis data is valid JSON string, length: ${voiceAnalysisData.length}`);
+        } else {
+          // If it's an object, stringify it
+          updateData.voiceAnalysisData = JSON.stringify(voiceAnalysisData);
+          console.log(`[PATCH Evaluation] Voice analysis data stringified from object, length: ${updateData.voiceAnalysisData.length}`);
+        }
+      } catch (jsonError) {
+        console.error("[PATCH Evaluation] Invalid voiceAnalysisData JSON:", jsonError);
+        // Store as-is if it's a string (might not be JSON but still valid text)
+        if (typeof voiceAnalysisData === 'string') {
+          updateData.voiceAnalysisData = voiceAnalysisData;
+        }
+      }
+    }
+    
     if (endTime) updateData.endTime = new Date(endTime);
     
     if (endSession) {
@@ -75,10 +118,14 @@ export async function PATCH(
       }
     }
 
+    console.log(`[PATCH Evaluation] Update data keys:`, Object.keys(updateData));
+
     const evaluation = await prisma.evaluation.update({
       where: { id: evaluationId },
       data: updateData,
     });
+
+    console.log(`[PATCH Evaluation] ✅ Successfully updated evaluation ${evaluationId}`);
 
     // Update candidate status if completed
     if (endSession) {
@@ -86,12 +133,30 @@ export async function PATCH(
         where: { id: evaluation.candidateId },
         data: { status: "completed" },
       });
+      console.log(`[PATCH Evaluation] ✅ Candidate status updated to completed`);
     }
 
     return NextResponse.json(evaluation);
-  } catch (error) {
-    console.error("Error updating evaluation:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("[PATCH Evaluation] ❌ Error updating evaluation:", {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+      stack: error?.stack?.split('\n').slice(0, 5).join('\n'),
+    });
+    
+    // Provide more specific error messages for Prisma errors
+    if (error?.code === 'P2025') {
+      return NextResponse.json({ error: "Evaluation not found" }, { status: 404 });
+    }
+    if (error?.code === 'P2002') {
+      return NextResponse.json({ error: "Unique constraint violation" }, { status: 409 });
+    }
+    
+    return NextResponse.json({ 
+      error: "Internal server error", 
+      details: error?.message || "Unknown error"
+    }, { status: 500 });
   }
 }
 

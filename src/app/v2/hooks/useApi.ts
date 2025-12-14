@@ -45,6 +45,11 @@ export interface VoiceAnalysisReport {
   recommendations: string[];
   sampleCount: number;
   duration: string;
+  // Raw average values
+  avgClarity?: string;
+  avgVolume?: string;
+  avgPitch?: string;
+  avgPace?: string;
 }
 
 export interface EvaluationData {

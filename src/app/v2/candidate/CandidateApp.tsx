@@ -216,7 +216,6 @@ function CandidateAppContent() {
   const handleSaveVoiceAnalysis = useCallback(async (report: any) => {
     console.log("[v2] 💾 handleSaveVoiceAnalysis called");
     console.log("[v2] Evaluation ID from ref:", evaluationIdRef.current);
-    console.log("[v2] Report data:", report);
     
     const evalId = evaluationIdRef.current;
     if (!evalId) {
@@ -234,28 +233,59 @@ function CandidateAppContent() {
       overallScore: report.overallScore,
       sampleCount: report.sampleCount,
       duration: report.duration,
-      hasRecommendations: report.recommendations?.length > 0
+      clarityScore: report.clarityScore,
+      volumeScore: report.volumeScore,
+      toneScore: report.toneScore,
+      paceScore: report.paceScore,
+      strengthsCount: report.strengths?.length || 0,
+      recommendationsCount: report.recommendations?.length || 0
     });
     
     try {
+      // Create a clean report object with only serializable data
+      const cleanReport = {
+        overallScore: report.overallScore || 0,
+        clarityScore: report.clarityScore || 0,
+        volumeScore: report.volumeScore || 0,
+        toneScore: report.toneScore || 0,
+        paceScore: report.paceScore || 0,
+        avgPitch: report.avgPitch || "0",
+        avgVolume: report.avgVolume || "0",
+        avgClarity: report.avgClarity || "0",
+        avgPace: report.avgPace || "0",
+        sampleCount: report.sampleCount || 0,
+        duration: report.duration || "0",
+        assessment: report.assessment || "",
+        strengths: Array.isArray(report.strengths) ? report.strengths : [],
+        recommendations: Array.isArray(report.recommendations) ? report.recommendations : [],
+      };
+      
+      // Stringify once and verify it's valid
+      const jsonString = JSON.stringify(cleanReport);
+      console.log("[v2] 📝 Serialized voice analysis data, length:", jsonString.length);
+      
       const response = await fetch(`/api/v2/evaluations/${evalId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voiceAnalysisData: JSON.stringify(report) }),
+        body: JSON.stringify({ voiceAnalysisData: jsonString }),
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[v2] ❌ Server error response:", errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        let errorDetails;
+        try {
+          errorDetails = await response.json();
+        } catch {
+          errorDetails = await response.text();
+        }
+        console.error("[v2] ❌ Server error response:", response.status, errorDetails);
+        throw new Error(`HTTP ${response.status}: ${JSON.stringify(errorDetails)}`);
       }
       
       const updated = await response.json();
       console.log("[v2] ✅ Voice analysis saved to database successfully!");
-      console.log("[v2] Updated evaluation data:", updated);
+      console.log("[v2] 📊 Saved evaluation has voiceAnalysisData:", !!updated.voiceAnalysisData);
     } catch (error) {
       console.error("[v2] ❌ Failed to save voice analysis:", error);
-      console.error("[v2] Report data that failed:", report);
       // Don't throw - let the agent continue even if save fails
     }
   }, []); // No dependencies - use ref
