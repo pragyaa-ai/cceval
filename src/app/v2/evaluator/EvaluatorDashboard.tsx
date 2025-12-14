@@ -1128,6 +1128,8 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
 
 // Canvas-based Voice Visualizer for Evaluator - Matches Candidate UI exactly
 // This component replicates the VoiceVisualizer component from the candidate UI
+// Note: Evaluator cannot access candidate's microphone, so during 'analyzing' phase
+// it shows a static "listening" state. Real-time metrics are only visible on candidate's screen.
 function EvaluatorVoiceVisualizer({ 
   voiceData,
   status, // 'waiting' | 'analyzing' | 'complete'
@@ -1138,10 +1140,9 @@ function EvaluatorVoiceVisualizer({
   sampleCount?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
 
-  // Canvas drawing - matches VoiceVisualizer exactly
+  // Canvas drawing - matches VoiceVisualizer style
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -1173,8 +1174,8 @@ function EvaluatorVoiceVisualizer({
       // Status indicator based on state
       ctx.font = '12px system-ui, -apple-system';
       if (status === 'analyzing') {
-        ctx.fillStyle = '#10b981';
-        ctx.fillText(`🎤 ANALYZING PARAGRAPH - ${sampleCount} samples`, width / 2, 45);
+        ctx.fillStyle = '#3b82f6';
+        ctx.fillText('👂 Listening to candidate reading...', width / 2, 45);
       } else if (status === 'complete' && voiceData) {
         ctx.fillStyle = '#6b7280';
         ctx.fillText(`○ Analysis complete - ${voiceData.sampleCount || sampleCount} samples collected`, width / 2, 45);
@@ -1222,20 +1223,14 @@ function EvaluatorVoiceVisualizer({
         ctx.fillStyle = '#f3f4f6';
         ctx.fillRect(barX, y, barWidth, barHeight);
 
-        // Score bar - green (only show if we have data)
+        // Score bar - green (only show if we have completed data)
         if (hasData) {
           const scoreWidth = (metric.score / 100) * barWidth;
           ctx.fillStyle = '#10b981';
           ctx.fillRect(barX, y, scoreWidth, barHeight);
-        } else if (status === 'analyzing') {
-          // Show animated blue bars during analysis
-          const animatedScore = Math.random() * 60 + 20; // Random between 20-80 for animation
-          const currentWidth = (animatedScore / 100) * barWidth;
-          ctx.fillStyle = '#3b82f6';
-          ctx.globalAlpha = 0.5;
-          ctx.fillRect(barX, y, currentWidth, barHeight);
-          ctx.globalAlpha = 1.0;
         }
+        // Note: During 'analyzing' phase, evaluator shows empty bars since it 
+        // can't access candidate's microphone for real-time metrics
 
         // Target line - red
         const targetX = barX + (metric.target / 100) * barWidth;
@@ -1252,6 +1247,9 @@ function EvaluatorVoiceVisualizer({
         ctx.textAlign = 'left';
         if (hasData) {
           ctx.fillText(`${Math.round(metric.score)}%`, barX + barWidth + 10, y + 17);
+        } else if (status === 'analyzing') {
+          ctx.fillStyle = '#3b82f6';
+          ctx.fillText('Analyzing...', barX + barWidth + 10, y + 17);
         } else {
           ctx.fillStyle = '#6b7280';
           ctx.fillText('No data', barX + barWidth + 10, y + 17);
@@ -1263,7 +1261,7 @@ function EvaluatorVoiceVisualizer({
       ctx.font = '11px system-ui, -apple-system';
       ctx.textAlign = 'left';
 
-      // Green box - Average (show if we have data or analyzing)
+      // Green box - Average (show only if we have data)
       if (hasData) {
         ctx.fillStyle = '#10b981';
         ctx.fillRect(20, legendY, 15, 10);
@@ -1271,16 +1269,8 @@ function EvaluatorVoiceVisualizer({
         ctx.fillText('Average', 40, legendY + 8);
       }
 
-      // Blue box - Current (only during analyzing)
-      if (status === 'analyzing') {
-        ctx.fillStyle = '#3b82f6';
-        ctx.fillRect(hasData ? 90 : 20, legendY, 15, 10);
-        ctx.fillStyle = '#6b7280';
-        ctx.fillText('Current', hasData ? 110 : 40, legendY + 8);
-      }
-
       // Red line - Target (always show)
-      const redLineX = status === 'analyzing' ? (hasData ? 160 : 90) : (hasData ? 90 : 20);
+      const redLineX = hasData ? 90 : 20;
       ctx.strokeStyle = '#ef4444';
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -1290,33 +1280,16 @@ function EvaluatorVoiceVisualizer({
       ctx.fillStyle = '#6b7280';
       ctx.fillText('Target', redLineX + 20, legendY + 8);
 
-      // Continue animation only during analyzing phase
+      // Show note during analyzing that real-time view is on candidate screen
       if (status === 'analyzing') {
-        animationRef.current = requestAnimationFrame(draw);
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '10px system-ui, -apple-system';
+        ctx.textAlign = 'center';
+        ctx.fillText('Real-time analysis visible on candidate screen', width / 2, height - 10);
       }
     };
 
     draw();
-
-    // If analyzing, set up animation interval
-    let interval: NodeJS.Timeout | null = null;
-    if (status === 'analyzing') {
-      interval = setInterval(() => {
-        if (animationRef.current) {
-          cancelAnimationFrame(animationRef.current);
-        }
-        draw();
-      }, 100);
-    }
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
   }, [status, voiceData, sampleCount]);
 
   // Download report function - matches VoiceVisualizer
