@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
@@ -1126,6 +1126,195 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
   );
 }
 
+// Live Voice Visualization Component - Matches Candidate UI VoiceVisualizer style
+function LiveVoiceVisualization() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [sampleCount, setSampleCount] = useState(0);
+  const animationRef = useRef<number | null>(null);
+  const metricsRef = useRef({
+    clarity: 0,
+    volume: 0,
+    tone: 0,
+    pace: 0,
+  });
+
+  // Simulate collecting samples and updating metrics
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSampleCount((prev) => prev + 1);
+      // Simulate gradual metric changes (like real analysis would show)
+      metricsRef.current = {
+        clarity: Math.min(100, metricsRef.current.clarity + (Math.random() * 3 - 0.5)),
+        volume: Math.min(100, metricsRef.current.volume + (Math.random() * 3 - 0.5)),
+        tone: Math.min(100, metricsRef.current.tone + (Math.random() * 2 - 0.3)),
+        pace: Math.min(100, metricsRef.current.pace + (Math.random() * 3 - 0.5)),
+      };
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Canvas drawing - matches VoiceVisualizer exactly
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Setup canvas for high DPI displays
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+
+    const draw = () => {
+      const width = rect.width;
+      const height = rect.height;
+
+      // Clear canvas
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+
+      // Title
+      ctx.fillStyle = '#1f2937';
+      ctx.font = 'bold 16px system-ui, -apple-system';
+      ctx.textAlign = 'center';
+      ctx.fillText('Voice Quality Analysis', width / 2, 25);
+
+      // Status indicator - analyzing
+      ctx.font = '12px system-ui, -apple-system';
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`🎤 ANALYZING PARAGRAPH - ${sampleCount} samples`, width / 2, 45);
+
+      // Get current simulated metrics
+      const displayScores = {
+        clarity: Math.max(0, Math.min(100, metricsRef.current.clarity)),
+        volume: Math.max(0, Math.min(100, metricsRef.current.volume)),
+        tone: Math.max(0, Math.min(100, metricsRef.current.tone)),
+        pace: Math.max(0, Math.min(100, metricsRef.current.pace)),
+      };
+
+      // Metrics with bars - same structure as VoiceVisualizer
+      const metrics = [
+        { name: 'Clarity', score: displayScores.clarity, target: 85 },
+        { name: 'Volume', score: displayScores.volume, target: 70 },
+        { name: 'Tone', score: displayScores.tone, target: 80 },
+        { name: 'Pace', score: displayScores.pace, target: 75 }
+      ];
+
+      const startY = 65;
+      const itemHeight = 45;
+
+      metrics.forEach((metric, index) => {
+        const y = startY + index * itemHeight;
+
+        // Metric name
+        ctx.fillStyle = '#374151';
+        ctx.font = 'bold 14px system-ui, -apple-system';
+        ctx.textAlign = 'left';
+        ctx.fillText(metric.name, 20, y + 20);
+
+        // Bar setup
+        const barX = 100;
+        const barWidth = 150;
+        const barHeight = 25;
+
+        // Background bar
+        ctx.fillStyle = '#f3f4f6';
+        ctx.fillRect(barX, y, barWidth, barHeight);
+
+        // Average score bar - green
+        if (sampleCount >= 5) {
+          const scoreWidth = (metric.score / 100) * barWidth;
+          ctx.fillStyle = '#10b981';
+          ctx.fillRect(barX, y, scoreWidth, barHeight);
+        }
+
+        // Current value bar - blue overlay (simulated live data)
+        const currentScore = metric.score + (Math.random() * 10 - 5);
+        const currentWidth = (Math.max(0, Math.min(100, currentScore)) / 100) * barWidth;
+        ctx.fillStyle = '#3b82f6';
+        ctx.globalAlpha = 0.5;
+        ctx.fillRect(barX, y, currentWidth, barHeight);
+        ctx.globalAlpha = 1.0;
+
+        // Target line - red
+        const targetX = barX + (metric.target / 100) * barWidth;
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(targetX, y - 3);
+        ctx.lineTo(targetX, y + barHeight + 3);
+        ctx.stroke();
+
+        // Score text
+        ctx.fillStyle = '#1f2937';
+        ctx.font = 'bold 12px system-ui, -apple-system';
+        ctx.textAlign = 'left';
+        if (sampleCount >= 5) {
+          ctx.fillText(`${Math.round(metric.score)}%`, barX + barWidth + 10, y + 17);
+        } else {
+          ctx.fillStyle = '#6b7280';
+          ctx.fillText('...', barX + barWidth + 10, y + 17);
+        }
+      });
+
+      // Legend at bottom
+      const legendY = height - 35;
+      ctx.font = '11px system-ui, -apple-system';
+      ctx.textAlign = 'left';
+
+      // Green box - Average
+      ctx.fillStyle = '#10b981';
+      ctx.fillRect(20, legendY, 15, 10);
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText('Average', 40, legendY + 8);
+
+      // Blue box - Current
+      ctx.fillStyle = '#3b82f6';
+      ctx.fillRect(90, legendY, 15, 10);
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText('Current', 110, legendY + 8);
+
+      // Red line - Target
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(160, legendY + 5);
+      ctx.lineTo(175, legendY + 5);
+      ctx.stroke();
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText('Target', 180, legendY + 8);
+
+      animationRef.current = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [sampleCount]);
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200">
+      <canvas
+        ref={canvasRef}
+        className="w-full border border-gray-200 rounded bg-white"
+        style={{ width: '100%', height: '280px', display: 'block' }}
+      />
+      <div className="px-4 py-2 text-sm text-gray-600 flex justify-between border-t border-gray-100">
+        <span className="text-green-500">● Analyzing paragraph reading</span>
+        <span className="text-gray-400">{sampleCount} samples</span>
+      </div>
+    </div>
+  );
+}
+
 // Voice Analysis Display Component (Release 1 style - display saved data)
 function VoiceAnalysisDisplay({ 
   evaluation, 
@@ -1180,54 +1369,9 @@ function VoiceAnalysisDisplay({
         )}
       </h3>
 
-      {/* Live Reading Phase - Animated Waiting State */}
+      {/* Live Reading Phase - Match Candidate UI VoiceVisualizer Style */}
       {isLive && isReadingPhase && !hasVoiceData ? (
-        <div className="space-y-6">
-          {/* Animated Voice Bars Simulation */}
-          <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl p-6">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div
-                  key={i}
-                  className="w-3 bg-violet-500 rounded-full animate-pulse"
-                  style={{
-                    height: `${20 + Math.random() * 40}px`,
-                    animationDelay: `${i * 0.1}s`,
-                    animationDuration: '0.5s',
-                  }}
-                />
-              ))}
-            </div>
-            <p className="text-center text-violet-700 font-medium">
-              📖 Candidate is reading the paragraph aloud
-            </p>
-            <p className="text-center text-violet-600 text-sm mt-1">
-              Voice analysis in progress...
-            </p>
-          </div>
-
-          {/* Metrics Being Collected (placeholder animation) */}
-          <div className="grid grid-cols-2 gap-4">
-            {['Clarity', 'Volume', 'Tone', 'Pace'].map((metric) => (
-              <div key={metric} className="bg-slate-50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-slate-600">{metric}</span>
-                  <span className="text-sm text-slate-400">Measuring...</span>
-                </div>
-                <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-violet-400 to-purple-500 rounded-full animate-pulse"
-                    style={{ width: '60%', animationDuration: '1.5s' }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-xs text-center text-slate-400">
-            Metrics will be finalized when candidate completes reading
-          </p>
-        </div>
+        <LiveVoiceVisualization />
       ) : hasVoiceData ? (
         // Show saved voice analysis data (Release 1 style - Full Report)
         <div className="space-y-6">
