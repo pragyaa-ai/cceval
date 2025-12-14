@@ -165,21 +165,40 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
     return Math.min(100, activityRatio * 200);
   }, []);
 
+  // Track frame count for periodic logging
+  const frameCountRef = useRef(0);
+  
   const analyze = useCallback(() => {
     const analyser = analyserRef.current;
-    if (!analyser) return;
+    if (!analyser) {
+      console.warn('⚠️ Analyser not available in analyze()');
+      return;
+    }
 
     const bufferLength = analyser.frequencyBinCount;
     const timeDataArray = new Uint8Array(bufferLength);
     const frequencyDataArray = new Uint8Array(bufferLength);
+    let lastVolumeLogTime = 0;
 
     const processAudio = () => {
-      if (!analyserRef.current || !audioContextRef.current) return;
+      if (!analyserRef.current || !audioContextRef.current) {
+        console.log('⚠️ Analysis stopped - context or analyser no longer available');
+        return;
+      }
 
+      frameCountRef.current++;
       analyser.getByteTimeDomainData(timeDataArray);
       analyser.getByteFrequencyData(frequencyDataArray);
 
       const volume = calculateVolume(timeDataArray);
+      
+      // Log volume periodically (every 2 seconds) for debugging
+      const now = Date.now();
+      if (now - lastVolumeLogTime > 2000) {
+        lastVolumeLogTime = now;
+        const avgTimeData = timeDataArray.reduce((a, b) => a + b, 0) / timeDataArray.length;
+        console.log(`🔊 Audio analysis frame #${frameCountRef.current}: volume=${volume.toFixed(1)}, avgTimeData=${avgTimeData.toFixed(1)}, collecting=${collectingSamplesRef.current}`);
+      }
       
       // Only calculate other metrics if there's significant volume (raised threshold to ignore noise)
       if (volume > 8) {
@@ -224,15 +243,34 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
     processAudio();
   }, [calculatePitch, calculateVolume, calculateClarity, calculatePace]);
 
-  const startAnalysis = useCallback((stream: MediaStream) => {
+  const startAnalysis = useCallback(async (stream: MediaStream) => {
     console.log('🎤 Starting voice quality analysis...');
+    console.log('🎤 Stream info:', {
+      active: stream.active,
+      id: stream.id,
+      audioTracks: stream.getAudioTracks().map(t => ({
+        id: t.id,
+        enabled: t.enabled,
+        readyState: t.readyState,
+        muted: t.muted,
+        label: t.label
+      }))
+    });
     
     try {
       // Create audio context
       audioContextRef.current = new AudioContext();
+      console.log('🎤 AudioContext created, state:', audioContextRef.current.state);
       
+      // Always try to resume the audio context (required due to browser autoplay policies)
       if (audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume();
+        console.log('🎤 AudioContext is suspended, attempting to resume...');
+        try {
+          await audioContextRef.current.resume();
+          console.log('🎤 AudioContext resumed successfully, new state:', audioContextRef.current.state);
+        } catch (resumeError) {
+          console.error('❌ Failed to resume AudioContext:', resumeError);
+        }
       }
 
       // Create analyser
@@ -241,10 +279,12 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
       analyser.smoothingTimeConstant = 0.8;
       analyser.minDecibels = -90;
       analyser.maxDecibels = -10;
+      console.log('🎤 Analyser created with fftSize:', analyser.fftSize, 'frequencyBinCount:', analyser.frequencyBinCount);
 
       // Connect stream to analyser
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyser);
+      console.log('🎤 Stream connected to analyser');
 
       analyserRef.current = analyser;
       setIsAnalyzing(true);
@@ -252,7 +292,7 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
       // Start analysis loop
       analyze();
 
-      console.log('✅ Voice analysis started successfully');
+      console.log('✅ Voice analysis started successfully - now listening for audio');
     } catch (error) {
       console.error('❌ Error starting voice analysis:', error);
     }
