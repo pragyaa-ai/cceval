@@ -494,7 +494,11 @@ Use advance_phase tool when completing each phase:
       execute: async (_input, details) => {
         const context = details?.context as any;
         
-        console.log('[Voice Analysis Tool] 🎬 start_voice_analysis called');
+        console.log('[Voice Analysis Tool] 🎬🎬🎬 start_voice_analysis TOOL CALLED');
+        console.log('[Voice Analysis Tool] 📋 Context available:', !!context);
+        console.log('[Voice Analysis Tool] 📋 Context keys:', context ? Object.keys(context) : 'N/A');
+        console.log('[Voice Analysis Tool] 📋 startVoiceAnalysis fn available:', typeof context?.startVoiceAnalysis);
+        console.log('[Voice Analysis Tool] 📋 setCurrentPhase fn available:', typeof context?.setCurrentPhase);
         
         // CRITICAL: Set the phase to reading_task FIRST (this persists to DB)
         if (context?.setCurrentPhase) {
@@ -510,8 +514,9 @@ Use advance_phase tool when completing each phase:
         
         // Then start voice analysis
         if (context?.startVoiceAnalysis) {
+          console.log('[Voice Analysis Tool] 🔥 About to call context.startVoiceAnalysis()...');
           context.startVoiceAnalysis();
-          console.log('[Voice Analysis Tool] ✅ Voice metrics collection started');
+          console.log('[Voice Analysis Tool] ✅ context.startVoiceAnalysis() was called');
           return { success: true, message: 'Voice analysis started - phase set to reading_task, metrics collection enabled' };
         }
         

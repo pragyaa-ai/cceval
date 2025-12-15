@@ -162,11 +162,11 @@ function CandidateAppContent() {
 
   // Callbacks for agent tools
   const handleStartVoiceAnalysis = useCallback(() => {
-    console.log("[v2] 🎤 handleStartVoiceAnalysis called - Starting voice analysis for reading task");
+    console.log("[v2] 🎤🎤🎤 handleStartVoiceAnalysis CALLED - Starting voice analysis for reading task");
     console.log("[v2] Current evaluation ID from ref:", evaluationIdRef.current);
+    console.log("[v2] About to call startAnalysis() from VoiceAnalysisContext...");
     startAnalysis();
-    // Note: Phase is also set by handleSetCurrentPhase via the tool, so we don't need to set it here
-    console.log("[v2] ✅ Voice analysis context activated");
+    console.log("[v2] ✅ startAnalysis() called - Voice analysis context should now be activated");
   }, [startAnalysis]);
 
   const handleStopVoiceAnalysis = useCallback(() => {

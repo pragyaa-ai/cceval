@@ -28,6 +28,20 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   const { isAnalysisActive } = useVoiceAnalysis(); // From context - controls when to collect samples
   const [hasConnectedStream, setHasConnectedStream] = useState(false);
 
+  // Log component mount to verify it's being rendered
+  useEffect(() => {
+    console.log('🎨🎨🎨 VoiceVisualizer MOUNTED - Component is rendering');
+    console.log('🎨 Initial isAnalysisActive:', isAnalysisActive);
+    return () => {
+      console.log('🎨 VoiceVisualizer UNMOUNTED');
+    };
+  }, []);
+  
+  // Log whenever isAnalysisActive changes
+  useEffect(() => {
+    console.log('🔔🔔🔔 VoiceVisualizer: isAnalysisActive changed to:', isAnalysisActive);
+  }, [isAnalysisActive]);
+
   // Connect the mic stream for analysis when session is connected
   // Implements retry logic to handle race conditions with mic stream availability
   useEffect(() => {
