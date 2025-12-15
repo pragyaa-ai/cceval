@@ -61,17 +61,7 @@ function CandidateAppContent() {
   // Contexts
   const { transcriptItems, addTranscriptBreadcrumb } = useTranscript();
   const { logClientEvent } = useEvent();
-  const { startAnalysis, stopAnalysis, isAnalysisActive } = useVoiceAnalysis();
-  
-  // Debug: Log isAnalysisActive whenever it changes in CandidateAppContent
-  const renderCountRef = useRef(0);
-  renderCountRef.current++;
-  console.log(`🏠 CandidateAppContent RENDER #${renderCountRef.current} - isAnalysisActive:`, isAnalysisActive);
-  
-  useEffect(() => {
-    console.log(`🏠🏠🏠 CandidateAppContent: isAnalysisActive CHANGED to:`, isAnalysisActive);
-    console.log(`🏠 This value will be passed to VoiceVisualizer as isAnalysisActiveProp`);
-  }, [isAnalysisActive]);
+  const { startAnalysis, stopAnalysis } = useVoiceAnalysis();
   
   // Voice quality analysis hook for getting metrics
   const voiceAnalysisRef = useRef<ReturnType<typeof useVoiceQualityAnalysis> | null>(null);
@@ -590,29 +580,6 @@ function CandidateAppContent() {
   // Main evaluation interface
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-      {/* Voice Visualizer - Always mounted at top level for proper context access */}
-      {/* Hidden from view but fully functional for audio analysis */}
-      {/* Pass isAnalysisActive directly as prop to avoid context propagation issues */}
-      {(() => {
-        console.log(`🔗🔗🔗 RENDERING VoiceVisualizer with isAnalysisActiveProp=${isAnalysisActive}`);
-        return null;
-      })()}
-      <div 
-        className="fixed top-0 opacity-0 pointer-events-none" 
-        style={{ left: '-9999px', width: '400px', height: '300px' }}
-        aria-hidden="true"
-      >
-        <VoiceVisualizer 
-          isRecording={sessionStatus === "CONNECTED"} 
-          sessionStatus={sessionStatus} 
-          getMicStream={getMicStream}
-          isAnalysisActiveProp={isAnalysisActive}
-          onReportReady={(getReport) => {
-            getVoiceAnalysisReportRef.current = getReport;
-          }}
-        />
-      </div>
-
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-xl border-b border-slate-700">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -677,6 +644,10 @@ function CandidateAppContent() {
             candidate={authenticatedCandidate}
             sessionStatus={sessionStatus}
             currentPhase={currentPhase}
+            getMicStream={getMicStream}
+            onReportReady={(getReport) => {
+              getVoiceAnalysisReportRef.current = getReport;
+            }}
             transcriptItems={transcriptItems}
             onDisconnect={handleDisconnect}
           />
@@ -842,15 +813,28 @@ function EvaluationInterface({
   currentPhase,
   transcriptItems,
   onDisconnect,
+  getMicStream,
+  onReportReady,
 }: {
   candidate: CandidateInfo;
   sessionStatus: string;
   currentPhase: EvaluationPhase;
   transcriptItems: any[];
   onDisconnect: () => void;
+  getMicStream: () => MediaStream | null;
+  onReportReady: (getReport: () => any) => void;
 }) {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Voice Quality Analysis - Hidden from candidate view but still functional */}
+      <VoiceVisualizer 
+        isRecording={sessionStatus === "CONNECTED"} 
+        sessionStatus={sessionStatus} 
+        getMicStream={getMicStream}
+        onReportReady={onReportReady}
+        hidden={true}
+      />
+      
       <div className="grid grid-cols-12 gap-6">
         {/* Left side - Transcript */}
         <div className="col-span-7">

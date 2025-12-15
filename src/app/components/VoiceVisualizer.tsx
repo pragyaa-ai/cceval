@@ -14,8 +14,8 @@ interface VoiceVisualizerProps {
   getMicStream?: () => MediaStream | null;
   candidateInfo?: CandidateInfo;
   onReportReady?: (getReport: () => any) => void;
-  /** Pass isAnalysisActive directly as prop to avoid context propagation issues */
-  isAnalysisActiveProp?: boolean;
+  /** When true, the component is visually hidden but still functional */
+  hidden?: boolean;
 }
 
 const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({ 
@@ -24,38 +24,12 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   getMicStream,
   candidateInfo,
   onReportReady,
-  isAnalysisActiveProp
+  hidden = false
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { startAnalysis, stopAnalysis, currentMetrics, metricsHistory, isAnalyzing, setCollectingSamples, clearHistory } = useVoiceQualityAnalysis();
-  const contextValue = useVoiceAnalysis(); // From context - controls when to collect samples
-  
-  // Use prop if provided, otherwise fall back to context
-  const isAnalysisActive = isAnalysisActiveProp !== undefined ? isAnalysisActiveProp : contextValue.isAnalysisActive;
-  
+  const { isAnalysisActive } = useVoiceAnalysis(); // From context - controls when to collect samples
   const [hasConnectedStream, setHasConnectedStream] = useState(false);
-
-  // Track component instance for debugging
-  const componentIdRef = useRef(Math.random().toString(36).substring(7));
-  
-  // Log component mount to verify it's being rendered
-  useEffect(() => {
-    console.log(`🎨🎨🎨 VoiceVisualizer [${componentIdRef.current}] MOUNTED - Component is rendering`);
-    console.log(`🎨 [${componentIdRef.current}] Initial isAnalysisActive:`, isAnalysisActive);
-    console.log(`🎨 [${componentIdRef.current}] Using ${isAnalysisActiveProp !== undefined ? 'PROP' : 'CONTEXT'} for isAnalysisActive`);
-    return () => {
-      console.log(`🎨 VoiceVisualizer [${componentIdRef.current}] UNMOUNTED`);
-    };
-  }, []);
-  
-  // Log whenever isAnalysisActive changes - this is CRITICAL for debugging
-  useEffect(() => {
-    const source = isAnalysisActiveProp !== undefined ? 'PROP' : 'CONTEXT';
-    console.log(`🔔🔔🔔 VoiceVisualizer [${componentIdRef.current}]: isAnalysisActive changed to:`, isAnalysisActive, `(source: ${source})`);
-    if (isAnalysisActive) {
-      console.log(`✅ [${componentIdRef.current}] Should now call setCollectingSamples(true) in the next effect`);
-    }
-  }, [isAnalysisActive, isAnalysisActiveProp]);
 
   // Connect the mic stream for analysis when session is connected
   // Implements retry logic to handle race conditions with mic stream availability
@@ -132,30 +106,26 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
 
   // Control sample collection based on analysis phase
   useEffect(() => {
-    console.log(`🔄 [${componentIdRef.current}] Sample collection effect triggered`);
-    console.log(`🔄 [${componentIdRef.current}] isAnalysisActive:`, isAnalysisActive);
-    
     if (isAnalysisActive) {
-      console.log(`📊📊📊 [${componentIdRef.current}] Voice analysis phase ACTIVE - calling setCollectingSamples(true)`);
-      console.log(`📊 [${componentIdRef.current}] hasConnectedStream:`, hasConnectedStream);
-      console.log(`📊 [${componentIdRef.current}] isAnalyzing:`, isAnalyzing);
-      console.log(`📊 [${componentIdRef.current}] Current metricsHistory length:`, metricsHistory.length);
+      console.log('📊📊📊 Voice analysis phase ACTIVE - collecting samples NOW');
+      console.log('📊 hasConnectedStream:', hasConnectedStream);
+      console.log('📊 isAnalyzing:', isAnalyzing);
+      console.log('📊 Current metricsHistory length:', metricsHistory.length);
       
       if (!hasConnectedStream) {
-        console.warn(`⚠️⚠️⚠️ [${componentIdRef.current}] WARNING: Voice analysis active but mic stream NOT connected!`);
-        console.warn(`⚠️ [${componentIdRef.current}] Samples will NOT be collected until mic stream connects.`);
+        console.warn('⚠️⚠️⚠️ WARNING: Voice analysis active but mic stream NOT connected!');
+        console.warn('⚠️ Samples will NOT be collected until mic stream connects.');
       }
       
       if (!isAnalyzing) {
-        console.warn(`⚠️⚠️⚠️ [${componentIdRef.current}] WARNING: Voice analysis active but analyser NOT running!`);
+        console.warn('⚠️⚠️⚠️ WARNING: Voice analysis active but analyser NOT running!');
       }
       
       setCollectingSamples(true);
-      console.log(`✅ [${componentIdRef.current}] setCollectingSamples(true) was called`);
     } else {
-      console.log(`⏸️ [${componentIdRef.current}] Voice analysis phase INACTIVE - calling setCollectingSamples(false)`);
-      console.log(`⏸️ [${componentIdRef.current}] hasConnectedStream:`, hasConnectedStream);
-      console.log(`⏸️ [${componentIdRef.current}] metricsHistory length:`, metricsHistory.length);
+      console.log('⏸️ Voice analysis phase INACTIVE - not collecting samples');
+      console.log('⏸️ hasConnectedStream:', hasConnectedStream);
+      console.log('⏸️ metricsHistory length:', metricsHistory.length);
       setCollectingSamples(false);
     }
   }, [isAnalysisActive, setCollectingSamples, hasConnectedStream, isAnalyzing, metricsHistory.length]);
@@ -891,6 +861,32 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       };
     }
   };
+
+  // If hidden prop is true, render with visibility hidden but component still functional
+  if (hidden) {
+    return (
+      <div 
+        style={{ 
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: 0,
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: 0
+        }}
+        aria-hidden="true"
+      >
+        {/* Canvas still needs minimum size to work properly */}
+        <canvas
+          ref={canvasRef}
+          style={{ width: '300px', height: '280px', display: 'block' }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg p-4 mb-4 border border-gray-200">
