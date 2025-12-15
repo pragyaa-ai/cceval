@@ -172,6 +172,9 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
           outputAudioFormat: audioFormat,
           inputAudioTranscription: {
             model: 'gpt-4o-mini-transcribe',
+            // Language hint: expect English or Hindi (Devanagari) only
+            // This helps the model avoid misinterpreting sounds as other languages
+            language: 'en',
           },
         },
         outputGuardrails: outputGuardrails ?? [],

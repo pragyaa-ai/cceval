@@ -40,6 +40,41 @@ async function correctTextScript(text: string): Promise<string> {
   }
 }
 
+/**
+ * Sanitize text to only contain English and Hindi (Devanagari) characters.
+ * Removes characters from other scripts like Arabic, Chinese, Japanese, etc.
+ * 
+ * Allowed characters:
+ * - English letters (A-Z, a-z)
+ * - Devanagari script (Hindi): Unicode range \u0900-\u097F
+ * - Numbers (0-9)
+ * - Common punctuation and symbols
+ * - Whitespace
+ */
+function sanitizeToEnglishHindi(text: string): string {
+  if (!text) return text;
+  
+  // Regex pattern for allowed characters:
+  // - a-zA-Z: English letters
+  // - 0-9: Numbers
+  // - \u0900-\u097F: Devanagari (Hindi) script
+  // - Common punctuation: . , ! ? ' " - : ; ( ) [ ] / @ # $ % & * + = < > ~ ` ^ _ | \
+  // - Whitespace: \s
+  const allowedPattern = /[a-zA-Z0-9\u0900-\u097F\s.,!?'"\-:;()\[\]\/@#$%&*+=<>~`^_|\\]+/g;
+  
+  const matches = text.match(allowedPattern);
+  if (!matches) return "";
+  
+  const sanitized = matches.join("");
+  
+  // If significant characters were removed, log for debugging
+  if (sanitized.length < text.length * 0.8) {
+    console.log(`[Sanitize] Removed non-English/Hindi characters: "${text}" → "${sanitized}"`);
+  }
+  
+  return sanitized;
+}
+
 export function useHandleSessionHistory() {
   const {
     transcriptItems,
@@ -56,7 +91,7 @@ export function useHandleSessionHistory() {
   const extractMessageText = (content: any[] = []): string => {
     if (!Array.isArray(content)) return "";
 
-    return content
+    const rawText = content
       .map((c) => {
         if (!c || typeof c !== "object") return "";
         if (c.type === "input_text") return c.text ?? "";
@@ -65,6 +100,9 @@ export function useHandleSessionHistory() {
       })
       .filter(Boolean)
       .join("\n");
+    
+    // Sanitize to only English and Hindi characters
+    return sanitizeToEnglishHindi(rawText);
   };
 
   const extractFunctionCallByName = (name: string, content: any[] = []): any => {
@@ -189,7 +227,9 @@ export function useHandleSessionHistory() {
     const itemId = item.item_id;
     const deltaText = item.delta || "";
     if (itemId) {
-      await updateTranscriptMessage(itemId, deltaText, true);
+      // Sanitize delta text to only English and Hindi
+      const sanitizedDelta = sanitizeToEnglishHindi(deltaText);
+      await updateTranscriptMessage(itemId, sanitizedDelta, true);
     }
   }
 
@@ -197,10 +237,21 @@ export function useHandleSessionHistory() {
     // History updates don't reliably end in a completed item, 
     // so we need to handle finishing up when the transcription is completed.
     const itemId = item.item_id;
-    const finalTranscript =
-        !item.transcript || item.transcript === "\n"
-        ? "[inaudible]"
-        : item.transcript;
+    const rawTranscript = item.transcript;
+    
+    // Sanitize and handle empty/inaudible transcripts
+    let finalTranscript: string;
+    if (!rawTranscript || rawTranscript === "\n") {
+      finalTranscript = "[inaudible]";
+    } else {
+      // Sanitize to only English and Hindi characters
+      finalTranscript = sanitizeToEnglishHindi(rawTranscript);
+      // If sanitization removed everything meaningful, mark as inaudible
+      if (!finalTranscript.trim()) {
+        finalTranscript = "[inaudible]";
+      }
+    }
+    
     if (itemId) {
       console.log(`[DEBUG] handleTranscriptionCompleted: finalTranscript="${finalTranscript}"`);
       await updateTranscriptMessage(itemId, finalTranscript, false);
