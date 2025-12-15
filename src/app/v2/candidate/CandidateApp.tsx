@@ -581,6 +581,23 @@ function CandidateAppContent() {
   // Main evaluation interface
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+      {/* Voice Visualizer - Always mounted at top level for proper context access */}
+      {/* Hidden from view but fully functional for audio analysis */}
+      <div 
+        className="fixed top-0 opacity-0 pointer-events-none" 
+        style={{ left: '-9999px', width: '400px', height: '300px' }}
+        aria-hidden="true"
+      >
+        <VoiceVisualizer 
+          isRecording={sessionStatus === "CONNECTED"} 
+          sessionStatus={sessionStatus} 
+          getMicStream={getMicStream}
+          onReportReady={(getReport) => {
+            getVoiceAnalysisReportRef.current = getReport;
+          }}
+        />
+      </div>
+
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-xl border-b border-slate-700">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -646,11 +663,7 @@ function CandidateAppContent() {
             sessionStatus={sessionStatus}
             currentPhase={currentPhase}
             transcriptItems={transcriptItems}
-            getMicStream={getMicStream}
             onDisconnect={handleDisconnect}
-            onReportReady={(getReport) => {
-              getVoiceAnalysisReportRef.current = getReport;
-            }}
           />
         )}
       </main>
@@ -813,17 +826,13 @@ function EvaluationInterface({
   sessionStatus,
   currentPhase,
   transcriptItems,
-  getMicStream,
   onDisconnect,
-  onReportReady,
 }: {
   candidate: CandidateInfo;
   sessionStatus: string;
   currentPhase: EvaluationPhase;
   transcriptItems: any[];
-  getMicStream: () => MediaStream | null;
   onDisconnect: () => void;
-  onReportReady?: (getReport: () => any) => void;
 }) {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -879,21 +888,6 @@ function EvaluationInterface({
 
         {/* Right side - Phase Progress and Controls */}
         <div className="col-span-5 space-y-6">
-          {/* Voice Quality Analysis - Invisible to candidate but fully functional for audio analysis */}
-          {/* Fixed positioning off-screen with full dimensions so canvas renders properly */}
-          <div 
-            className="fixed top-0 opacity-0 pointer-events-none" 
-            style={{ left: '-9999px', width: '400px' }}
-            aria-hidden="true"
-          >
-            <VoiceVisualizer 
-              isRecording={sessionStatus === "CONNECTED"} 
-              sessionStatus={sessionStatus} 
-              getMicStream={getMicStream}
-              onReportReady={onReportReady}
-            />
-          </div>
-
           {/* Evaluation Progress */}
           <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
             <h3 className="font-medium text-white mb-4 flex items-center gap-2">
