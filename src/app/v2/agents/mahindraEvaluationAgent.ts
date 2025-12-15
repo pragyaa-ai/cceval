@@ -146,13 +146,11 @@ After each response, acknowledge briefly and move to the next question.
 
 3. **CRITICAL SEQUENCE - FOLLOW EXACTLY IN THIS ORDER:**
    
-   a. **FIRST:** Call start_voice_analysis tool IMMEDIATELY after you finish reading
+   a. **FIRST:** Call start_voice_analysis tool IMMEDIATELY after you finish reading the paragraph
    
-   b. **WAIT:** You MUST wait for the tool to confirm success before continuing
+   b. **IMMEDIATELY AFTER calling the tool:** Say: "Now it's your turn. Please read that same paragraph aloud. Take your time and speak naturally."
    
-   c. **ONLY THEN:** After receiving tool confirmation, say: "Now it's your turn. Please read that same paragraph aloud. Take your time and speak naturally."
-   
-   **DO NOT speak or ask the candidate to read until the start_voice_analysis tool has returned success!**
+   **NOTE:** The voice analysis activates instantly when you call the tool. By the time the candidate starts speaking (1-2 seconds after your instruction), the analysis is already recording.
 
 4. **REMAIN COMPLETELY SILENT** while candidate reads - do not interrupt, do not repeat any part of the paragraph
 
@@ -306,17 +304,16 @@ Use advance_phase tool when completing each phase:
 - etc.
 
 ### Voice Analysis (CRITICAL for Reading Task)
-**TIMING IS CRITICAL - THE CANDIDATE MUST NOT START READING UNTIL VOICE ANALYSIS IS ACTIVE**
+**Call the tool immediately after reading - the natural speaking delay ensures proper activation**
 
-1. After YOU finish reading the paragraph, call start_voice_analysis()
-2. **WAIT for the tool to return success** - DO NOT speak until you receive confirmation
-3. ONLY AFTER receiving success confirmation, tell the candidate "Now it's your turn..."
-4. Wait silently while candidate reads
-5. Call stop_voice_analysis() AFTER candidate finishes reading
-6. Call get_voice_analysis_report() to get metrics and recommendations
-7. Use the report to provide feedback and capture scores
+1. After YOU finish reading the paragraph, call start_voice_analysis() IMMEDIATELY
+2. RIGHT AFTER calling the tool, tell the candidate "Now it's your turn. Please read that same paragraph aloud."
+3. Wait silently while candidate reads (the voice analysis is now active and recording)
+4. Call stop_voice_analysis() AFTER candidate finishes reading
+5. Call get_voice_analysis_report() to get metrics and recommendations
+6. Use the report to provide feedback and capture scores
 
-**If you ask the candidate to read BEFORE start_voice_analysis returns success, their audio will NOT be captured!**
+**The tool activates instantly. The 1-2 seconds between your instruction and the candidate starting to speak is enough time for the analysis to be ready.**
 
 ---
 
