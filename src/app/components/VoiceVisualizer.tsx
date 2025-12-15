@@ -28,18 +28,24 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   const { isAnalysisActive } = useVoiceAnalysis(); // From context - controls when to collect samples
   const [hasConnectedStream, setHasConnectedStream] = useState(false);
 
+  // Track component instance for debugging
+  const componentIdRef = useRef(Math.random().toString(36).substring(7));
+  
   // Log component mount to verify it's being rendered
   useEffect(() => {
-    console.log('🎨🎨🎨 VoiceVisualizer MOUNTED - Component is rendering');
-    console.log('🎨 Initial isAnalysisActive:', isAnalysisActive);
+    console.log(`🎨🎨🎨 VoiceVisualizer [${componentIdRef.current}] MOUNTED - Component is rendering`);
+    console.log(`🎨 [${componentIdRef.current}] Initial isAnalysisActive:`, isAnalysisActive);
     return () => {
-      console.log('🎨 VoiceVisualizer UNMOUNTED');
+      console.log(`🎨 VoiceVisualizer [${componentIdRef.current}] UNMOUNTED`);
     };
   }, []);
   
-  // Log whenever isAnalysisActive changes
+  // Log whenever isAnalysisActive changes - this is CRITICAL for debugging
   useEffect(() => {
-    console.log('🔔🔔🔔 VoiceVisualizer: isAnalysisActive changed to:', isAnalysisActive);
+    console.log(`🔔🔔🔔 VoiceVisualizer [${componentIdRef.current}]: isAnalysisActive changed to:`, isAnalysisActive);
+    if (isAnalysisActive) {
+      console.log(`✅ [${componentIdRef.current}] Should now call setCollectingSamples(true) in the next effect`);
+    }
   }, [isAnalysisActive]);
 
   // Connect the mic stream for analysis when session is connected
@@ -117,26 +123,30 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
 
   // Control sample collection based on analysis phase
   useEffect(() => {
+    console.log(`🔄 [${componentIdRef.current}] Sample collection effect triggered`);
+    console.log(`🔄 [${componentIdRef.current}] isAnalysisActive:`, isAnalysisActive);
+    
     if (isAnalysisActive) {
-      console.log('📊📊📊 Voice analysis phase ACTIVE - collecting samples NOW');
-      console.log('📊 hasConnectedStream:', hasConnectedStream);
-      console.log('📊 isAnalyzing:', isAnalyzing);
-      console.log('📊 Current metricsHistory length:', metricsHistory.length);
+      console.log(`📊📊📊 [${componentIdRef.current}] Voice analysis phase ACTIVE - calling setCollectingSamples(true)`);
+      console.log(`📊 [${componentIdRef.current}] hasConnectedStream:`, hasConnectedStream);
+      console.log(`📊 [${componentIdRef.current}] isAnalyzing:`, isAnalyzing);
+      console.log(`📊 [${componentIdRef.current}] Current metricsHistory length:`, metricsHistory.length);
       
       if (!hasConnectedStream) {
-        console.warn('⚠️⚠️⚠️ WARNING: Voice analysis active but mic stream NOT connected!');
-        console.warn('⚠️ Samples will NOT be collected until mic stream connects.');
+        console.warn(`⚠️⚠️⚠️ [${componentIdRef.current}] WARNING: Voice analysis active but mic stream NOT connected!`);
+        console.warn(`⚠️ [${componentIdRef.current}] Samples will NOT be collected until mic stream connects.`);
       }
       
       if (!isAnalyzing) {
-        console.warn('⚠️⚠️⚠️ WARNING: Voice analysis active but analyser NOT running!');
+        console.warn(`⚠️⚠️⚠️ [${componentIdRef.current}] WARNING: Voice analysis active but analyser NOT running!`);
       }
       
       setCollectingSamples(true);
+      console.log(`✅ [${componentIdRef.current}] setCollectingSamples(true) was called`);
     } else {
-      console.log('⏸️ Voice analysis phase INACTIVE - not collecting samples');
-      console.log('⏸️ hasConnectedStream:', hasConnectedStream);
-      console.log('⏸️ metricsHistory length:', metricsHistory.length);
+      console.log(`⏸️ [${componentIdRef.current}] Voice analysis phase INACTIVE - calling setCollectingSamples(false)`);
+      console.log(`⏸️ [${componentIdRef.current}] hasConnectedStream:`, hasConnectedStream);
+      console.log(`⏸️ [${componentIdRef.current}] metricsHistory length:`, metricsHistory.length);
       setCollectingSamples(false);
     }
   }, [isAnalysisActive, setCollectingSamples, hasConnectedStream, isAnalyzing, metricsHistory.length]);

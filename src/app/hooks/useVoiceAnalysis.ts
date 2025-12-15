@@ -40,8 +40,11 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const setCollectingSamples = useCallback((collecting: boolean) => {
-    console.log(`🎯 Voice sample collection: ${collecting ? 'ENABLED' : 'DISABLED'}`);
+    const wasCollecting = collectingSamplesRef.current;
+    console.log(`🎯🎯🎯 Voice sample collection CHANGING: ${wasCollecting} -> ${collecting}`);
+    console.log(`🎯 setCollectingSamples called with:`, collecting);
     collectingSamplesRef.current = collecting;
+    console.log(`🎯 collectingSamplesRef.current is now:`, collectingSamplesRef.current);
   }, []);
 
   const clearHistory = useCallback(() => {

@@ -164,10 +164,16 @@ function CandidateAppContent() {
   const handleStartVoiceAnalysis = useCallback(() => {
     console.log("[v2] 🎤🎤🎤 handleStartVoiceAnalysis CALLED - Starting voice analysis for reading task");
     console.log("[v2] Current evaluation ID from ref:", evaluationIdRef.current);
+    console.log("[v2] Current isAnalysisActive state:", isAnalysisActive);
+    console.log("[v2] startAnalysis function type:", typeof startAnalysis);
     console.log("[v2] About to call startAnalysis() from VoiceAnalysisContext...");
-    startAnalysis();
-    console.log("[v2] ✅ startAnalysis() called - Voice analysis context should now be activated");
-  }, [startAnalysis]);
+    try {
+      startAnalysis();
+      console.log("[v2] ✅ startAnalysis() called successfully - Voice analysis context should now be activated");
+    } catch (error) {
+      console.error("[v2] ❌ Error calling startAnalysis():", error);
+    }
+  }, [startAnalysis, isAnalysisActive]);
 
   const handleStopVoiceAnalysis = useCallback(() => {
     console.log("[v2] 🛑 handleStopVoiceAnalysis called - Stopping voice analysis");
