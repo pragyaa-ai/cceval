@@ -14,6 +14,8 @@ interface VoiceVisualizerProps {
   getMicStream?: () => MediaStream | null;
   candidateInfo?: CandidateInfo;
   onReportReady?: (getReport: () => any) => void;
+  /** Pass isAnalysisActive directly as prop to avoid context propagation issues */
+  isAnalysisActiveProp?: boolean;
 }
 
 const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({ 
@@ -21,11 +23,16 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   sessionStatus,
   getMicStream,
   candidateInfo,
-  onReportReady
+  onReportReady,
+  isAnalysisActiveProp
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { startAnalysis, stopAnalysis, currentMetrics, metricsHistory, isAnalyzing, setCollectingSamples, clearHistory } = useVoiceQualityAnalysis();
-  const { isAnalysisActive } = useVoiceAnalysis(); // From context - controls when to collect samples
+  const contextValue = useVoiceAnalysis(); // From context - controls when to collect samples
+  
+  // Use prop if provided, otherwise fall back to context
+  const isAnalysisActive = isAnalysisActiveProp !== undefined ? isAnalysisActiveProp : contextValue.isAnalysisActive;
+  
   const [hasConnectedStream, setHasConnectedStream] = useState(false);
 
   // Track component instance for debugging
@@ -35,6 +42,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   useEffect(() => {
     console.log(`🎨🎨🎨 VoiceVisualizer [${componentIdRef.current}] MOUNTED - Component is rendering`);
     console.log(`🎨 [${componentIdRef.current}] Initial isAnalysisActive:`, isAnalysisActive);
+    console.log(`🎨 [${componentIdRef.current}] Using ${isAnalysisActiveProp !== undefined ? 'PROP' : 'CONTEXT'} for isAnalysisActive`);
     return () => {
       console.log(`🎨 VoiceVisualizer [${componentIdRef.current}] UNMOUNTED`);
     };
@@ -42,11 +50,12 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   
   // Log whenever isAnalysisActive changes - this is CRITICAL for debugging
   useEffect(() => {
-    console.log(`🔔🔔🔔 VoiceVisualizer [${componentIdRef.current}]: isAnalysisActive changed to:`, isAnalysisActive);
+    const source = isAnalysisActiveProp !== undefined ? 'PROP' : 'CONTEXT';
+    console.log(`🔔🔔🔔 VoiceVisualizer [${componentIdRef.current}]: isAnalysisActive changed to:`, isAnalysisActive, `(source: ${source})`);
     if (isAnalysisActive) {
       console.log(`✅ [${componentIdRef.current}] Should now call setCollectingSamples(true) in the next effect`);
     }
-  }, [isAnalysisActive]);
+  }, [isAnalysisActive, isAnalysisActiveProp]);
 
   // Connect the mic stream for analysis when session is connected
   // Implements retry logic to handle race conditions with mic stream availability

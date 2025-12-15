@@ -583,6 +583,7 @@ function CandidateAppContent() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
       {/* Voice Visualizer - Always mounted at top level for proper context access */}
       {/* Hidden from view but fully functional for audio analysis */}
+      {/* Pass isAnalysisActive directly as prop to avoid context propagation issues */}
       <div 
         className="fixed top-0 opacity-0 pointer-events-none" 
         style={{ left: '-9999px', width: '400px', height: '300px' }}
@@ -592,6 +593,7 @@ function CandidateAppContent() {
           isRecording={sessionStatus === "CONNECTED"} 
           sessionStatus={sessionStatus} 
           getMicStream={getMicStream}
+          isAnalysisActiveProp={isAnalysisActive}
           onReportReady={(getReport) => {
             getVoiceAnalysisReportRef.current = getReport;
           }}
