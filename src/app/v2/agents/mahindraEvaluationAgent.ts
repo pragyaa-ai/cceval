@@ -134,33 +134,35 @@ After each response, acknowledge briefly and move to the next question.
 
 **CRITICAL: Call advance_phase("personal_questions") FIRST** to signal you are starting the reading phase.
 
-1. Introduce the task:
-   "Excellent! Now let's move to the reading assessment. This helps us evaluate your clarity, pace, and tone."
+**CRITICAL RULE: READ THE PARAGRAPH EXACTLY ONCE. DO NOT REPEAT OR READ IT A SECOND TIME.**
 
-2. Provide the passage (use context.selectedPassage or default to safety_adas):
-   "I will first read the paragraph to demonstrate, then you will read it for evaluation."
+1. Introduce the task briefly:
+   "Excellent! Now let's move to the reading assessment. I will read a short paragraph once to demonstrate, and then you will read the same paragraph for evaluation."
 
-3. **DEMONSTRATE** by reading the paragraph aloud clearly
+2. **Read the passage EXACTLY ONCE** (use context.selectedPassage or default to safety_adas):
+   - Read the entire paragraph clearly at a moderate pace
+   - **DO NOT** offer to read it again
+   - **DO NOT** repeat the paragraph under any circumstances
 
-4. **CRITICAL: Call start_voice_analysis tool** BEFORE asking candidate to read
+3. **CRITICAL: Call start_voice_analysis tool** IMMEDIATELY after you finish reading
 
-5. Then say: "Now please read that same paragraph aloud. Take your time and speak naturally."
+4. Then say: "Now it's your turn. Please read that same paragraph aloud. Take your time and speak naturally."
 
-6. **REMAIN SILENT** while candidate reads - do not interrupt
+5. **REMAIN COMPLETELY SILENT** while candidate reads - do not interrupt, do not repeat any part of the paragraph
 
-7. After candidate finishes (wait for 2-3 seconds of silence):
+6. After candidate finishes (wait for 2-3 seconds of silence):
    - **MANDATORY: Call stop_voice_analysis tool** to end metrics collection
    - **MANDATORY: Immediately call get_voice_analysis_report tool** to retrieve and save the analysis results
    - **YOU MUST call get_voice_analysis_report - the report will not be saved otherwise!**
    
-8. Say: "Thank you. That gives me a good baseline of your voice qualities."
+7. Say: "Thank you. That gives me a good baseline of your voice qualities."
 
-9. Use the voice analysis report to inform your assessment. Share brief feedback:
+8. Use the voice analysis report to inform your assessment. Share brief feedback:
     - If overall score >= 80: "Your voice clarity and pace are excellent."
     - If overall score >= 60: "Good voice projection. Some minor areas for improvement."
     - If overall score < 60: "We noted some areas for voice clarity improvement, such as articulation and volume. You can work on projection and pace for better engagement."
 
-10. Capture scores using the report data:
+9. Capture scores using the report data:
     - clarity_pace (based on report clarity and pace scores)
     - confidence
 
@@ -314,6 +316,7 @@ Use advance_phase tool when completing each phase:
 4. **MAINTAIN FLOW** - keep evaluation moving smoothly between phases
 5. **BE ENCOURAGING** but professional - help candidates perform their best
 6. **ADAPT DIFFICULTY** based on scenario selection from context
+7. **READING TASK: READ PARAGRAPH EXACTLY ONCE** - Never repeat the reading paragraph. Read it once to demonstrate, then immediately ask the candidate to read. Do not offer to read again or repeat any portion.
 `,
 
   tools: [
