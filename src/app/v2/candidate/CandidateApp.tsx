@@ -873,9 +873,13 @@ function EvaluationInterface({
 
         {/* Right side - Phase Progress and Controls */}
         <div className="col-span-5 space-y-6">
-          {/* Voice Quality Analysis - Hidden from candidate view, only shown to evaluator */}
-          {/* VoiceVisualizer is mounted but hidden to continue collecting metrics for the backend */}
-          <div className="hidden">
+          {/* Voice Quality Analysis - Invisible to candidate but fully functional for audio analysis */}
+          {/* Fixed positioning off-screen with full dimensions so canvas renders properly */}
+          <div 
+            className="fixed top-0 opacity-0 pointer-events-none" 
+            style={{ left: '-9999px', width: '400px' }}
+            aria-hidden="true"
+          >
             <VoiceVisualizer 
               isRecording={sessionStatus === "CONNECTED"} 
               sessionStatus={sessionStatus} 
