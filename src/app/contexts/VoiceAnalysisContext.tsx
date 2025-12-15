@@ -32,19 +32,19 @@ export function VoiceAnalysisProvider({ children }: { children: ReactNode }) {
 
   const startAnalysis = useCallback(() => {
     console.log(`🎤🎤🎤 VOICE ANALYSIS STARTED - Provider #${instanceIdRef.current}`);
-    console.log('📊 Analysis active state changing from', isAnalysisActive, 'to TRUE');
+    console.log('📊 Analysis active state changing to TRUE');
     setIsAnalysisActive(true);
     // Verify state change happened
     setTimeout(() => {
       console.log(`📊 [Verification] isAnalysisActive should now be true in provider #${instanceIdRef.current}`);
     }, 100);
-  }, [isAnalysisActive]);
+  }, []); // No dependencies - just sets state to true
 
   const stopAnalysis = useCallback(() => {
     console.log(`🛑🛑🛑 VOICE ANALYSIS STOPPED - Provider #${instanceIdRef.current}`);
-    console.log('📊 Analysis active state changing from', isAnalysisActive, 'to FALSE');
+    console.log('📊 Analysis active state changing to FALSE');
     setIsAnalysisActive(false);
-  }, [isAnalysisActive]);
+  }, []); // No dependencies - just sets state to false
 
   return (
     <VoiceAnalysisContext.Provider value={{ isAnalysisActive, startAnalysis, stopAnalysis }}>

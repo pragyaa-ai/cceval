@@ -63,6 +63,16 @@ function CandidateAppContent() {
   const { logClientEvent } = useEvent();
   const { startAnalysis, stopAnalysis, isAnalysisActive } = useVoiceAnalysis();
   
+  // Debug: Log isAnalysisActive whenever it changes in CandidateAppContent
+  const renderCountRef = useRef(0);
+  renderCountRef.current++;
+  console.log(`🏠 CandidateAppContent RENDER #${renderCountRef.current} - isAnalysisActive:`, isAnalysisActive);
+  
+  useEffect(() => {
+    console.log(`🏠🏠🏠 CandidateAppContent: isAnalysisActive CHANGED to:`, isAnalysisActive);
+    console.log(`🏠 This value will be passed to VoiceVisualizer as isAnalysisActiveProp`);
+  }, [isAnalysisActive]);
+  
   // Voice quality analysis hook for getting metrics
   const voiceAnalysisRef = useRef<ReturnType<typeof useVoiceQualityAnalysis> | null>(null);
   
@@ -164,7 +174,6 @@ function CandidateAppContent() {
   const handleStartVoiceAnalysis = useCallback(() => {
     console.log("[v2] 🎤🎤🎤 handleStartVoiceAnalysis CALLED - Starting voice analysis for reading task");
     console.log("[v2] Current evaluation ID from ref:", evaluationIdRef.current);
-    console.log("[v2] Current isAnalysisActive state:", isAnalysisActive);
     console.log("[v2] startAnalysis function type:", typeof startAnalysis);
     console.log("[v2] About to call startAnalysis() from VoiceAnalysisContext...");
     try {
@@ -173,7 +182,7 @@ function CandidateAppContent() {
     } catch (error) {
       console.error("[v2] ❌ Error calling startAnalysis():", error);
     }
-  }, [startAnalysis, isAnalysisActive]);
+  }, [startAnalysis]); // Only depend on startAnalysis
 
   const handleStopVoiceAnalysis = useCallback(() => {
     console.log("[v2] 🛑 handleStopVoiceAnalysis called - Stopping voice analysis");
@@ -584,6 +593,10 @@ function CandidateAppContent() {
       {/* Voice Visualizer - Always mounted at top level for proper context access */}
       {/* Hidden from view but fully functional for audio analysis */}
       {/* Pass isAnalysisActive directly as prop to avoid context propagation issues */}
+      {(() => {
+        console.log(`🔗🔗🔗 RENDERING VoiceVisualizer with isAnalysisActiveProp=${isAnalysisActive}`);
+        return null;
+      })()}
       <div 
         className="fixed top-0 opacity-0 pointer-events-none" 
         style={{ left: '-9999px', width: '400px', height: '300px' }}
