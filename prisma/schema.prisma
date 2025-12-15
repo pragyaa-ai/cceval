@@ -61,6 +61,7 @@ model User {
   // Evaluation relationships
   batchesCreated    Batch[]      @relation("BatchCreator")
   evaluationsScored Evaluation[] @relation("EvaluationScorer")
+  feedbacks         EvaluatorFeedback[] @relation("EvaluatorFeedbacks")
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -139,6 +140,7 @@ model Evaluation {
   scores          Score[]
   transcriptItems TranscriptItem[]
   phaseResults    PhaseResult[]
+  feedbacks       EvaluatorFeedback[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -154,10 +156,50 @@ model Score {
   evaluationId String
   evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
   
+  // Evaluator feedback on this score
+  feedbacks EvaluatorFeedback[]
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   @@unique([evaluationId, parameterId])
+}
+
+// Evaluator Feedback - Human review of AI-generated evaluations
+model EvaluatorFeedback {
+  id           String   @id @default(cuid())
+  
+  // Can be associated with a specific score parameter or voice quality metric
+  scoreId      String?  // For score parameter feedback (nullable)
+  score        Score?   @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+  
+  evaluationId String   // Always linked to an evaluation
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  
+  // Feedback type: "score" for scoring parameters, "voice_quality" for voice metrics
+  feedbackType String   @default("score") // score, voice_quality
+  
+  // For voice quality feedback, specify which metric (clarity, volume, tone, pace, overall)
+  voiceMetric  String?  // clarity, volume, tone, pace, overall
+  
+  // The human evaluator providing feedback
+  evaluatorId  String
+  evaluator    User     @relation("EvaluatorFeedbacks", fields: [evaluatorId], references: [id])
+  
+  // Original AI score (preserved for comparison)
+  originalScore Int?    // 1-5 for scoring, or percentage for voice metrics
+  
+  // Human-adjusted score
+  adjustedScore Int?    // New score provided by evaluator
+  
+  // Feedback comment explaining the adjustment
+  comment      String   @db.Text
+  
+  // Session tracking for history
+  sessionDate  DateTime @default(now())
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 // Transcript Item

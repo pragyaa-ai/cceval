@@ -77,6 +77,25 @@ export interface ScoreData {
   notes: string;
 }
 
+export interface EvaluatorFeedbackData {
+  id: string;
+  feedbackType: "score" | "voice_quality";
+  scoreId: string | null;
+  voiceMetric: string | null; // "clarity" | "volume" | "tone" | "pace" | "overall"
+  originalScore: number | null;
+  adjustedScore: number | null;
+  comment: string;
+  sessionDate: string;
+  createdAt: string;
+  evaluator: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    image: string | null;
+  };
+  score?: ScoreData | null;
+}
+
 export interface BatchDetail extends BatchSummary {
   candidates: CandidateData[];
 }
@@ -221,6 +240,54 @@ export async function endEvaluation(evaluationId: string): Promise<EvaluationDat
     throw new Error(error.error || "Failed to end evaluation");
   }
   return response.json();
+}
+
+// Evaluator Feedback API functions
+export async function fetchEvaluatorFeedback(evaluationId: string): Promise<EvaluatorFeedbackData[]> {
+  const response = await fetch(`/api/v2/evaluations/${evaluationId}/feedback`);
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to fetch feedback");
+  }
+  return response.json();
+}
+
+export async function addEvaluatorFeedback(
+  evaluationId: string,
+  data: {
+    feedbackType: "score" | "voice_quality";
+    parameterId?: string;      // For score feedback - the parameter ID
+    scoreId?: string;          // Alternative: direct score ID
+    voiceMetric?: string;      // For voice_quality: "clarity" | "volume" | "tone" | "pace" | "overall"
+    originalScore?: number;
+    adjustedScore?: number;
+    comment: string;
+  }
+): Promise<EvaluatorFeedbackData> {
+  const response = await fetch(`/api/v2/evaluations/${evaluationId}/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to add feedback");
+  }
+  return response.json();
+}
+
+export async function deleteEvaluatorFeedback(
+  evaluationId: string,
+  feedbackId: string
+): Promise<void> {
+  const response = await fetch(
+    `/api/v2/evaluations/${evaluationId}/feedback?feedbackId=${feedbackId}`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to delete feedback");
+  }
 }
 
 // Custom hook for batches with loading state

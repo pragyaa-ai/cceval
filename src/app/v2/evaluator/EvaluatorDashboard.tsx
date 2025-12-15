@@ -16,11 +16,15 @@ import {
   deleteCandidate,
   regenerateAccessCode,
   addScore,
+  fetchEvaluatorFeedback,
+  addEvaluatorFeedback,
+  deleteEvaluatorFeedback,
   BatchSummary,
   BatchDetail,
   CandidateData,
   EvaluationData,
   VoiceAnalysisReport,
+  EvaluatorFeedbackData,
 } from "../hooks/useApi";
 
 type TabType = "batches" | "candidates" | "evaluation" | "results" | "settings";
@@ -1738,21 +1742,56 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
       {selectedCandidate && (
         <CandidateDetailsModal 
           candidate={selectedCandidate} 
-          onClose={() => setSelectedCandidate(null)} 
+          onClose={() => setSelectedCandidate(null)}
+          onRefresh={onRefresh}
         />
       )}
     </div>
   );
 }
 
-// Candidate Details Modal Component
+// Candidate Details Modal Component with Evaluator Feedback
 function CandidateDetailsModal({ 
   candidate, 
-  onClose 
+  onClose,
+  onRefresh,
 }: { 
   candidate: CandidateData; 
   onClose: () => void;
+  onRefresh?: () => void;
 }) {
+  const [activeTab, setActiveTab] = useState<"overview" | "scores" | "voice" | "feedback">("overview");
+  const [feedbacks, setFeedbacks] = useState<EvaluatorFeedbackData[]>([]);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [feedbackTarget, setFeedbackTarget] = useState<{
+    type: "score" | "voice_quality";
+    parameterId?: string;
+    parameterLabel?: string;
+    voiceMetric?: string;
+    currentScore?: number;
+  } | null>(null);
+
+  // Load feedback when modal opens or tab changes to feedback
+  useEffect(() => {
+    if (candidate.evaluation?.id && (activeTab === "feedback" || activeTab === "scores" || activeTab === "voice")) {
+      loadFeedback();
+    }
+  }, [candidate.evaluation?.id, activeTab]);
+
+  const loadFeedback = async () => {
+    if (!candidate.evaluation?.id) return;
+    setLoadingFeedback(true);
+    try {
+      const data = await fetchEvaluatorFeedback(candidate.evaluation.id);
+      setFeedbacks(data);
+    } catch (error) {
+      console.error("Failed to load feedback:", error);
+    } finally {
+      setLoadingFeedback(false);
+    }
+  };
+
   const getOverallScore = (): number => {
     if (!candidate.evaluation || candidate.evaluation.scores.length === 0) return 0;
     const total = candidate.evaluation.scores.reduce((sum, s) => sum + s.score, 0);
@@ -1761,139 +1800,283 @@ function CandidateDetailsModal({
 
   const overallScore = getOverallScore();
 
+  // Get feedback for a specific parameter or metric
+  const getFeedbackForItem = (type: "score" | "voice_quality", id: string) => {
+    return feedbacks.filter(f => 
+      f.feedbackType === type && 
+      (type === "score" ? f.score?.parameterId === id : f.voiceMetric === id)
+    );
+  };
+
+  const handleOpenFeedbackForm = (target: typeof feedbackTarget) => {
+    setFeedbackTarget(target);
+    setShowFeedbackForm(true);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
+        <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-white">
           <div>
             <h2 className="text-xl font-bold text-slate-800">{candidate.name}</h2>
             <p className="text-slate-500 text-sm">{candidate.email || "No email provided"}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-          >
-            <svg className="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-4">
+            {/* Tab Navigation */}
+            <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+              {[
+                { id: "overview" as const, label: "Overview", icon: "📋" },
+                { id: "scores" as const, label: "Scores", icon: "📊" },
+                { id: "voice" as const, label: "Voice", icon: "🎙️" },
+                { id: "feedback" as const, label: "Feedback History", icon: "💬" },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === tab.id 
+                      ? "bg-white text-violet-600 shadow-sm" 
+                      : "text-slate-600 hover:text-slate-800"
+                  }`}
+                >
+                  <span className="mr-1">{tab.icon}</span>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+            >
+              <svg className="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Overall Score */}
-          <div className="bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-violet-200 text-sm">Overall Score</p>
-                <p className="text-4xl font-bold mt-1">{overallScore > 0 ? `${overallScore}/5` : "No scores yet"}</p>
-                <p className="text-violet-200 text-sm mt-2">
-                  {overallScore >= 4 ? "Excellent Performance" : 
-                   overallScore >= 3 ? "Good Performance" : 
-                   overallScore >= 2 ? "Needs Improvement" : 
-                   overallScore > 0 ? "Below Expectations" : "Waiting for evaluation scores"}
-                </p>
-                {overallScore === 0 && (
-                  <p className="text-xs text-violet-300 mt-2">
-                    {candidate.evaluation?.scores.length || 0} parameters scored
-                  </p>
-                )}
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === "overview" && (
+            <div className="space-y-6">
+              {/* Overall Score */}
+              <div className="bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-violet-200 text-sm">Overall Score</p>
+                    <p className="text-4xl font-bold mt-1">{overallScore > 0 ? `${overallScore}/5` : "No scores yet"}</p>
+                    <p className="text-violet-200 text-sm mt-2">
+                      {overallScore >= 4 ? "Excellent Performance" : 
+                       overallScore >= 3 ? "Good Performance" : 
+                       overallScore >= 2 ? "Needs Improvement" : 
+                       overallScore > 0 ? "Below Expectations" : "Waiting for evaluation scores"}
+                    </p>
+                  </div>
+                  <div className="text-6xl opacity-20">📊</div>
+                </div>
               </div>
-              <div className="text-6xl opacity-20">📊</div>
-            </div>
-          </div>
 
-          {/* Configuration */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-50 rounded-xl p-4">
-              <p className="text-sm text-slate-500">Reading Passage</p>
-              <p className="font-medium text-slate-800 mt-1">
-                {READING_PASSAGES[candidate.selectedPassage as keyof typeof READING_PASSAGES]?.title || candidate.selectedPassage}
-              </p>
-            </div>
-            <div className="bg-slate-50 rounded-xl p-4">
-              <p className="text-sm text-slate-500">Call Scenario</p>
-              <p className="font-medium text-slate-800 mt-1">
-                {CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.level || candidate.selectedScenario} Level
-              </p>
-            </div>
-          </div>
+              {/* Configuration */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-sm text-slate-500">Reading Passage</p>
+                  <p className="font-medium text-slate-800 mt-1">
+                    {READING_PASSAGES[candidate.selectedPassage as keyof typeof READING_PASSAGES]?.title || candidate.selectedPassage}
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-sm text-slate-500">Call Scenario</p>
+                  <p className="font-medium text-slate-800 mt-1">
+                    {CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.level || candidate.selectedScenario} Level
+                  </p>
+                </div>
+              </div>
 
-          {/* Detailed Scores */}
-          <div>
-            <h3 className="font-medium text-slate-800 mb-4">Detailed Scores</h3>
-            <div className="grid grid-cols-2 gap-4">
-              {SCORING_PARAMETERS.map((param) => {
-                const scoreEntry = candidate.evaluation?.scores.find((s) => s.parameterId === param.id);
-                const score = scoreEntry?.score || 0;
-                
-                return (
-                  <div key={param.id} className="bg-slate-50 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-slate-700">{param.label}</span>
-                      <span className={`text-lg font-bold ${
-                        score >= 4 ? "text-emerald-600" : 
-                        score >= 3 ? "text-amber-600" : 
-                        score > 0 ? "text-red-600" : "text-slate-400"
-                      }`}>
-                        {score || "—"}/5
-                      </span>
+              {/* Session Info */}
+              {candidate.evaluation && (
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <h3 className="font-medium text-slate-800 mb-3">Session Information</h3>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-slate-500">Session ID</p>
+                      <p className="font-mono text-slate-700 mt-1">{candidate.evaluation.sessionId}</p>
                     </div>
-                    <p className="text-xs text-slate-500">{param.description}</p>
-                    {/* Score bar */}
-                    <div className="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all ${
-                          score >= 4 ? "bg-emerald-500" : 
-                          score >= 3 ? "bg-amber-500" : 
-                          score > 0 ? "bg-red-500" : "bg-slate-300"
-                        }`}
-                        style={{ width: `${(score / 5) * 100}%` }}
-                      />
+                    <div>
+                      <p className="text-slate-500">Start Time</p>
+                      <p className="text-slate-700 mt-1">
+                        {candidate.evaluation.startTime 
+                          ? new Date(candidate.evaluation.startTime).toLocaleString() 
+                          : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">End Time</p>
+                      <p className="text-slate-700 mt-1">
+                        {candidate.evaluation.endTime 
+                          ? new Date(candidate.evaluation.endTime).toLocaleString() 
+                          : "—"}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
-          </div>
-
-          {/* Voice Quality Analysis */}
-          {candidate.evaluation && (
-            <VoiceAnalysisDisplay evaluation={candidate.evaluation} />
           )}
 
-          {/* Session Info */}
-          {candidate.evaluation && (
-            <div className="bg-slate-50 rounded-xl p-4">
-              <h3 className="font-medium text-slate-800 mb-3">Session Information</h3>
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <p className="text-slate-500">Session ID</p>
-                  <p className="font-mono text-slate-700 mt-1">{candidate.evaluation.sessionId}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500">Start Time</p>
-                  <p className="text-slate-700 mt-1">
-                    {candidate.evaluation.startTime 
-                      ? new Date(candidate.evaluation.startTime).toLocaleString() 
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-slate-500">End Time</p>
-                  <p className="text-slate-700 mt-1">
-                    {candidate.evaluation.endTime 
-                      ? new Date(candidate.evaluation.endTime).toLocaleString() 
-                      : "—"}
-                  </p>
-                </div>
+          {activeTab === "scores" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-slate-800">Detailed Scores - Review & Provide Feedback</h3>
+                <p className="text-sm text-slate-500">Click on any score to provide feedback</p>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                {SCORING_PARAMETERS.map((param) => {
+                  const scoreEntry = candidate.evaluation?.scores.find((s) => s.parameterId === param.id);
+                  const score = scoreEntry?.score || 0;
+                  const itemFeedbacks = getFeedbackForItem("score", param.id);
+                  const hasFeedback = itemFeedbacks.length > 0;
+                  
+                  return (
+                    <div 
+                      key={param.id} 
+                      className={`rounded-lg p-4 border-2 transition-all cursor-pointer hover:shadow-md ${
+                        hasFeedback 
+                          ? "bg-amber-50 border-amber-300" 
+                          : "bg-slate-50 border-transparent hover:border-violet-200"
+                      }`}
+                      onClick={() => handleOpenFeedbackForm({
+                        type: "score",
+                        parameterId: param.id,
+                        parameterLabel: param.label,
+                        currentScore: score,
+                      })}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-slate-700">{param.label}</span>
+                        <div className="flex items-center gap-2">
+                          {hasFeedback && (
+                            <span className="px-2 py-0.5 bg-amber-200 text-amber-800 text-xs rounded-full">
+                              {itemFeedbacks.length} feedback
+                            </span>
+                          )}
+                          <span className={`text-lg font-bold ${
+                            score >= 4 ? "text-emerald-600" : 
+                            score >= 3 ? "text-amber-600" : 
+                            score > 0 ? "text-red-600" : "text-slate-400"
+                          }`}>
+                            {score || "—"}/5
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500">{param.description}</p>
+                      {/* Score bar */}
+                      <div className="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all ${
+                            score >= 4 ? "bg-emerald-500" : 
+                            score >= 3 ? "bg-amber-500" : 
+                            score > 0 ? "bg-red-500" : "bg-slate-300"
+                          }`}
+                          style={{ width: `${(score / 5) * 100}%` }}
+                        />
+                      </div>
+                      {/* Show latest feedback preview */}
+                      {hasFeedback && (
+                        <div className="mt-3 pt-3 border-t border-amber-200">
+                          <p className="text-xs text-amber-700 font-medium">Latest feedback:</p>
+                          <p className="text-xs text-amber-600 mt-1 line-clamp-2">{itemFeedbacks[0].comment}</p>
+                          {itemFeedbacks[0].adjustedScore && (
+                            <p className="text-xs text-amber-800 mt-1">
+                              Adjusted: {itemFeedbacks[0].originalScore} → {itemFeedbacks[0].adjustedScore}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-xs text-violet-500 mt-2 flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        Click to add feedback
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "voice" && candidate.evaluation && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-slate-800">Voice Quality Analysis - Review & Provide Feedback</h3>
+                <p className="text-sm text-slate-500">Click on any metric to provide feedback</p>
+              </div>
+              
+              {/* Voice Analysis Display with Feedback */}
+              <VoiceAnalysisWithFeedback 
+                evaluation={candidate.evaluation}
+                feedbacks={feedbacks}
+                onAddFeedback={handleOpenFeedbackForm}
+              />
+            </div>
+          )}
+
+          {activeTab === "feedback" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-slate-800">Feedback History</h3>
+                <button 
+                  onClick={loadFeedback}
+                  className="text-sm text-violet-600 hover:text-violet-700 flex items-center gap-1"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+
+              {loadingFeedback ? (
+                <div className="text-center py-8 text-slate-500">Loading feedback...</div>
+              ) : feedbacks.length === 0 ? (
+                <div className="bg-slate-50 rounded-xl p-8 text-center">
+                  <svg className="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  <p className="text-slate-600 font-medium">No feedback yet</p>
+                  <p className="text-slate-500 text-sm mt-1">
+                    Use the Scores or Voice tabs to review and add feedback
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {feedbacks.map((feedback) => (
+                    <FeedbackHistoryItem 
+                      key={feedback.id} 
+                      feedback={feedback}
+                      onDelete={async () => {
+                        if (!candidate.evaluation?.id) return;
+                        if (!confirm("Delete this feedback?")) return;
+                        try {
+                          await deleteEvaluatorFeedback(candidate.evaluation.id, feedback.id);
+                          await loadFeedback();
+                          onRefresh?.();
+                        } catch (error) {
+                          console.error("Failed to delete feedback:", error);
+                          alert("Failed to delete feedback");
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
+        <div className="p-6 border-t border-slate-200 flex justify-end gap-3 bg-white">
           <button
             onClick={onClose}
             className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors"
@@ -1913,6 +2096,7 @@ function CandidateDetailsModal({
                   scenario: candidate.selectedScenario,
                 },
                 evaluation: candidate.evaluation,
+                feedbacks: feedbacks,
                 overallScore: getOverallScore(),
                 exportedAt: new Date().toISOString(),
               };
@@ -1928,7 +2112,484 @@ function CandidateDetailsModal({
             Export Details
           </button>
         </div>
+
+        {/* Feedback Form Modal */}
+        {showFeedbackForm && feedbackTarget && candidate.evaluation && (
+          <FeedbackFormModal
+            evaluationId={candidate.evaluation.id}
+            target={feedbackTarget}
+            onClose={() => {
+              setShowFeedbackForm(false);
+              setFeedbackTarget(null);
+            }}
+            onSubmit={async () => {
+              await loadFeedback();
+              onRefresh?.();
+              setShowFeedbackForm(false);
+              setFeedbackTarget(null);
+            }}
+          />
+        )}
       </div>
+    </div>
+  );
+}
+
+// Feedback Form Modal Component
+function FeedbackFormModal({
+  evaluationId,
+  target,
+  onClose,
+  onSubmit,
+}: {
+  evaluationId: string;
+  target: {
+    type: "score" | "voice_quality";
+    parameterId?: string;
+    parameterLabel?: string;
+    voiceMetric?: string;
+    currentScore?: number;
+  };
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  const [comment, setComment] = useState("");
+  const [adjustedScore, setAdjustedScore] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!comment.trim()) {
+      alert("Please enter a comment");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await addEvaluatorFeedback(evaluationId, {
+        feedbackType: target.type,
+        parameterId: target.parameterId,
+        voiceMetric: target.voiceMetric,
+        originalScore: target.currentScore,
+        adjustedScore: adjustedScore ?? undefined,
+        comment: comment.trim(),
+      });
+      onSubmit();
+    } catch (error) {
+      console.error("Failed to submit feedback:", error);
+      alert("Failed to submit feedback");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+        <div className="p-6 border-b border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800">Add Evaluator Feedback</h3>
+          <p className="text-slate-500 text-sm mt-1">
+            {target.type === "score" 
+              ? `Reviewing: ${target.parameterLabel}` 
+              : `Reviewing: ${target.voiceMetric?.charAt(0).toUpperCase()}${target.voiceMetric?.slice(1)} Quality`}
+          </p>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Current Score */}
+          <div className="bg-slate-50 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-600">Current AI Score</span>
+              <span className="text-lg font-bold text-slate-800">
+                {target.currentScore ?? "—"}
+                {target.type === "score" ? "/5" : "%"}
+              </span>
+            </div>
+          </div>
+
+          {/* Adjusted Score */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Adjusted Score (optional)
+            </label>
+            {target.type === "score" ? (
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setAdjustedScore(adjustedScore === n ? null : n)}
+                    className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                      adjustedScore === n
+                        ? "bg-violet-500 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={adjustedScore ?? target.currentScore ?? 50}
+                  onChange={(e) => setAdjustedScore(Number(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="text-lg font-bold text-slate-800 w-16 text-right">
+                  {adjustedScore ?? target.currentScore ?? 50}%
+                </span>
+              </div>
+            )}
+            {adjustedScore !== null && (
+              <button 
+                onClick={() => setAdjustedScore(null)}
+                className="text-xs text-slate-500 hover:text-slate-700 mt-2"
+              >
+                Clear adjustment
+              </button>
+            )}
+          </div>
+
+          {/* Comment */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Feedback Comment <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Explain your feedback or reason for adjusting the score..."
+              rows={4}
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+            />
+          </div>
+
+          <p className="text-xs text-slate-500">
+            💡 Your feedback will be saved and used to improve future AI evaluations
+          </p>
+        </div>
+
+        <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !comment.trim()}
+            className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50 transition-colors"
+          >
+            {submitting ? "Submitting..." : "Submit Feedback"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Feedback History Item Component
+function FeedbackHistoryItem({
+  feedback,
+  onDelete,
+}: {
+  feedback: EvaluatorFeedbackData;
+  onDelete: () => void;
+}) {
+  const getTargetLabel = () => {
+    if (feedback.feedbackType === "score" && feedback.score) {
+      const param = SCORING_PARAMETERS.find(p => p.id === feedback.score?.parameterId);
+      return param?.label || feedback.score.parameterId;
+    }
+    if (feedback.feedbackType === "voice_quality" && feedback.voiceMetric) {
+      return `${feedback.voiceMetric.charAt(0).toUpperCase()}${feedback.voiceMetric.slice(1)} Quality`;
+    }
+    return "Unknown";
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-3">
+          {/* Evaluator Avatar */}
+          <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+            {feedback.evaluator.image ? (
+              <img 
+                src={feedback.evaluator.image} 
+                alt={feedback.evaluator.name || ""} 
+                className="w-10 h-10 rounded-full"
+              />
+            ) : (
+              <span className="text-violet-600 font-medium">
+                {(feedback.evaluator.name || feedback.evaluator.email || "?").charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+          
+          <div className="flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium text-slate-800">
+                {feedback.evaluator.name || feedback.evaluator.email}
+              </span>
+              <span className="text-xs text-slate-400">•</span>
+              <span className="text-xs text-slate-500">
+                {new Date(feedback.sessionDate).toLocaleString()}
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                feedback.feedbackType === "score" 
+                  ? "bg-blue-100 text-blue-700" 
+                  : "bg-purple-100 text-purple-700"
+              }`}>
+                {feedback.feedbackType === "score" ? "Score" : "Voice"}
+              </span>
+              <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs">
+                {getTargetLabel()}
+              </span>
+            </div>
+            
+            <p className="text-slate-700 mt-2">{feedback.comment}</p>
+            
+            {(feedback.originalScore !== null || feedback.adjustedScore !== null) && (
+              <div className="flex items-center gap-4 mt-3 text-sm">
+                {feedback.originalScore !== null && (
+                  <span className="text-slate-500">
+                    Original: <strong className="text-slate-700">
+                      {feedback.originalScore}{feedback.feedbackType === "voice_quality" ? "%" : "/5"}
+                    </strong>
+                  </span>
+                )}
+                {feedback.adjustedScore !== null && (
+                  <span className="text-emerald-600">
+                    → Adjusted: <strong>
+                      {feedback.adjustedScore}{feedback.feedbackType === "voice_quality" ? "%" : "/5"}
+                    </strong>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={onDelete}
+          className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+          title="Delete feedback"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Voice Analysis with Feedback Component
+function VoiceAnalysisWithFeedback({
+  evaluation,
+  feedbacks,
+  onAddFeedback,
+}: {
+  evaluation: EvaluationData;
+  feedbacks: EvaluatorFeedbackData[];
+  onAddFeedback: (target: {
+    type: "score" | "voice_quality";
+    voiceMetric?: string;
+    currentScore?: number;
+  }) => void;
+}) {
+  // Parse voice analysis data
+  const voiceData: VoiceAnalysisReport | null = evaluation.voiceAnalysisData 
+    ? (() => {
+        try {
+          let parsed: unknown = evaluation.voiceAnalysisData;
+          if (typeof parsed === 'string') {
+            parsed = JSON.parse(parsed);
+            if (typeof parsed === 'string') {
+              parsed = JSON.parse(parsed);
+            }
+          }
+          if (parsed && typeof parsed === 'object' && 'overallScore' in parsed) {
+            return parsed as VoiceAnalysisReport;
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+
+  if (!voiceData) {
+    return (
+      <div className="bg-slate-50 rounded-xl p-8 text-center">
+        <p className="text-slate-500">No voice analysis data available</p>
+      </div>
+    );
+  }
+
+  const metrics = [
+    { id: "clarity", label: "Clarity", score: voiceData.clarityScore, target: 85 },
+    { id: "volume", label: "Volume", score: voiceData.volumeScore, target: 70 },
+    { id: "tone", label: "Tone", score: voiceData.toneScore, target: 80 },
+    { id: "pace", label: "Pace", score: voiceData.paceScore, target: 75 },
+    { id: "overall", label: "Overall", score: voiceData.overallScore, target: 75 },
+  ];
+
+  const getFeedbackForMetric = (metricId: string) => {
+    return feedbacks.filter(f => f.feedbackType === "voice_quality" && f.voiceMetric === metricId);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Overall Score Card */}
+      <div 
+        className={`rounded-xl p-6 cursor-pointer hover:shadow-md transition-all ${
+          getFeedbackForMetric("overall").length > 0 
+            ? "bg-amber-50 border-2 border-amber-300" 
+            : "bg-gradient-to-r from-emerald-500 to-teal-600"
+        }`}
+        onClick={() => onAddFeedback({
+          type: "voice_quality",
+          voiceMetric: "overall",
+          currentScore: voiceData.overallScore,
+        })}
+      >
+        <div className="flex items-center justify-between">
+          <div className={getFeedbackForMetric("overall").length > 0 ? "text-amber-900" : "text-white"}>
+            <p className={`text-sm ${getFeedbackForMetric("overall").length > 0 ? "text-amber-700" : "opacity-80"}`}>
+              Overall Voice Quality Score
+            </p>
+            <p className="text-4xl font-bold mt-1">{voiceData.overallScore}%</p>
+            <p className={`text-sm mt-2 ${getFeedbackForMetric("overall").length > 0 ? "text-amber-700" : "opacity-80"}`}>
+              {voiceData.assessment}
+            </p>
+          </div>
+          <div className={`text-6xl ${getFeedbackForMetric("overall").length > 0 ? "opacity-30" : "opacity-20"}`}>🎙️</div>
+        </div>
+        {getFeedbackForMetric("overall").length > 0 && (
+          <div className="mt-3 pt-3 border-t border-amber-300">
+            <p className="text-xs text-amber-700 font-medium">Has {getFeedbackForMetric("overall").length} feedback</p>
+          </div>
+        )}
+        <p className={`text-xs mt-2 flex items-center gap-1 ${getFeedbackForMetric("overall").length > 0 ? "text-amber-600" : "text-white/60"}`}>
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
+          Click to add feedback
+        </p>
+      </div>
+
+      {/* Individual Metrics */}
+      <div className="grid grid-cols-2 gap-4">
+        {metrics.filter(m => m.id !== "overall").map((metric) => {
+          const metricFeedbacks = getFeedbackForMetric(metric.id);
+          const hasFeedback = metricFeedbacks.length > 0;
+
+          return (
+            <div
+              key={metric.id}
+              className={`rounded-lg p-4 cursor-pointer hover:shadow-md transition-all border-2 ${
+                hasFeedback 
+                  ? "bg-amber-50 border-amber-300" 
+                  : "bg-slate-50 border-transparent hover:border-violet-200"
+              }`}
+              onClick={() => onAddFeedback({
+                type: "voice_quality",
+                voiceMetric: metric.id,
+                currentScore: metric.score,
+              })}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-slate-700">{metric.label}</span>
+                <div className="flex items-center gap-2">
+                  {hasFeedback && (
+                    <span className="px-2 py-0.5 bg-amber-200 text-amber-800 text-xs rounded-full">
+                      {metricFeedbacks.length} feedback
+                    </span>
+                  )}
+                  <span className={`text-lg font-bold ${
+                    metric.score >= metric.target ? "text-emerald-600" : "text-amber-600"
+                  }`}>
+                    {metric.score}%
+                  </span>
+                </div>
+              </div>
+              
+              {/* Progress bar with target */}
+              <div className="relative h-3 bg-slate-200 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full ${metric.score >= metric.target ? "bg-emerald-500" : "bg-amber-500"}`}
+                  style={{ width: `${metric.score}%` }}
+                />
+                <div 
+                  className="absolute top-0 bottom-0 w-0.5 bg-red-500"
+                  style={{ left: `${metric.target}%` }}
+                />
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Target: {metric.target}%</p>
+
+              {hasFeedback && (
+                <div className="mt-3 pt-3 border-t border-amber-200">
+                  <p className="text-xs text-amber-700 font-medium">Latest:</p>
+                  <p className="text-xs text-amber-600 mt-1 line-clamp-2">{metricFeedbacks[0].comment}</p>
+                </div>
+              )}
+              
+              <p className="text-xs text-violet-500 mt-2 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Click to add feedback
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Strengths & Recommendations */}
+      {(voiceData.strengths?.length > 0 || voiceData.recommendations?.length > 0) && (
+        <div className="grid grid-cols-2 gap-4">
+          {voiceData.strengths?.length > 0 && (
+            <div className="border border-green-200 bg-green-50 rounded-lg p-4">
+              <h4 className="font-medium text-green-800 mb-2 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Strengths
+              </h4>
+              <ul className="space-y-1">
+                {voiceData.strengths.map((s, i) => (
+                  <li key={i} className="text-sm text-green-700 flex items-start gap-2">
+                    <span>✓</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {voiceData.recommendations?.length > 0 && (
+            <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
+              <h4 className="font-medium text-yellow-800 mb-2 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Recommendations
+              </h4>
+              <ul className="space-y-1">
+                {voiceData.recommendations.map((r, i) => (
+                  <li key={i} className="text-sm text-yellow-700 flex items-start gap-2">
+                    <span>→</span>
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
