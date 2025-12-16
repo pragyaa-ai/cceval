@@ -41,17 +41,27 @@ micStreamRef.current = micStreamForAnalysis;
 // Original stream → recording, cloned stream → voice analysis
 ```
 
-### Issue 2: Tone Score Always 0
-**Symptom:** `avgPitch=74.2` but `toneScore=0`
-**Root Cause:** Formula `(pitch - 80) / 2.2` assumed 80-300Hz range. Male voices (85-180Hz) often fall below 80Hz threshold.
-**Fix (commit `fde9c2b`):** New formula in `VoiceVisualizer.tsx`:
+### Issue 2: Tone Score Formula (Multiple Iterations)
+**History:**
+1. Original: `(pitch - 80) / 2.2` → 80-300Hz range - Male voices got 0%
+2. First fix: `(pitch - 60) / 1.4` → 60-200Hz range - Female voices maxed at 100%
+3. **Final fix:** `(pitch - 70) / 2.1` → 70-280Hz range - Covers full human speech
+
+**Current formula in `VoiceVisualizer.tsx`:**
 ```javascript
-// OLD: (avgPitch - 80) / 2.2  → 80-300Hz mapped to 0-100%
-// NEW: (avgPitch - 60) / 1.4  → 60-200Hz mapped to 0-100%
+// Maps 70-280Hz to 0-100% (covers male 85-180Hz & female 165-255Hz)
+// 70Hz→0%, 100Hz→14%, 175Hz→50%, 236Hz→79%, 280Hz→100%
 const toneScore = avgPitch > 0 
-  ? Math.min(100, Math.max(0, ((avgPitch - 60) / 1.4)))
+  ? Math.min(100, Math.max(0, ((avgPitch - 70) / 2.1)))
   : 0;
 ```
+
+**Test results:**
+- 74 Hz (low male) → 2%
+- 100 Hz (male) → 14%
+- 175 Hz (middle) → 50%
+- 236 Hz (female) → 79%
+- 280 Hz (high female) → 100%
 
 ### Issue 3: Agent Reads Paragraph Twice
 **Symptom:** Agent demonstrates by reading the paragraph, then asks candidate to read the same paragraph

@@ -224,7 +224,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       const displayScores = {
         clarity: Math.min(100, Math.max(0, avgScores.clarity)),
         volume: Math.min(100, Math.max(0, avgScores.volume)),
-        tone: avgScores.pitch > 0 ? Math.min(100, Math.max(0, ((avgScores.pitch - 60) / 1.4))) : 0, // Normalize pitch 60-200Hz to 0-100
+        tone: avgScores.pitch > 0 ? Math.min(100, Math.max(0, ((avgScores.pitch - 70) / 2.1))) : 0, // Normalize pitch 70-280Hz to 0-100 (covers male 85-180Hz & female 165-255Hz)
         pace: Math.min(100, Math.max(0, avgScores.pace))
       };
 
@@ -268,7 +268,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
         if (isAnalysisActive && isAnalyzing && currentMetrics.volume > 8) {
           const currentScore = index === 0 ? currentMetrics.clarity :
                               index === 1 ? currentMetrics.volume :
-                              index === 2 ? (currentMetrics.pitch > 0 ? Math.min(100, Math.max(0, (currentMetrics.pitch - 60) / 1.4)) : 0) :
+                              index === 2 ? (currentMetrics.pitch > 0 ? Math.min(100, Math.max(0, (currentMetrics.pitch - 70) / 2.1)) : 0) :
                               currentMetrics.pace;
           const currentWidth = (Math.min(100, Math.max(0, currentScore)) / 100) * barWidth;
           ctx.fillStyle = '#3b82f6';
@@ -361,11 +361,11 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
     // Normalize scores to 0-100%
     const clarityScore = Math.min(100, Math.max(0, avgClarity));
     const volumeScore = Math.min(100, Math.max(0, avgVolume));
-    // Tone score: Map pitch 60-200 Hz to 0-100% (better aligned with actual human speech frequencies)
+    // Tone score: Map pitch 70-280 Hz to 0-100% (covers full human speech range)
     // Male voice: 85-180 Hz, Female voice: 165-255 Hz
-    // Using a formula that gives meaningful scores for typical speech pitch ranges
+    // Formula: (pitch - 70) / 2.1 gives: 70Hz→0%, 175Hz→50%, 280Hz→100%
     const toneScore = avgPitch > 0 
-      ? Math.min(100, Math.max(0, ((avgPitch - 60) / 1.4)))
+      ? Math.min(100, Math.max(0, ((avgPitch - 70) / 2.1)))
       : 0;
     const paceScore = Math.min(100, Math.max(0, avgPace));
 
@@ -430,7 +430,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
     };
     
     // Debug log for tone calculation
-    console.log(`[VoiceVisualizer] 🎵 Tone calculation: avgPitch=${avgPitch.toFixed(1)}Hz → formula=(${avgPitch.toFixed(1)}-60)/1.4=${((avgPitch-60)/1.4).toFixed(1)} → toneScore=${Math.round(toneScore)}`);
+    console.log(`[VoiceVisualizer] 🎵 Tone calculation: avgPitch=${avgPitch.toFixed(1)}Hz → formula=(${avgPitch.toFixed(1)}-70)/2.1=${((avgPitch-70)/2.1).toFixed(1)} → toneScore=${Math.round(toneScore)}`);
     console.log('[VoiceVisualizer] Generated report:', report);
     return report;
   };
@@ -787,7 +787,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
         <div class="metric-details">Raw Value: ${breakdown.avgPitch} Hz</div>
         <div class="metric-details">Method: Autocorrelation pitch detection</div>
         <div class="metric-description">
-          Detects fundamental frequency in 60-200 Hz range. Formula: (pitch - 60) / 1.4 normalized to 0-100%.
+          Detects fundamental frequency in 70-280 Hz range. Formula: (pitch - 70) / 2.1 normalized to 0-100%.
         </div>
       </div>
       
@@ -1035,7 +1035,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
                       Raw: {breakdown.avgPitch} Hz | Method: Autocorrelation pitch detection
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Detects fundamental frequency (60-200 Hz range). Formula: (pitch - 60) / 1.4 normalized to 0-100%.
+                      Detects fundamental frequency (70-280 Hz range). Formula: (pitch - 70) / 2.1 normalized to 0-100%.
                     </p>
                   </div>
 
