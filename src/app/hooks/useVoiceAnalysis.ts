@@ -260,10 +260,28 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
       }))
     });
     
+    // Verify stream is valid
+    if (!stream.active) {
+      console.error('❌ Stream is not active! Voice analysis will not work.');
+      return;
+    }
+    
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) {
+      console.error('❌ No audio tracks in stream! Voice analysis will not work.');
+      return;
+    }
+    
+    const activeTrack = audioTracks[0];
+    if (activeTrack.readyState !== 'live') {
+      console.error('❌ Audio track is not live! State:', activeTrack.readyState);
+      return;
+    }
+    
     try {
       // Create audio context
       audioContextRef.current = new AudioContext();
-      console.log('🎤 AudioContext created, state:', audioContextRef.current.state);
+      console.log('🎤 AudioContext created, state:', audioContextRef.current.state, 'sampleRate:', audioContextRef.current.sampleRate);
       
       // Always try to resume the audio context (required due to browser autoplay policies)
       if (audioContextRef.current.state === 'suspended') {
@@ -287,7 +305,25 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
       // Connect stream to analyser
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyser);
-      console.log('🎤 Stream connected to analyser');
+      console.log('🎤 Stream connected to analyser (MediaStreamSource created)');
+      
+      // Quick test to verify analyser is receiving data
+      setTimeout(() => {
+        if (analyserRef.current) {
+          const testData = new Uint8Array(analyserRef.current.frequencyBinCount);
+          analyserRef.current.getByteTimeDomainData(testData);
+          const avgValue = testData.reduce((a, b) => a + b, 0) / testData.length;
+          const minValue = Math.min(...testData);
+          const maxValue = Math.max(...testData);
+          console.log('🎤 Audio data check after 500ms:', {
+            avgValue: avgValue.toFixed(1),
+            minValue,
+            maxValue,
+            hasVariation: maxValue - minValue > 5,
+            message: (maxValue - minValue > 5) ? '✅ Audio signal detected!' : '⚠️ No audio variation - stream may be silent'
+          });
+        }
+      }, 500);
 
       analyserRef.current = analyser;
       setIsAnalyzing(true);

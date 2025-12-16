@@ -6,7 +6,7 @@ function useAudioDownload() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   // Ref to collect all recorded Blob chunks.
   const recordedChunksRef = useRef<Blob[]>([]);
-  // Ref to store the microphone stream for voice analysis
+  // Ref to store the microphone stream for voice analysis (separate from recording stream)
   const micStreamRef = useRef<MediaStream | null>(null);
 
   /**
@@ -27,9 +27,22 @@ function useAudioDownload() {
           channelCount: 1               // Mono audio (reduces processing)
         }
       });
-      // Store the mic stream reference for voice analysis
-      micStreamRef.current = micStream;
+      
+      // IMPORTANT: Clone the stream for voice analysis so it's not consumed by AudioContext
+      // The clone() method creates a new MediaStream with cloned tracks that can be 
+      // consumed independently
+      const micStreamForAnalysis = micStream.clone();
+      micStreamRef.current = micStreamForAnalysis;
+      
       console.log('🎤 Microphone stream captured with noise suppression enabled');
+      console.log('🎤 Original stream ID:', micStream.id, 'tracks:', micStream.getTracks().length);
+      console.log('🎤 Cloned stream for analysis ID:', micStreamForAnalysis.id, 'tracks:', micStreamForAnalysis.getTracks().length);
+      console.log('🎤 Clone track details:', micStreamForAnalysis.getTracks().map(t => ({
+        kind: t.kind,
+        enabled: t.enabled,
+        readyState: t.readyState,
+        muted: t.muted
+      })));
     } catch (err) {
       console.error("Error getting microphone stream:", err);
       // Fallback to an empty MediaStream if microphone access fails.
@@ -48,10 +61,11 @@ function useAudioDownload() {
       console.error("Error connecting remote stream to the audio context:", err);
     }
 
-    // Connect the microphone audio stream.
+    // Connect the ORIGINAL microphone audio stream to recorder (not the clone)
     try {
       const micSource = audioContext.createMediaStreamSource(micStream);
       micSource.connect(destination);
+      console.log('🎤 Original mic stream connected to AudioContext for recording');
     } catch (err) {
       console.error("Error connecting microphone stream to the audio context:", err);
     }
