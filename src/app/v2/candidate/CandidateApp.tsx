@@ -23,6 +23,9 @@ interface CandidateInfo {
   name: string;
   email: string | null;
   phone: string | null;
+  age: number | null;
+  gender: string | null;
+  nativeLanguage: string | null;
   accessCode: string;
   status: string;
   selectedPassage: string;
@@ -504,6 +507,10 @@ function CandidateAppContent() {
           addTranscriptBreadcrumb,
           candidateName: authenticatedCandidate.name,
           candidateEmail: authenticatedCandidate.email,
+          // Candidate demographics for voice quality calibration
+          candidateAge: authenticatedCandidate.age,
+          candidateGender: authenticatedCandidate.gender, // male, female, other - affects expected pitch range
+          candidateNativeLanguage: authenticatedCandidate.nativeLanguage,
           selectedPassage: authenticatedCandidate.selectedPassage,
           selectedScenario: authenticatedCandidate.selectedScenario,
           passageText: passage?.text,
@@ -844,43 +851,69 @@ function EvaluationInterface({
                 <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
-                Live Conversation
+                Evaluation Q&A
               </h3>
-              <span className="text-xs text-slate-500">AI Eva</span>
+              <span className="text-xs text-slate-500">Completed responses only</span>
             </div>
 
             <div className="p-4 h-[calc(100%-60px)] overflow-y-auto space-y-4">
-              {transcriptItems.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-slate-500">
-                  <div className="text-center">
-                    <svg className="w-12 h-12 mx-auto mb-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    </svg>
-                    <p>Waiting for conversation to begin...</p>
-                    <p className="text-sm mt-2">Eva will introduce herself shortly</p>
-                  </div>
-                </div>
-              ) : (
-                transcriptItems.map((item, index) => (
+              {/* Filter to only show completed messages - Q&A format, not word-by-word */}
+              {(() => {
+                const completedItems = transcriptItems.filter(
+                  item => item.status === "DONE" && 
+                  item.title && 
+                  item.title.trim() !== "" &&
+                  !item.title.includes("[Transcribing")
+                );
+                
+                if (completedItems.length === 0) {
+                  return (
+                    <div className="flex items-center justify-center h-full text-slate-500">
+                      <div className="text-center">
+                        <svg className="w-12 h-12 mx-auto mb-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                        <p>Waiting for conversation to begin...</p>
+                        <p className="text-sm mt-2">Eva will introduce herself shortly</p>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return completedItems.map((item, index) => (
                   <div
                     key={item.itemId || index}
                     className={`flex ${item.role === "user" ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                      className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                         item.role === "user"
                           ? "bg-emerald-600 text-white"
                           : "bg-slate-700 text-slate-100"
                       }`}
                     >
-                      <p className="text-sm font-medium mb-1 opacity-70">
-                        {item.role === "user" ? "You" : "Eva"}
+                      <p className="text-xs font-medium mb-2 opacity-70 flex items-center gap-2">
+                        {item.role === "user" ? (
+                          <>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            Your Response
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            Eva (AI Evaluator)
+                          </>
+                        )}
                       </p>
-                      <p>{item.displayText || item.title || "..."}</p>
+                      <p className="text-sm leading-relaxed">{item.displayText || item.title}</p>
                     </div>
                   </div>
-                ))
-              )}
+                ));
+              })()}
             </div>
           </div>
         </div>

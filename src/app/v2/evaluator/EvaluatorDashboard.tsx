@@ -475,15 +475,25 @@ function CandidatesTab({
 }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [bulkInput, setBulkInput] = useState("");
-  const [newCandidate, setNewCandidate] = useState({ name: "", email: "", phone: "" });
+  const [newCandidate, setNewCandidate] = useState({ 
+    name: "", 
+    email: "", 
+    phone: "",
+    age: "",
+    gender: "",
+    nativeLanguage: "Hindi"
+  });
   const [adding, setAdding] = useState(false);
 
   const handleAddSingle = async () => {
     if (!newCandidate.name.trim()) return;
     setAdding(true);
     try {
-      await addCandidates(batch.id, [newCandidate]);
-      setNewCandidate({ name: "", email: "", phone: "" });
+      await addCandidates(batch.id, [{
+        ...newCandidate,
+        age: newCandidate.age ? parseInt(newCandidate.age) : undefined,
+      }]);
+      setNewCandidate({ name: "", email: "", phone: "", age: "", gender: "", nativeLanguage: "Hindi" });
       setShowAddForm(false);
       onRefresh();
     } catch (error) {
@@ -503,6 +513,9 @@ function CandidatesTab({
           name: parts[0] || "",
           email: parts[1] || "",
           phone: parts[2] || "",
+          age: parts[3] ? parseInt(parts[3]) : undefined,
+          gender: parts[4] || "",
+          nativeLanguage: parts[5] || "Hindi",
         };
       })
       .filter((c) => c.name);
@@ -632,6 +645,44 @@ function CandidatesTab({
                     className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
                 </div>
+                {/* Demographics for voice quality calibration */}
+                <div className="grid grid-cols-3 gap-3">
+                  <input
+                    type="number"
+                    placeholder="Age"
+                    min="18"
+                    max="70"
+                    value={newCandidate.age}
+                    onChange={(e) => setNewCandidate({ ...newCandidate, age: e.target.value })}
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                  <select
+                    value={newCandidate.gender}
+                    onChange={(e) => setNewCandidate({ ...newCandidate, gender: e.target.value })}
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="">Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <select
+                    value={newCandidate.nativeLanguage}
+                    onChange={(e) => setNewCandidate({ ...newCandidate, nativeLanguage: e.target.value })}
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="Hindi">Hindi</option>
+                    <option value="English">English</option>
+                    <option value="Marathi">Marathi</option>
+                    <option value="Tamil">Tamil</option>
+                    <option value="Telugu">Telugu</option>
+                    <option value="Kannada">Kannada</option>
+                    <option value="Bengali">Bengali</option>
+                    <option value="Gujarati">Gujarati</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <p className="text-xs text-slate-500">Demographics help calibrate voice quality analysis expectations</p>
                 <button
                   onClick={handleAddSingle}
                   disabled={!newCandidate.name.trim() || adding}
@@ -647,7 +698,7 @@ function CandidatesTab({
             {/* Bulk Add */}
             <div className="flex-1">
               <h3 className="font-medium text-slate-800 mb-4">Bulk Add (CSV Format)</h3>
-              <p className="text-xs text-slate-500 mb-2">Format: Name, Email, Phone (one per line)</p>
+              <p className="text-xs text-slate-500 mb-2">Format: Name, Email, Phone, Age, Gender, Language (one per line)</p>
               <textarea
                 placeholder="John Doe, john@email.com, +91 98765 43210&#10;Jane Smith, jane@email.com&#10;Mike Wilson"
                 value={bulkInput}
@@ -1004,8 +1055,34 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
                 <div>
                   <h2 className="text-xl font-bold text-slate-800">{activeCandidate.name}</h2>
                   <p className="text-slate-500 text-sm">Session: {activeCandidate.evaluation.sessionId}</p>
+                  {/* Candidate Demographics if available */}
+                  <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                    {activeCandidate.age && <span>Age: {activeCandidate.age}</span>}
+                    {activeCandidate.gender && <span className="capitalize">Gender: {activeCandidate.gender}</span>}
+                    {activeCandidate.nativeLanguage && <span>Language: {activeCandidate.nativeLanguage}</span>}
+                  </div>
                 </div>
                 <div className="flex items-center gap-4">
+                  {/* Audio Recording Access */}
+                  {activeCandidate.evaluation.recordingUrl && (
+                    <div className="flex items-center gap-2">
+                      <audio 
+                        controls 
+                        src={activeCandidate.evaluation.recordingUrl}
+                        className="h-8"
+                      />
+                      <a
+                        href={activeCandidate.evaluation.recordingUrl}
+                        download={`${activeCandidate.name.replace(/\s+/g, '_')}_recording.webm`}
+                        className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                        title="Download Recording"
+                      >
+                        <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      </a>
+                    </div>
+                  )}
                   <div className="text-right">
                     <p className="text-sm text-slate-500">Current Phase</p>
                     <p className="text-lg font-medium text-violet-600 capitalize flex items-center gap-2">
@@ -1029,16 +1106,16 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
 
             {/* Two Column Layout: Transcript + Scoring */}
             <div className="grid grid-cols-2 gap-6">
-              {/* Live Transcript */}
+              {/* Evaluation Q&A */}
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-slate-200 flex items-center justify-between">
                   <h3 className="font-medium text-slate-800 flex items-center gap-2">
                     <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                     </svg>
-                    Live Transcript
+                    Evaluation Q&A
                   </h3>
-                  <span className="text-xs text-slate-500">{transcript.length} messages</span>
+                  <span className="text-xs text-slate-500">{transcript.length} exchanges</span>
                 </div>
                 <div className="h-80 overflow-y-auto p-4 space-y-3 bg-slate-50">
                   {isLoadingTranscript && transcript.length === 0 ? (
@@ -1052,16 +1129,20 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
                         className={`flex ${item.role === "user" ? "justify-end" : "justify-start"}`}
                       >
                         <div
-                          className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                          className={`max-w-[90%] rounded-lg px-3 py-2 text-sm ${
                             item.role === "user"
                               ? "bg-violet-100 text-violet-900"
                               : "bg-white border border-slate-200 text-slate-700"
                           }`}
                         >
-                          <p className="text-xs font-medium mb-1 opacity-60">
-                            {item.role === "user" ? "Candidate" : "Eva"}
+                          <p className="text-xs font-medium mb-1 flex items-center gap-1">
+                            {item.role === "user" ? (
+                              <span className="text-violet-600">👤 Candidate Response</span>
+                            ) : (
+                              <span className="text-emerald-600">🤖 Eva (Question/Scenario)</span>
+                            )}
                           </p>
-                          <p>{item.content}</p>
+                          <p className="leading-relaxed">{item.content}</p>
                         </div>
                       </div>
                     ))

@@ -94,6 +94,11 @@ model Candidate {
   accessCode String   @unique
   status     String   @default("pending") // pending, in_progress, completed, cancelled
   
+  // Demographics (for voice quality analysis calibration)
+  age            Int?      // Age in years
+  gender         String?   // male, female, other
+  nativeLanguage String?   // Primary language for accent consideration
+  
   // Batch relationship
   batchId String
   batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade)

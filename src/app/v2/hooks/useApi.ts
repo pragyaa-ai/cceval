@@ -26,6 +26,10 @@ export interface CandidateData {
   name: string;
   email: string | null;
   phone: string | null;
+  // Demographics for voice quality calibration
+  age: number | null;
+  gender: string | null; // male, female, other
+  nativeLanguage: string | null;
   accessCode: string;
   status: string;
   selectedPassage: string;
@@ -161,7 +165,16 @@ export async function deleteBatch(batchId: string): Promise<void> {
 
 export async function addCandidates(
   batchId: string,
-  candidates: Array<{ name: string; email?: string; phone?: string; selectedPassage?: string; selectedScenario?: string }>
+  candidates: Array<{ 
+    name: string; 
+    email?: string; 
+    phone?: string; 
+    age?: number;
+    gender?: string;
+    nativeLanguage?: string;
+    selectedPassage?: string; 
+    selectedScenario?: string;
+  }>
 ): Promise<CandidateData[]> {
   const response = await fetch("/api/v2/candidates", {
     method: "POST",

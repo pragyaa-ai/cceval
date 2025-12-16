@@ -41,7 +41,16 @@ export async function POST(request: NextRequest) {
     const candidateList = Array.isArray(candidates) ? candidates : [candidates];
 
     const createdCandidates = await Promise.all(
-      candidateList.map(async (c: { name: string; email?: string; phone?: string; selectedPassage?: string; selectedScenario?: string }) => {
+      candidateList.map(async (c: { 
+        name: string; 
+        email?: string; 
+        phone?: string; 
+        age?: number;
+        gender?: string;
+        nativeLanguage?: string;
+        selectedPassage?: string; 
+        selectedScenario?: string;
+      }) => {
         // Generate unique access code
         let accessCode = generateAccessCode();
         let attempts = 0;
@@ -59,6 +68,9 @@ export async function POST(request: NextRequest) {
             name: c.name,
             email: c.email || null,
             phone: c.phone || null,
+            age: c.age || null,
+            gender: c.gender || null,
+            nativeLanguage: c.nativeLanguage || null,
             accessCode,
             batchId,
             selectedPassage: c.selectedPassage || "safety_adas",
