@@ -16,12 +16,14 @@ export function VoiceAnalysisProvider({ children }: { children: ReactNode }) {
   const startAnalysis = useCallback(() => {
     console.log('🎤🎤🎤 VOICE ANALYSIS STARTED - Candidate is now reading the paragraph');
     console.log('📊 Analysis active state changing to TRUE');
+    console.log('📊 Stack trace:', new Error().stack);
     setIsAnalysisActive(true);
   }, []);
 
   const stopAnalysis = useCallback(() => {
     console.log('🛑🛑🛑 VOICE ANALYSIS STOPPED - Paragraph reading phase completed');
     console.log('📊 Analysis active state changing to FALSE');
+    console.log('📊 Stack trace:', new Error().stack);
     setIsAnalysisActive(false);
   }, []);
 

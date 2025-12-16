@@ -34,6 +34,12 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   // Connect the mic stream for analysis when session is connected
   // Implements retry logic to handle race conditions with mic stream availability
   useEffect(() => {
+    console.log('🎤 Mic stream connection useEffect triggered:', {
+      sessionStatus,
+      hasConnectedStream,
+      getMicStreamAvailable: !!getMicStream
+    });
+    
     let retryTimer: NodeJS.Timeout | null = null;
     let attemptCount = 0;
     const maxAttempts = 60; // 30 seconds max (500ms * 60)
@@ -106,6 +112,13 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
 
   // Control sample collection based on analysis phase
   useEffect(() => {
+    console.log('🔄 Voice analysis control useEffect triggered:', {
+      isAnalysisActive,
+      hasConnectedStream,
+      isAnalyzing,
+      metricsHistoryLength: metricsHistory.length
+    });
+    
     if (isAnalysisActive) {
       console.log('📊📊📊 Voice analysis phase ACTIVE - collecting samples NOW');
       console.log('📊 hasConnectedStream:', hasConnectedStream);
