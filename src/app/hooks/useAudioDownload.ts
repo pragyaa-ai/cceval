@@ -148,7 +148,35 @@ function useAudioDownload() {
    */
   const getMicStream = () => micStreamRef.current;
 
-  return { startRecording, stopRecording, downloadRecording, getMicStream };
+  /**
+   * Get the recording as a Blob for upload (WebM format)
+   * Returns null if no recording is available
+   */
+  const getRecordingBlob = async (): Promise<Blob | null> => {
+    // If recording is still active, request the latest chunk
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.requestData();
+      // Allow a short delay for ondataavailable to fire
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    if (recordedChunksRef.current.length === 0) {
+      console.warn("No recorded chunks available for upload.");
+      return null;
+    }
+
+    // Combine the recorded chunks into a single WebM blob
+    return new Blob(recordedChunksRef.current, { type: "audio/webm" });
+  };
+
+  /**
+   * Clear recorded chunks (call after successful upload)
+   */
+  const clearRecording = () => {
+    recordedChunksRef.current = [];
+  };
+
+  return { startRecording, stopRecording, downloadRecording, getMicStream, getRecordingBlob, clearRecording };
 }
 
 export default useAudioDownload; 

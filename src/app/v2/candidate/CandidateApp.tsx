@@ -90,7 +90,7 @@ function CandidateAppContent() {
   }, [sdkAudioElement]);
 
   // Recording hook
-  const { startRecording, stopRecording, getMicStream } = useAudioDownload();
+  const { startRecording, stopRecording, getMicStream, getRecordingBlob, clearRecording } = useAudioDownload();
 
   // Realtime session
   const {
@@ -572,11 +572,47 @@ function CandidateAppContent() {
   const handleDisconnect = async () => {
     disconnect();
     stopAnalysis();
+    stopRecording(); // Stop the recording
     setCurrentPhase("completed");
 
     // Update candidate status to completed in database
     if (authenticatedCandidate) {
       try {
+        // Upload the recording first
+        let recordingUrl: string | null = null;
+        const evalId = authenticatedCandidate.evaluation?.id;
+        
+        if (evalId) {
+          console.log('[v2] 📼 Uploading session recording...');
+          const recordingBlob = await getRecordingBlob();
+          
+          if (recordingBlob && recordingBlob.size > 0) {
+            const formData = new FormData();
+            formData.append('audio', recordingBlob, `recording-${evalId}.webm`);
+            formData.append('evaluationId', evalId);
+            
+            try {
+              const uploadResponse = await fetch('/api/v2/recordings', {
+                method: 'POST',
+                body: formData,
+              });
+              
+              if (uploadResponse.ok) {
+                const uploadResult = await uploadResponse.json();
+                recordingUrl = uploadResult.recordingUrl;
+                console.log('[v2] ✅ Recording uploaded:', recordingUrl);
+                clearRecording(); // Clear the recording chunks after successful upload
+              } else {
+                console.error('[v2] ❌ Failed to upload recording:', await uploadResponse.text());
+              }
+            } catch (uploadError) {
+              console.error('[v2] ❌ Error uploading recording:', uploadError);
+            }
+          } else {
+            console.warn('[v2] ⚠️ No recording data available to upload');
+          }
+        }
+
         await fetch(`/api/v2/candidates/${authenticatedCandidate.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -584,13 +620,14 @@ function CandidateAppContent() {
         });
 
         // Also end the evaluation session if exists
-        if (authenticatedCandidate.evaluation?.id) {
-          await fetch(`/api/v2/evaluations/${authenticatedCandidate.evaluation.id}`, {
+        if (evalId) {
+          await fetch(`/api/v2/evaluations/${evalId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
               currentPhase: "completed",
               endTime: new Date().toISOString(),
+              ...(recordingUrl && { recordingUrl }), // Include recording URL if available
             }),
           });
         }

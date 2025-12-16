@@ -43,3 +43,8 @@ todo.md
 .next-dev.log
 
 /src/generated/prisma
+
+# recordings (audio files saved during evaluations)
+/public/recordings/*.webm
+/public/recordings/*.wav
+/public/recordings/*.mp3
