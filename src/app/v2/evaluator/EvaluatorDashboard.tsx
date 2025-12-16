@@ -2097,6 +2097,7 @@ function CandidateDetailsModal({
                 {SCORING_PARAMETERS.map((param) => {
                   const scoreEntry = candidate.evaluation?.scores.find((s) => s.parameterId === param.id);
                   const score = scoreEntry?.score || 0;
+                  const scoreReason = scoreEntry?.notes || "";
                   const itemFeedbacks = getFeedbackForItem("score", param.id);
                   const hasFeedback = itemFeedbacks.length > 0;
                   
@@ -2132,9 +2133,20 @@ function CandidateDetailsModal({
                           </span>
                         </div>
                       </div>
-                      <p className="text-xs text-slate-500">{param.description}</p>
+                      <p className="text-xs text-slate-500 mb-2">{param.description}</p>
+                      
+                      {/* AI Agent's Reason for Score */}
+                      {scoreReason && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-2 mb-2">
+                          <p className="text-xs text-blue-800 flex items-start gap-1.5">
+                            <span className="text-blue-500 mt-0.5">🤖</span>
+                            <span><strong>AI Reason:</strong> {scoreReason}</span>
+                          </p>
+                        </div>
+                      )}
+                      
                       {/* Score bar */}
-                      <div className="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                         <div 
                           className={`h-full transition-all ${
                             score >= 4 ? "bg-emerald-500" : 
@@ -2147,7 +2159,7 @@ function CandidateDetailsModal({
                       {/* Show latest feedback preview */}
                       {hasFeedback && (
                         <div className="mt-3 pt-3 border-t border-amber-200">
-                          <p className="text-xs text-amber-700 font-medium">Latest feedback:</p>
+                          <p className="text-xs text-amber-700 font-medium">Evaluator feedback:</p>
                           <p className="text-xs text-amber-600 mt-1 line-clamp-2">{itemFeedbacks[0].comment}</p>
                           {itemFeedbacks[0].adjustedScore && (
                             <p className="text-xs text-amber-800 mt-1">

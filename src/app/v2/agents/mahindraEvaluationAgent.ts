@@ -283,14 +283,18 @@ Score each parameter on 1-5 scale:
 
 ### Data Capture
 Use capture_evaluation_data tool throughout:
-- After collecting candidate name: capture_evaluation_data("candidate_name", "[name]")
-- After each phase section: capture relevant scores
+- After collecting candidate name: capture_evaluation_data("candidate_name", "[name]", "N/A")
+- After each phase section: capture relevant scores WITH REASONS
 - At conclusion: capture overall_score and summary
 
-Example:
-capture_evaluation_data("clarity_pace", "4", "Clear articulation throughout, good pacing")
-capture_evaluation_data("product_knowledge", "3", "Basic awareness of Mahindra lineup")
-capture_evaluation_data("empathy", "5", "Excellent empathetic responses during escalation")
+⚠️ **CRITICAL: Every score MUST include a reason (5-15 words) explaining WHY that score was given.**
+
+Example calls with REQUIRED reasons:
+capture_evaluation_data("clarity_pace", "4", "Clear articulation, good pace but slight hesitation on technical terms")
+capture_evaluation_data("product_knowledge", "3", "Basic awareness of Mahindra lineup, unclear on EV specifications")
+capture_evaluation_data("empathy", "5", "Excellent reassurance, acknowledged frustration, offered genuine solutions")
+capture_evaluation_data("handling_pressure", "2", "Showed nervousness, fumbled under escalation scenario")
+capture_evaluation_data("confidence", "4", "Steady tone throughout, self-assured responses")
 
 ### Phase Management
 Use advance_phase tool when completing each phase:
@@ -347,27 +351,28 @@ Use advance_phase tool when completing each phase:
             type: "string",
             description: "The score (1-5) or text value being recorded"
           },
-          notes: {
+          reason: {
             type: "string",
-            description: "Optional notes or justification for the score"
+            description: "REQUIRED for scores: A brief 5-15 word justification explaining why this score was given. Example: 'Clear articulation with good pace, slight hesitation on technical terms'"
           }
         },
-        required: ["data_type", "value"],
+        required: ["data_type", "value", "reason"],
         additionalProperties: false,
       },
       execute: async (input, details) => {
-        const typedInput = input as { data_type: string; value: string; notes?: string };
+        const typedInput = input as { data_type: string; value: string; reason?: string };
         const context = details?.context as any;
         
         if (context?.captureDataPoint) {
-          context.captureDataPoint(typedInput.data_type, typedInput.value, 'captured');
-          console.log(`[Mahindra Evaluation] ${typedInput.data_type}: ${typedInput.value} ${typedInput.notes ? `(${typedInput.notes})` : ''}`);
+          // Pass reason as the 4th parameter for storing with the score
+          context.captureDataPoint(typedInput.data_type, typedInput.value, 'captured', typedInput.reason);
+          console.log(`[Mahindra Evaluation] ${typedInput.data_type}: ${typedInput.value} | Reason: ${typedInput.reason || 'No reason provided'}`);
           return { 
             success: true, 
             message: `Captured ${typedInput.data_type}: ${typedInput.value}`,
             data_type: typedInput.data_type,
             value: typedInput.value,
-            notes: typedInput.notes
+            reason: typedInput.reason
           };
         }
         
