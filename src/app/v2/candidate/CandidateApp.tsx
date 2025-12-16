@@ -121,16 +121,20 @@ function CandidateAppContent() {
         return;
       }
       
-      // Filter to only DONE conversation items with actual content
-      const completedItems = transcriptItems.filter(
-        item => 
-          (item.role === "user" || item.role === "assistant") &&
-          item.status === "DONE" &&
-          item.title && 
-          item.title.trim() !== "" &&
-          !item.title.includes("[Transcribing") &&
-          !syncedItemIdsRef.current.has(item.itemId)
-      );
+      // Filter for meaningful completed messages to sync to database
+      const completedItems = transcriptItems.filter(item => {
+        // Skip if already synced
+        if (syncedItemIdsRef.current.has(item.itemId)) return false;
+        // Must be user or assistant message
+        if (item.role !== "user" && item.role !== "assistant") return false;
+        // Must have actual content
+        if (!item.title || item.title.trim() === "") return false;
+        // Skip transcription placeholders
+        if (item.title.includes("[Transcribing")) return false;
+        // Skip very short partial transcripts from users (likely incomplete)
+        if (item.title.length < 10 && item.role === "user") return false;
+        return true;
+      });
       
       for (const item of completedItems) {
         try {
@@ -857,14 +861,21 @@ function EvaluationInterface({
             </div>
 
             <div className="p-4 h-[calc(100%-60px)] overflow-y-auto space-y-4">
-              {/* Filter to only show completed messages - Q&A format, not word-by-word */}
+              {/* Filter to only show completed Q&A messages - not partial transcriptions */}
               {(() => {
-                const completedItems = transcriptItems.filter(
-                  item => item.status === "DONE" && 
-                  item.title && 
-                  item.title.trim() !== "" &&
-                  !item.title.includes("[Transcribing")
-                );
+                // Filter for meaningful messages: have content, not partial transcripts
+                const completedItems = transcriptItems.filter(item => {
+                  // Must have actual content
+                  if (!item.title || item.title.trim() === "") return false;
+                  // Skip transcription placeholders
+                  if (item.title.includes("[Transcribing")) return false;
+                  // Skip very short partial transcripts (likely incomplete)
+                  if (item.title.length < 10 && item.role === "user") return false;
+                  // Only include user and assistant messages (not breadcrumbs)
+                  if (item.type !== "MESSAGE") return false;
+                  if (item.role !== "user" && item.role !== "assistant") return false;
+                  return true;
+                });
                 
                 if (completedItems.length === 0) {
                   return (

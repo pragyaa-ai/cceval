@@ -1841,7 +1841,9 @@ function CandidateDetailsModal({
   onClose: () => void;
   onRefresh?: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"overview" | "scores" | "voice" | "feedback">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "scores" | "voice" | "transcript" | "feedback">("overview");
+  const [transcript, setTranscript] = useState<Array<{role: string; content: string; phase: string}>>([]);
+  const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [feedbacks, setFeedbacks] = useState<EvaluatorFeedbackData[]>([]);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
@@ -1859,6 +1861,29 @@ function CandidateDetailsModal({
       loadFeedback();
     }
   }, [candidate.evaluation?.id, activeTab]);
+
+  // Load transcript when transcript tab is selected
+  useEffect(() => {
+    if (candidate.evaluation?.id && activeTab === "transcript") {
+      loadTranscript();
+    }
+  }, [candidate.evaluation?.id, activeTab]);
+
+  const loadTranscript = async () => {
+    if (!candidate.evaluation?.id) return;
+    setLoadingTranscript(true);
+    try {
+      const response = await fetch(`/api/v2/evaluations/${candidate.evaluation.id}/transcript`);
+      if (response.ok) {
+        const data = await response.json();
+        setTranscript(data);
+      }
+    } catch (error) {
+      console.error("Failed to load transcript:", error);
+    } finally {
+      setLoadingTranscript(false);
+    }
+  };
 
   const loadFeedback = async () => {
     if (!candidate.evaluation?.id) return;
@@ -1910,7 +1935,8 @@ function CandidateDetailsModal({
                 { id: "overview" as const, label: "Overview", icon: "📋" },
                 { id: "scores" as const, label: "Scores", icon: "📊" },
                 { id: "voice" as const, label: "Voice", icon: "🎙️" },
-                { id: "feedback" as const, label: "Feedback History", icon: "💬" },
+                { id: "transcript" as const, label: "Transcript", icon: "📝" },
+                { id: "feedback" as const, label: "Feedback", icon: "💬" },
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -2000,6 +2026,40 @@ function CandidateDetailsModal({
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Audio Recording */}
+              {candidate.evaluation?.recordingUrl && (
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <h3 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                    Session Recording
+                  </h3>
+                  <div className="flex items-center gap-4">
+                    <audio 
+                      controls 
+                      src={candidate.evaluation.recordingUrl}
+                      className="flex-1 h-10"
+                    />
+                    <a
+                      href={candidate.evaluation.recordingUrl}
+                      download={`${candidate.name.replace(/\s+/g, '_')}_${candidate.evaluation.sessionId}.webm`}
+                      className="px-3 py-2 bg-violet-100 text-violet-700 rounded-lg text-sm font-medium hover:bg-violet-200 transition-colors flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download
+                    </a>
+                  </div>
+                  {candidate.evaluation.recordingDuration > 0 && (
+                    <p className="text-xs text-slate-500 mt-2">
+                      Duration: {Math.floor(candidate.evaluation.recordingDuration / 60)}:{(candidate.evaluation.recordingDuration % 60).toString().padStart(2, '0')}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -2100,6 +2160,64 @@ function CandidateDetailsModal({
                 feedbacks={feedbacks}
                 onAddFeedback={handleOpenFeedbackForm}
               />
+            </div>
+          )}
+
+          {activeTab === "transcript" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-slate-800">Full Conversation Transcript</h3>
+                <button 
+                  onClick={loadTranscript}
+                  className="text-sm text-violet-600 hover:text-violet-700 flex items-center gap-1"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+
+              {loadingTranscript ? (
+                <div className="text-center py-8 text-slate-500">Loading transcript...</div>
+              ) : transcript.length === 0 ? (
+                <div className="bg-slate-50 rounded-xl p-8 text-center">
+                  <svg className="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  <p className="text-slate-600 font-medium">No transcript available</p>
+                  <p className="text-slate-500 text-sm mt-1">
+                    Transcript will appear here after the evaluation is completed
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {transcript.map((item, index) => (
+                    <div
+                      key={index}
+                      className={`flex ${item.role === "user" || item.role === "candidate" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-lg px-4 py-3 ${
+                          item.role === "user" || item.role === "candidate"
+                            ? "bg-violet-100 text-violet-900"
+                            : "bg-white border border-slate-200 text-slate-700"
+                        }`}
+                      >
+                        <p className="text-xs font-medium mb-1 flex items-center gap-2">
+                          {item.role === "user" || item.role === "candidate" ? (
+                            <span className="text-violet-600">👤 Candidate Response</span>
+                          ) : (
+                            <span className="text-emerald-600">🤖 Eva (AI Evaluator)</span>
+                          )}
+                          <span className="text-slate-400 text-xs">• {item.phase?.replace(/_/g, " ")}</span>
+                        </p>
+                        <p className="text-sm leading-relaxed">{item.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
