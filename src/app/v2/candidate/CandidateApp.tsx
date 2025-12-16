@@ -112,50 +112,75 @@ function CandidateAppContent() {
   useHandleSessionHistory();
 
   // Sync transcript to database for evaluator view
-  const syncedItemIdsRef = useRef<Set<string>>(new Set());
+  // Track synced content by itemId -> content to detect updates
+  const syncedContentRef = useRef<Map<string, string>>(new Map());
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
-    const syncTranscript = async () => {
+    // Debounce sync to allow messages to complete (wait 1.5s after last change)
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+    
+    syncTimeoutRef.current = setTimeout(async () => {
       const evalId = evaluationIdRef.current;
       if (!evalId) {
-        // Evaluation not created yet
         return;
       }
       
       // Filter for meaningful completed messages to sync to database
-      const completedItems = transcriptItems.filter(item => {
-        // Skip if already synced
-        if (syncedItemIdsRef.current.has(item.itemId)) return false;
+      const itemsToSync = transcriptItems.filter(item => {
         // Must be user or assistant message
         if (item.role !== "user" && item.role !== "assistant") return false;
         // Must have actual content
         if (!item.title || item.title.trim() === "") return false;
         // Skip transcription placeholders
         if (item.title.includes("[Transcribing")) return false;
-        // Skip very short partial transcripts from users (likely incomplete)
-        if (item.title.length < 10 && item.role === "user") return false;
+        
+        // Minimum length requirements for complete messages:
+        // - User messages: at least 10 chars (short responses like "Yes" are ok if intentional)
+        // - Assistant messages: at least 40 chars (ensures full sentence, not partial stream)
+        const minLength = item.role === "user" ? 10 : 40;
+        if (item.title.length < minLength) return false;
+        
+        // Check if already synced with same content (avoid duplicates)
+        const previousContent = syncedContentRef.current.get(item.itemId);
+        if (previousContent === item.title) return false;
+        
+        // If content changed significantly (grew by 20+ chars), allow re-sync (update)
+        if (previousContent && item.title.length < previousContent.length + 20) return false;
+        
         return true;
       });
       
-      for (const item of completedItems) {
+      for (const item of itemsToSync) {
         try {
+          const previousContent = syncedContentRef.current.get(item.itemId);
+          const method = previousContent ? "PUT" : "POST"; // Update if exists, create if new
+          
           await fetch(`/api/v2/evaluations/${evalId}/transcript`, {
-            method: "POST",
+            method: method,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              itemId: item.itemId, // Include for upsert
               role: item.role,
               content: item.title,
               phase: currentPhase,
             }),
           });
-          syncedItemIdsRef.current.add(item.itemId);
+          syncedContentRef.current.set(item.itemId, item.title || "");
         } catch (error) {
           console.error("Failed to sync transcript item:", error);
         }
       }
-    };
+    }, 1500); // Wait 1.5 seconds after last update before syncing
     
-    syncTranscript();
-  }, [transcriptItems, currentPhase]); // Use ref for eval ID
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [transcriptItems, currentPhase]);
 
   // Timer effect
   useEffect(() => {
@@ -870,11 +895,16 @@ function EvaluationInterface({
                   if (!item.title || item.title.trim() === "") return false;
                   // Skip transcription placeholders
                   if (item.title.includes("[Transcribing")) return false;
-                  // Skip very short partial transcripts (likely incomplete)
-                  if (item.title.length < 10 && item.role === "user") return false;
                   // Only include user and assistant messages (not breadcrumbs)
                   if (item.type !== "MESSAGE") return false;
                   if (item.role !== "user" && item.role !== "assistant") return false;
+                  
+                  // Minimum length requirements for complete messages:
+                  // - User messages: at least 10 chars
+                  // - Assistant messages: at least 40 chars (ensures full sentence, not partial stream)
+                  const minLength = item.role === "user" ? 10 : 40;
+                  if (item.title.length < minLength) return false;
+                  
                   return true;
                 });
                 

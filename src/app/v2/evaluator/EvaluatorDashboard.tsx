@@ -1123,8 +1123,13 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
                     const completedItems = transcript.filter(item => {
                       if (!item.content || item.content.trim() === "") return false;
                       if (item.content.includes("[Transcribing")) return false;
-                      // Skip very short user messages (likely partial)
-                      if (item.content.length < 10 && item.role === "user") return false;
+                      
+                      // Minimum length requirements for complete messages:
+                      // - User messages: at least 10 chars
+                      // - Assistant messages: at least 40 chars (ensures full sentence, not partial stream)
+                      const minLength = item.role === "user" ? 10 : 40;
+                      if (item.content.length < minLength) return false;
+                      
                       return true;
                     });
 
@@ -1149,7 +1154,7 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
                         >
                           <p className="text-xs font-medium mb-1.5 opacity-80 flex items-center gap-1">
                             {item.role === "user" ? (
-                              <span>👤 Your Response</span>
+                              <span>👤 Candidate Response</span>
                             ) : (
                               <span>🤖 Eva (AI Evaluator)</span>
                             )}
