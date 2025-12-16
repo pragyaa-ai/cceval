@@ -1115,38 +1115,50 @@ function EvaluationTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: ()
                     </svg>
                     Evaluation Q&A
                   </h3>
-                  <span className="text-xs text-slate-500">{transcript.length} exchanges</span>
+                  <span className="text-xs text-slate-500">Completed responses only</span>
                 </div>
-                <div className="h-80 overflow-y-auto p-4 space-y-3 bg-slate-50">
-                  {isLoadingTranscript && transcript.length === 0 ? (
-                    <p className="text-slate-500 text-center py-4">Loading transcript...</p>
-                  ) : transcript.length === 0 ? (
-                    <p className="text-slate-500 text-center py-4">Waiting for conversation...</p>
-                  ) : (
-                    transcript.map((item, index) => (
+                <div className="h-80 overflow-y-auto p-4 space-y-4 bg-slate-50">
+                  {(() => {
+                    // Filter for meaningful completed messages (same as candidate UI)
+                    const completedItems = transcript.filter(item => {
+                      if (!item.content || item.content.trim() === "") return false;
+                      if (item.content.includes("[Transcribing")) return false;
+                      // Skip very short user messages (likely partial)
+                      if (item.content.length < 10 && item.role === "user") return false;
+                      return true;
+                    });
+
+                    if (isLoadingTranscript && completedItems.length === 0) {
+                      return <p className="text-slate-500 text-center py-4">Loading transcript...</p>;
+                    }
+                    if (completedItems.length === 0) {
+                      return <p className="text-slate-500 text-center py-4">Waiting for conversation...</p>;
+                    }
+
+                    return completedItems.map((item, index) => (
                       <div
                         key={index}
                         className={`flex ${item.role === "user" ? "justify-end" : "justify-start"}`}
                       >
                         <div
-                          className={`max-w-[90%] rounded-lg px-3 py-2 text-sm ${
+                          className={`max-w-[85%] rounded-xl px-4 py-3 ${
                             item.role === "user"
-                              ? "bg-violet-100 text-violet-900"
-                              : "bg-white border border-slate-200 text-slate-700"
+                              ? "bg-emerald-500 text-white"
+                              : "bg-slate-700 text-white"
                           }`}
                         >
-                          <p className="text-xs font-medium mb-1 flex items-center gap-1">
+                          <p className="text-xs font-medium mb-1.5 opacity-80 flex items-center gap-1">
                             {item.role === "user" ? (
-                              <span className="text-violet-600">👤 Candidate Response</span>
+                              <span>👤 Your Response</span>
                             ) : (
-                              <span className="text-emerald-600">🤖 Eva (Question/Scenario)</span>
+                              <span>🤖 Eva (AI Evaluator)</span>
                             )}
                           </p>
                           <p className="leading-relaxed">{item.content}</p>
                         </div>
                       </div>
-                    ))
-                  )}
+                    ));
+                  })()}
                 </div>
               </div>
 
@@ -2030,38 +2042,48 @@ function CandidateDetailsModal({
               )}
 
               {/* Audio Recording */}
-              {candidate.evaluation?.recordingUrl && (
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <h3 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="bg-slate-50 rounded-xl p-4">
+                <h3 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                  Session Recording
+                </h3>
+                {candidate.evaluation?.recordingUrl ? (
+                  <>
+                    <div className="flex items-center gap-4">
+                      <audio 
+                        controls 
+                        src={candidate.evaluation.recordingUrl}
+                        className="flex-1 h-10"
+                      />
+                      <a
+                        href={candidate.evaluation.recordingUrl}
+                        download={`${candidate.name.replace(/\s+/g, '_')}_${candidate.evaluation.sessionId}.webm`}
+                        className="px-3 py-2 bg-violet-100 text-violet-700 rounded-lg text-sm font-medium hover:bg-violet-200 transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download
+                      </a>
+                    </div>
+                    {candidate.evaluation.recordingDuration > 0 && (
+                      <p className="text-xs text-slate-500 mt-2">
+                        Duration: {Math.floor(candidate.evaluation.recordingDuration / 60)}:{(candidate.evaluation.recordingDuration % 60).toString().padStart(2, '0')}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <svg className="w-10 h-10 mx-auto text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                     </svg>
-                    Session Recording
-                  </h3>
-                  <div className="flex items-center gap-4">
-                    <audio 
-                      controls 
-                      src={candidate.evaluation.recordingUrl}
-                      className="flex-1 h-10"
-                    />
-                    <a
-                      href={candidate.evaluation.recordingUrl}
-                      download={`${candidate.name.replace(/\s+/g, '_')}_${candidate.evaluation.sessionId}.webm`}
-                      className="px-3 py-2 bg-violet-100 text-violet-700 rounded-lg text-sm font-medium hover:bg-violet-200 transition-colors flex items-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                      Download
-                    </a>
+                    <p className="text-slate-500 text-sm">Recording not available</p>
+                    <p className="text-slate-400 text-xs mt-1">Audio recording was not saved for this session</p>
                   </div>
-                  {candidate.evaluation.recordingDuration > 0 && (
-                    <p className="text-xs text-slate-500 mt-2">
-                      Duration: {Math.floor(candidate.evaluation.recordingDuration / 60)}:{(candidate.evaluation.recordingDuration % 60).toString().padStart(2, '0')}
-                    </p>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 
@@ -2775,7 +2797,7 @@ function VoiceAnalysisWithFeedback({
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Recommendations
+                Recommendations for Improvement
               </h4>
               <ul className="space-y-1">
                 {voiceData.recommendations.map((r, i) => (
@@ -2789,6 +2811,96 @@ function VoiceAnalysisWithFeedback({
           )}
         </div>
       )}
+
+      {/* Calculation Breakdown */}
+      <div className="border border-slate-200 rounded-lg p-4 bg-white">
+        <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+          Calculation Breakdown
+        </h4>
+        <div className="space-y-3">
+          <div className="bg-slate-50 rounded-lg p-3">
+            <div className="flex justify-between items-center">
+              <span className="font-medium text-slate-700">Clarity</span>
+              <span className="text-emerald-600 font-bold">{voiceData.clarityScore}%</span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Raw: {voiceData.avgClarity} | Method: Spectral peak-to-average ratio
+            </p>
+          </div>
+          <div className="bg-slate-50 rounded-lg p-3">
+            <div className="flex justify-between items-center">
+              <span className="font-medium text-slate-700">Volume</span>
+              <span className="text-emerald-600 font-bold">{voiceData.volumeScore}%</span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Raw: {voiceData.avgVolume} | Method: RMS (Root Mean Square)
+            </p>
+          </div>
+          <div className="bg-slate-50 rounded-lg p-3">
+            <div className="flex justify-between items-center">
+              <span className="font-medium text-slate-700">Tone</span>
+              <span className="text-emerald-600 font-bold">{voiceData.toneScore}%</span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Raw: {voiceData.avgPitch} Hz | Method: Autocorrelation pitch detection
+            </p>
+          </div>
+          <div className="bg-slate-50 rounded-lg p-3">
+            <div className="flex justify-between items-center">
+              <span className="font-medium text-slate-700">Pace</span>
+              <span className="text-emerald-600 font-bold">{voiceData.paceScore}%</span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Raw: {voiceData.avgPace} | Method: Voice activity detection
+            </p>
+          </div>
+          <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
+            <strong>Overall Score Formula:</strong><br/>
+            (Clarity × 35%) + (Volume × 25%) + (Pace × 25%) + (Tone × 15%)
+          </div>
+        </div>
+      </div>
+
+      {/* Call Center Suitability */}
+      <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+        <h4 className="font-medium text-slate-700 mb-3">Call Center Agent Suitability</h4>
+        <div className="space-y-2 text-sm">
+          <p className="flex items-center gap-2">
+            <strong className="text-slate-600">Voice Clarity:</strong>
+            <span className={voiceData.clarityScore >= 70 ? "text-emerald-600" : "text-amber-600"}>
+              {voiceData.clarityScore >= 70 ? '✓ Meets requirements' : '⚠ Needs improvement'}
+            </span>
+          </p>
+          <p className="flex items-center gap-2">
+            <strong className="text-slate-600">Volume Projection:</strong>
+            <span className={voiceData.volumeScore >= 50 ? "text-emerald-600" : "text-amber-600"}>
+              {voiceData.volumeScore >= 50 ? '✓ Adequate' : '⚠ Too soft'}
+            </span>
+          </p>
+          <p className="flex items-center gap-2">
+            <strong className="text-slate-600">Speaking Pace:</strong>
+            <span className={(voiceData.paceScore >= 30 && voiceData.paceScore <= 70) ? "text-emerald-600" : "text-amber-600"}>
+              {(voiceData.paceScore >= 30 && voiceData.paceScore <= 70) ? '✓ Appropriate' : '⚠ Adjust pace'}
+            </span>
+          </p>
+          <div className="pt-2 mt-2 border-t border-slate-200">
+            <p className="flex items-center gap-2">
+              <strong className="text-slate-700">Overall Recommendation:</strong>
+              <span className={`font-bold ${
+                voiceData.overallScore >= 65 ? "text-emerald-600" : 
+                voiceData.overallScore >= 50 ? "text-amber-600" : "text-red-600"
+              }`}>
+                {voiceData.overallScore >= 65 ? 'Recommended' : 
+                 voiceData.overallScore >= 50 ? 'Conditional - Training Recommended' : 
+                 'Not Recommended'}
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
