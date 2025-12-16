@@ -52,9 +52,9 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
     setMetricsHistory([]);
   }, []);
 
-  const calculatePitch = useCallback((timeData: Uint8Array, sampleRate: number): number => {
+  const calculatePitch = useCallback((frequencyData: Uint8Array, sampleRate: number): number => {
     // Autocorrelation method for pitch detection
-    const SIZE = timeData.length;
+    const SIZE = frequencyData.length;
     const MAX_SAMPLES = Math.floor(SIZE / 2);
     let bestOffset = -1;
     let bestCorrelation = 0;
@@ -62,53 +62,37 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
 
     // Calculate RMS (root mean square) for volume threshold
     for (let i = 0; i < SIZE; i++) {
-      const val = (timeData[i] - 128) / 128;
+      const val = (frequencyData[i] - 128) / 128;
       rms += val * val;
     }
     rms = Math.sqrt(rms / SIZE);
 
-    // Need sufficient volume to detect pitch (lowered threshold)
-    if (rms < 0.005) return 0;
+    // Need sufficient volume to detect pitch
+    if (rms < 0.01) return 0;
 
-    // Autocorrelation - find first significant peak after initial drop
-    let foundPeak = false;
+    // Autocorrelation
     let lastCorrelation = 1;
-    
-    // Start at offset that corresponds to ~400Hz (upper voice range)
-    const minOffset = Math.floor(sampleRate / 400);
-    // End at offset that corresponds to ~60Hz (lower voice range)  
-    const maxOffset = Math.min(MAX_SAMPLES, Math.floor(sampleRate / 60));
-    
-    for (let offset = minOffset; offset < maxOffset; offset++) {
+    for (let offset = 0; offset < MAX_SAMPLES; offset++) {
       let correlation = 0;
       for (let i = 0; i < MAX_SAMPLES; i++) {
-        correlation += Math.abs(((timeData[i] - 128) / 128) - ((timeData[i + offset] - 128) / 128));
+        correlation += Math.abs(((frequencyData[i] - 128) / 128) - ((frequencyData[i + offset] - 128) / 128));
       }
       correlation = 1 - (correlation / MAX_SAMPLES);
       
-      // Look for rising edge after initial drop (lowered threshold from 0.9 to 0.6)
-      if (correlation > 0.6 && correlation > lastCorrelation && !foundPeak) {
-        foundPeak = true;
+      if (correlation > 0.9 && correlation > lastCorrelation) {
+        const foundGoodCorrelation = correlation > bestCorrelation;
+        if (foundGoodCorrelation) {
+          bestCorrelation = correlation;
+          bestOffset = offset;
+        }
       }
-      
-      // Track the best correlation after we start rising
-      if (foundPeak && correlation > bestCorrelation) {
-        bestCorrelation = correlation;
-        bestOffset = offset;
-      }
-      
-      // Stop if we start dropping significantly after finding a peak
-      if (foundPeak && correlation < bestCorrelation - 0.1) {
-        break;
-      }
-      
       lastCorrelation = correlation;
     }
 
-    if (bestOffset === -1 || bestCorrelation < 0.5) return 0;
+    if (bestOffset === -1 || bestCorrelation < 0.01) return 0;
 
     const fundamentalFreq = sampleRate / bestOffset;
-    // Human voice range: 60-400 Hz
+    // Human voice range: 80-300 Hz
     return (fundamentalFreq >= 60 && fundamentalFreq <= 400) ? fundamentalFreq : 0;
   }, []);
 
