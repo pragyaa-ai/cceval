@@ -67,32 +67,48 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
     }
     rms = Math.sqrt(rms / SIZE);
 
-    // Need sufficient volume to detect pitch
-    if (rms < 0.01) return 0;
+    // Need sufficient volume to detect pitch (lowered threshold for better sensitivity)
+    if (rms < 0.005) return 0;
 
-    // Autocorrelation
+    // Autocorrelation - search only in range corresponding to human voice (60-400Hz)
+    // For 48kHz sample rate: offset 120 = 400Hz, offset 800 = 60Hz
+    const minOffset = Math.floor(sampleRate / 400); // ~120 for 48kHz
+    const maxOffset = Math.min(MAX_SAMPLES, Math.floor(sampleRate / 60)); // ~800 for 48kHz
+    
+    let foundPeak = false;
     let lastCorrelation = 1;
-    for (let offset = 0; offset < MAX_SAMPLES; offset++) {
+    
+    for (let offset = minOffset; offset < maxOffset; offset++) {
       let correlation = 0;
       for (let i = 0; i < MAX_SAMPLES; i++) {
         correlation += Math.abs(((frequencyData[i] - 128) / 128) - ((frequencyData[i + offset] - 128) / 128));
       }
       correlation = 1 - (correlation / MAX_SAMPLES);
       
-      if (correlation > 0.9 && correlation > lastCorrelation) {
-        const foundGoodCorrelation = correlation > bestCorrelation;
-        if (foundGoodCorrelation) {
+      // Lowered threshold from 0.9 to 0.5 - real speech rarely exceeds 0.8 correlation
+      // Looking for local maximum (correlation > lastCorrelation means we're going up)
+      if (correlation > 0.5 && correlation > bestCorrelation) {
+        // Ensure we're at a peak (correlation started declining means we found the peak)
+        if (foundPeak || offset === minOffset) {
           bestCorrelation = correlation;
           bestOffset = offset;
+          foundPeak = true;
         }
       }
+      
+      // Detect when we start going up (entering a peak region)
+      if (correlation > lastCorrelation && correlation > 0.4) {
+        foundPeak = true;
+      }
+      
       lastCorrelation = correlation;
     }
 
-    if (bestOffset === -1 || bestCorrelation < 0.01) return 0;
+    // Lowered minimum correlation threshold from 0.01 to allow weaker but valid detections
+    if (bestOffset === -1 || bestCorrelation < 0.4) return 0;
 
     const fundamentalFreq = sampleRate / bestOffset;
-    // Human voice range: 80-300 Hz
+    // Human voice range: 60-400 Hz (already constrained by search range, but double-check)
     return (fundamentalFreq >= 60 && fundamentalFreq <= 400) ? fundamentalFreq : 0;
   }, []);
 
@@ -208,6 +224,11 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
         const pitch = calculatePitch(timeDataArray, audioContextRef.current.sampleRate);
         const clarity = calculateClarity(frequencyDataArray);
         const pace = calculatePace(timeDataArray);
+
+        // Log pitch detection periodically (every 3 seconds when collecting)
+        if (collectingSamplesRef.current && frameCountRef.current % 150 === 0) {
+          console.log(`🎵 Pitch detection: pitch=${pitch.toFixed(1)}Hz, volume=${volume.toFixed(1)}, clarity=${clarity.toFixed(1)}`);
+        }
 
         const metrics: VoiceQualityMetrics = {
           pitch,
