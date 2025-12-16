@@ -336,7 +336,6 @@ function CandidateAppContent() {
   // Capture evaluation data point (scores) and save to database
   const handleCaptureDataPoint = useCallback(async (dataType: string, value: string, _status: string, reason?: string) => {
     const evalId = evaluationIdRef.current;
-    console.log(`[v2] 📊 captureDataPoint called:`, { dataType, value, reason, evaluationId: evalId });
     
     if (!evalId) {
       console.error('[v2] ❌ Cannot save data point - no evaluation ID in ref');
@@ -362,7 +361,7 @@ function CandidateAppContent() {
             throw new Error(`HTTP ${response.status}: ${await response.text()}`);
           }
           
-          console.log(`[v2] ✅ Score saved: ${dataType} = ${numericScore} | Reason: ${reason || 'N/A'}`);
+          // Score saved successfully
         } catch (error) {
           console.error(`[v2] ❌ Failed to save score ${dataType}:`, error);
         }

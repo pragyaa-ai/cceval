@@ -41,10 +41,8 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
 
   const setCollectingSamples = useCallback((collecting: boolean) => {
     const wasCollecting = collectingSamplesRef.current;
-    console.log(`🎯🎯🎯 Voice sample collection CHANGING: ${wasCollecting} -> ${collecting}`);
-    console.log(`🎯 setCollectingSamples called with:`, collecting);
+    console.log(`🎯 Sample collection: ${wasCollecting} -> ${collecting}`);
     collectingSamplesRef.current = collecting;
-    console.log(`🎯 collectingSamplesRef.current is now:`, collectingSamplesRef.current);
   }, []);
 
   const clearHistory = useCallback(() => {
@@ -211,13 +209,8 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
 
       const volume = calculateVolume(timeDataArray);
       
-      // Log volume periodically (every 2 seconds) for debugging
+      // Track last log time (silent - only log when collecting)
       const now = Date.now();
-      if (now - lastVolumeLogTime > 2000) {
-        lastVolumeLogTime = now;
-        const avgTimeData = timeDataArray.reduce((a, b) => a + b, 0) / timeDataArray.length;
-        console.log(`🔊 Audio analysis frame #${frameCountRef.current}: volume=${volume.toFixed(1)}, avgTimeData=${avgTimeData.toFixed(1)}, collecting=${collectingSamplesRef.current}`);
-      }
       
       // Only calculate other metrics if there's significant volume (raised threshold to ignore noise)
       if (volume > 8) {
@@ -225,10 +218,7 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
         const clarity = calculateClarity(frequencyDataArray);
         const pace = calculatePace(timeDataArray);
 
-        // Log pitch detection periodically (every 3 seconds when collecting)
-        if (collectingSamplesRef.current && frameCountRef.current % 150 === 0) {
-          console.log(`🎵 Pitch detection: pitch=${pitch.toFixed(1)}Hz, volume=${volume.toFixed(1)}, clarity=${clarity.toFixed(1)}`);
-        }
+        // Removed verbose pitch detection logging
 
         const metrics: VoiceQualityMetrics = {
           pitch,
@@ -243,21 +233,18 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
         // Add to history every 200ms if there's activity AND collection is enabled
         if (collectingSamplesRef.current) {
           setMetricsHistory(prev => {
-            const now = Date.now();
             const lastEntry = prev[prev.length - 1];
             
             if (!lastEntry || now - lastEntry.timestamp > 200) {
               const newHistory = [...prev, metrics].slice(-100); // Keep last 100 samples
-              if (newHistory.length % 5 === 0 || newHistory.length === 1) { // Log every 5 samples
-                console.log(`🎵 Voice sample collected: #${newHistory.length} (volume: ${metrics.volume.toFixed(1)}, clarity: ${metrics.clarity.toFixed(1)})`);
+              // Log every 10 samples (reduced frequency)
+              if (newHistory.length % 10 === 0 || newHistory.length === 1) {
+                console.log(`🎵 Sample #${newHistory.length} collected`);
               }
               return newHistory;
             }
             return prev;
           });
-        } else if (collectingSamplesRef.current === false && Math.random() < 0.01) {
-          // Occasional log when not collecting (1% of frames)
-          console.log('⏸️ Audio detected but sample collection disabled (waiting for reading phase)');
         }
       }
 
@@ -268,51 +255,33 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
   }, [calculatePitch, calculateVolume, calculateClarity, calculatePace]);
 
   const startAnalysis = useCallback(async (stream: MediaStream) => {
-    console.log('🎤 Starting voice quality analysis...');
-    console.log('🎤 Stream info:', {
-      active: stream.active,
-      id: stream.id,
-      audioTracks: stream.getAudioTracks().map(t => ({
-        id: t.id,
-        enabled: t.enabled,
-        readyState: t.readyState,
-        muted: t.muted,
-        label: t.label
-      }))
-    });
+    console.log('🎤 Starting voice analysis, stream active:', stream.active);
     
     // Verify stream is valid
     if (!stream.active) {
-      console.error('❌ Stream is not active! Voice analysis will not work.');
+      console.error('❌ Stream not active!');
       return;
     }
     
     const audioTracks = stream.getAudioTracks();
     if (audioTracks.length === 0) {
-      console.error('❌ No audio tracks in stream! Voice analysis will not work.');
+      console.error('❌ No audio tracks!');
       return;
     }
     
     const activeTrack = audioTracks[0];
     if (activeTrack.readyState !== 'live') {
-      console.error('❌ Audio track is not live! State:', activeTrack.readyState);
+      console.error('❌ Track not live:', activeTrack.readyState);
       return;
     }
     
     try {
       // Create audio context
       audioContextRef.current = new AudioContext();
-      console.log('🎤 AudioContext created, state:', audioContextRef.current.state, 'sampleRate:', audioContextRef.current.sampleRate);
       
-      // Always try to resume the audio context (required due to browser autoplay policies)
+      // Resume if suspended
       if (audioContextRef.current.state === 'suspended') {
-        console.log('🎤 AudioContext is suspended, attempting to resume...');
-        try {
-          await audioContextRef.current.resume();
-          console.log('🎤 AudioContext resumed successfully, new state:', audioContextRef.current.state);
-        } catch (resumeError) {
-          console.error('❌ Failed to resume AudioContext:', resumeError);
-        }
+        await audioContextRef.current.resume();
       }
 
       // Create analyser
@@ -321,30 +290,10 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
       analyser.smoothingTimeConstant = 0.8;
       analyser.minDecibels = -90;
       analyser.maxDecibels = -10;
-      console.log('🎤 Analyser created with fftSize:', analyser.fftSize, 'frequencyBinCount:', analyser.frequencyBinCount);
 
       // Connect stream to analyser
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyser);
-      console.log('🎤 Stream connected to analyser (MediaStreamSource created)');
-      
-      // Quick test to verify analyser is receiving data
-      setTimeout(() => {
-        if (analyserRef.current) {
-          const testData = new Uint8Array(analyserRef.current.frequencyBinCount);
-          analyserRef.current.getByteTimeDomainData(testData);
-          const avgValue = testData.reduce((a, b) => a + b, 0) / testData.length;
-          const minValue = Math.min(...testData);
-          const maxValue = Math.max(...testData);
-          console.log('🎤 Audio data check after 500ms:', {
-            avgValue: avgValue.toFixed(1),
-            minValue,
-            maxValue,
-            hasVariation: maxValue - minValue > 5,
-            message: (maxValue - minValue > 5) ? '✅ Audio signal detected!' : '⚠️ No audio variation - stream may be silent'
-          });
-        }
-      }, 500);
 
       analyserRef.current = analyser;
       setIsAnalyzing(true);
@@ -359,7 +308,7 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
   }, [analyze]);
 
   const stopAnalysis = useCallback(() => {
-    console.log('🛑 Stopping voice analysis...');
+    console.log('🛑 Voice analysis stopped');
     
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -373,8 +322,6 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
 
     analyserRef.current = null;
     setIsAnalyzing(false);
-    
-    console.log('✅ Voice analysis stopped');
   }, []);
 
   // Cleanup on unmount

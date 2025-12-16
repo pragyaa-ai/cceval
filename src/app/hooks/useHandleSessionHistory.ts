@@ -177,14 +177,6 @@ export function useHandleSessionHistory() {
   }
 
   async function handleHistoryAdded(item: any) {
-    console.log("[handleHistoryAdded] ", item);
-    
-    // Check if this is an agent change (look for agent property)
-    if (item.agent) {
-      console.log("🔄 AGENT DETECTED IN HISTORY:", item.agent);
-      console.log("🔄 Agent name:", item.agent.name);
-    }
-    
     if (!item || item.type !== 'message') return;
 
     const { itemId, role, content = [] } = item;
@@ -209,7 +201,6 @@ export function useHandleSessionHistory() {
   }
 
   async function handleHistoryUpdated(items: any[]) {
-    console.log("[handleHistoryUpdated] ", items);
     items.forEach(async (item: any) => {
       if (!item || item.type !== 'message') return;
 
@@ -253,7 +244,6 @@ export function useHandleSessionHistory() {
     }
     
     if (itemId) {
-      console.log(`[DEBUG] handleTranscriptionCompleted: finalTranscript="${finalTranscript}"`);
       await updateTranscriptMessage(itemId, finalTranscript, false);
       // Use the ref to get the latest transcriptItems
       const transcriptItem = transcriptItems.find((i) => i.itemId === itemId);
@@ -273,7 +263,6 @@ export function useHandleSessionHistory() {
   }
 
   function handleGuardrailTripped(details: any, _agent: any, guardrail: any) {
-    console.log("[guardrail tripped]", details, _agent, guardrail);
     const moderation = extractModeration(guardrail.result.output.outputInfo);
     logServerEvent({ type: 'guardrail_tripped', payload: moderation });
 

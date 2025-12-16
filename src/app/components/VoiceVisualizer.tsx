@@ -112,41 +112,26 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
 
   // Control sample collection based on analysis phase
   useEffect(() => {
-    console.log('🔄 Voice analysis control useEffect triggered:', {
-      isAnalysisActive,
-      hasConnectedStream,
-      isAnalyzing,
-      metricsHistoryLength: metricsHistory.length
-    });
-    
     if (isAnalysisActive) {
-      console.log('📊📊📊 Voice analysis phase ACTIVE - collecting samples NOW');
-      console.log('📊 hasConnectedStream:', hasConnectedStream);
-      console.log('📊 isAnalyzing:', isAnalyzing);
-      console.log('📊 Current metricsHistory length:', metricsHistory.length);
+      console.log('📊 VOICE ANALYSIS ACTIVE | mic:', hasConnectedStream, '| analyser:', isAnalyzing, '| samples:', metricsHistory.length);
       
       if (!hasConnectedStream) {
-        console.warn('⚠️⚠️⚠️ WARNING: Voice analysis active but mic stream NOT connected!');
-        console.warn('⚠️ Samples will NOT be collected until mic stream connects.');
+        console.warn('⚠️ WARNING: Analysis active but mic NOT connected!');
       }
-      
       if (!isAnalyzing) {
-        console.warn('⚠️⚠️⚠️ WARNING: Voice analysis active but analyser NOT running!');
+        console.warn('⚠️ WARNING: Analysis active but analyser NOT running!');
       }
       
       setCollectingSamples(true);
     } else {
-      console.log('⏸️ Voice analysis phase INACTIVE - not collecting samples');
-      console.log('⏸️ hasConnectedStream:', hasConnectedStream);
-      console.log('⏸️ metricsHistory length:', metricsHistory.length);
+      console.log('⏸️ VOICE ANALYSIS INACTIVE | samples:', metricsHistory.length);
       setCollectingSamples(false);
     }
   }, [isAnalysisActive, setCollectingSamples, hasConnectedStream, isAnalyzing, metricsHistory.length]);
 
   // Log when mic stream connection state changes
   useEffect(() => {
-    console.log(`🎙️ Mic stream connection state changed: ${hasConnectedStream ? 'CONNECTED' : 'NOT CONNECTED'}`);
-    console.log(`🎙️ isAnalysisActive: ${isAnalysisActive}, isAnalyzing: ${isAnalyzing}`);
+    console.log(`🎙️ Mic: ${hasConnectedStream ? 'CONNECTED' : 'NOT CONNECTED'} | active: ${isAnalysisActive} | analyzing: ${isAnalyzing}`);
   }, [hasConnectedStream, isAnalysisActive, isAnalyzing]);
 
   // Track if we've cleared history for this session to prevent multiple clears
@@ -359,9 +344,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   const getAnalysisBreakdown = () => {
     // Require minimum samples for meaningful analysis
     const MIN_SAMPLES = 5;
-    console.log('[VoiceVisualizer] getAnalysisBreakdown called, samples:', metricsHistory.length);
     if (metricsHistory.length < MIN_SAMPLES) {
-      console.warn('[VoiceVisualizer] Insufficient samples for analysis:', metricsHistory.length, 'min:', MIN_SAMPLES);
       return null;
     }
 
@@ -453,18 +436,12 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   // Expose the report function to parent components via callback
   useEffect(() => {
     if (onReportReady) {
-      console.log(`📝 Registering getAnalysisBreakdown callback (samples: ${metricsHistory.length})`);
       onReportReady(() => {
-        console.log(`📊 getAnalysisBreakdown called by agent tool (samples: ${metricsHistory.length})`);
         const report = getAnalysisBreakdown();
         if (report) {
-          console.log(`✅ Report generated successfully:`, {
-            overallScore: report.overallScore,
-            sampleCount: report.sampleCount,
-            duration: report.duration
-          });
+          console.log(`📊 Report generated: score=${report.overallScore}%, samples=${report.sampleCount}`);
         } else {
-          console.error(`❌ Report generation failed - insufficient samples (${metricsHistory.length} < 5)`);
+          console.error(`❌ Report failed: only ${metricsHistory.length} samples (need 5+)`);
         }
         return report;
       });
