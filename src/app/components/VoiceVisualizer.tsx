@@ -136,11 +136,28 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
     console.log(`🎙️ isAnalysisActive: ${isAnalysisActive}, isAnalyzing: ${isAnalyzing}`);
   }, [hasConnectedStream, isAnalysisActive, isAnalyzing]);
 
-  // Clear history when new session starts
+  // Track if we've cleared history for this session to prevent multiple clears
+  const hasInitializedSessionRef = useRef(false);
+  const lastSessionStatusRef = useRef(sessionStatus);
+
+  // Clear history ONLY on fresh session start (transition from non-connected to connected)
   useEffect(() => {
-    if (sessionStatus === 'CONNECTED') {
+    const wasConnected = lastSessionStatusRef.current === 'CONNECTED';
+    const isNowConnected = sessionStatus === 'CONNECTED';
+    
+    // Only clear on fresh connection (transition TO connected, not while already connected)
+    if (isNowConnected && !wasConnected && !hasInitializedSessionRef.current) {
+      console.log('🗑️ New session detected - clearing voice metrics history');
       clearHistory();
+      hasInitializedSessionRef.current = true;
     }
+    
+    // Reset the flag when disconnected so next connection will clear
+    if (sessionStatus === 'DISCONNECTED') {
+      hasInitializedSessionRef.current = false;
+    }
+    
+    lastSessionStatusRef.current = sessionStatus;
   }, [sessionStatus, clearHistory]);
 
   // Draw visualization
