@@ -25,6 +25,7 @@ export interface VoiceAnalysisHook {
 export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null); // Keep reference to prevent GC
   const animationFrameRef = useRef<number | null>(null);
   const collectingSamplesRef = useRef<boolean>(false);
   
@@ -303,8 +304,10 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
       analyser.maxDecibels = -10;
 
       // Connect stream to analyser
+      // IMPORTANT: Store source node in ref to prevent garbage collection
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyser);
+      sourceNodeRef.current = source; // Keep reference alive
 
       analyserRef.current = analyser;
       setIsAnalyzing(true);
@@ -324,6 +327,12 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
+    }
+
+    // Disconnect and clean up source node
+    if (sourceNodeRef.current) {
+      sourceNodeRef.current.disconnect();
+      sourceNodeRef.current = null;
     }
 
     if (audioContextRef.current) {
