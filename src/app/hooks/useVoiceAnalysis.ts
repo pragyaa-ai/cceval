@@ -204,6 +204,11 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
       }
 
       frameCountRef.current++;
+      
+      // Log first few frames to confirm loop is running
+      if (frameCountRef.current <= 3 || frameCountRef.current % 1000 === 0) {
+        console.log(`🔄 processAudio frame #${frameCountRef.current} (analyser ok: ${!!analyserRef.current})`);
+      }
       analyser.getByteTimeDomainData(timeDataArray);
       analyser.getByteFrequencyData(frequencyDataArray);
 
@@ -211,6 +216,12 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
       
       // Track last log time (silent - only log when collecting)
       const now = Date.now();
+      
+      // Log volume every 2 seconds for diagnostics when collecting is enabled
+      if (collectingSamplesRef.current && (now - lastVolumeLogTime > 2000)) {
+        lastVolumeLogTime = now;
+        console.log(`🔊 Audio check: volume=${volume.toFixed(1)}, collecting=${collectingSamplesRef.current}, frame=${frameCountRef.current}`);
+      }
       
       // Only calculate other metrics if there's significant volume (raised threshold to ignore noise)
       if (volume > 8) {
