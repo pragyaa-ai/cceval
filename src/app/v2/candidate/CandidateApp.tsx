@@ -51,6 +51,15 @@ export default function CandidateApp() {
   );
 }
 
+// Calibration guidance type from evaluator feedback
+interface CalibrationGuidance {
+  adjustment: number;
+  guidance: string;
+  totalFeedbacks: number;
+  avgAdjustment: number;
+  lastAnalyzedAt: string | null;
+}
+
 function CandidateAppContent() {
   // State
   const [accessCode, setAccessCode] = useState("");
@@ -60,6 +69,7 @@ function CandidateAppContent() {
   const [sessionDuration, setSessionDuration] = useState(0);
   const [currentPhase, setCurrentPhase] = useState<EvaluationPhase>("not_started");
   const [sessionStatus, setSessionStatus] = useState<"DISCONNECTED" | "CONNECTING" | "CONNECTED">("DISCONNECTED");
+  const [calibrationGuidance, setCalibrationGuidance] = useState<Record<string, CalibrationGuidance>>({});
 
   // Contexts
   const { transcriptItems, addTranscriptBreadcrumb } = useTranscript();
@@ -467,9 +477,28 @@ function CandidateAppContent() {
     }
   };
 
+  // Fetch calibration guidance for AI scoring adjustments
+  const fetchCalibrationGuidance = async (): Promise<Record<string, CalibrationGuidance>> => {
+    try {
+      const response = await fetch("/api/v2/calibration");
+      if (response.ok) {
+        const data = await response.json();
+        console.log("[v2] 📊 Calibration guidance loaded:", Object.keys(data.calibrations).length, "parameters");
+        return data.calibrations || {};
+      }
+    } catch (error) {
+      console.error("[v2] ⚠️ Failed to fetch calibration guidance:", error);
+    }
+    return {};
+  };
+
   // Start evaluation - connect to VoiceAgent
   const handleStartEvaluation = async () => {
     if (!authenticatedCandidate) return;
+
+    // Fetch calibration guidance for AI scoring (based on evaluator feedback)
+    const calibration = await fetchCalibrationGuidance();
+    setCalibrationGuidance(calibration);
 
     // Create evaluation in database FIRST and get the evaluation object
     let evaluationId: string | undefined;
@@ -484,13 +513,13 @@ function CandidateAppContent() {
       if (evalResponse.ok) {
         const evaluation = await evalResponse.json();
         evaluationId = evaluation.id;
-        
+
         // Store in ref for immediate access (no waiting for state update)
         evaluationIdRef.current = evaluationId;
-        
+
         console.log("[v2] ✅ Evaluation created with ID:", evaluationId);
         console.log("[v2] ✅ Evaluation ID stored in ref for handlers");
-        
+
         // Update state with evaluation
         const updatedCandidate = {
           ...authenticatedCandidate,
@@ -558,6 +587,8 @@ function CandidateAppContent() {
           saveVoiceAnalysis: handleSaveVoiceAnalysis,
           // Score capture for saving to database
           captureDataPoint: handleCaptureDataPoint,
+          // Calibration guidance from evaluator feedback (for AI scoring adjustments)
+          calibrationGuidance: calibration,
         },
       });
 

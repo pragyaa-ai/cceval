@@ -277,6 +277,16 @@ Score each parameter on 1-5 scale:
 7. **process_accuracy:** Lead capturing, summarizing, clear CTA
 8. **closure_quality:** Professional, crisp, complete ending
 
+### CALIBRATION GUIDANCE (from evaluator feedback)
+
+When scoring, check context.calibrationGuidance for specific parameter adjustments based on human evaluator feedback. This helps align AI scoring with human expectations.
+
+If calibration guidance is provided for a parameter:
+- Read the guidance before scoring
+- Consider the adjustment direction (evaluators rate higher/lower)
+- Apply the insight to your scoring decision
+- Still use your own judgment - calibration is guidance, not override
+
 ---
 
 ## TOOL USAGE
@@ -324,7 +334,7 @@ Use advance_phase tool when completing each phase:
   tools: [
     tool({
       name: "capture_evaluation_data",
-      description: "Capture evaluation metrics and candidate information during assessment. Use this throughout the evaluation to record scores, observations, and candidate responses.",
+      description: "Capture evaluation metrics and candidate information during assessment. Use this throughout the evaluation to record scores, observations, and candidate responses. Before scoring, check context.calibrationGuidance[parameter] for any calibration adjustments based on evaluator feedback.",
       parameters: {
         type: "object",
         properties: {
@@ -363,6 +373,12 @@ Use advance_phase tool when completing each phase:
         const typedInput = input as { data_type: string; value: string; reason?: string };
         const context = details?.context as any;
         
+        // Check if calibration guidance exists for this parameter
+        const calibration = context?.calibrationGuidance?.[typedInput.data_type];
+        if (calibration && calibration.guidance) {
+          console.log(`[Mahindra Evaluation] 📊 Calibration active for ${typedInput.data_type}: adjustment=${calibration.adjustment}, guidance="${calibration.guidance.substring(0, 50)}..."`);
+        }
+        
         if (context?.captureDataPoint) {
           // Pass reason as the 4th parameter for storing with the score
           context.captureDataPoint(typedInput.data_type, typedInput.value, 'captured', typedInput.reason);
@@ -372,7 +388,8 @@ Use advance_phase tool when completing each phase:
             message: `Captured ${typedInput.data_type}: ${typedInput.value}`,
             data_type: typedInput.data_type,
             value: typedInput.value,
-            reason: typedInput.reason
+            reason: typedInput.reason,
+            calibrationApplied: !!calibration
           };
         }
         

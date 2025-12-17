@@ -232,3 +232,58 @@ model PhaseResult {
   
   completedAt DateTime @default(now())
 }
+
+// Agent Calibration - AI scoring adjustments based on evaluator feedback
+model AgentCalibration {
+  id          String   @id @default(cuid())
+  parameterId String   @unique // clarity_pace, product_knowledge, confidence, etc.
+  
+  // Calibration adjustment (-2 to +2, applied to AI scores)
+  adjustment  Float    @default(0)
+  
+  // Guidance text included in AI prompts for this parameter
+  guidance    String   @db.Text @default("")
+  
+  // Statistics from feedback analysis
+  totalFeedbacks    Int @default(0)  // Total feedback entries analyzed
+  avgAdjustment     Float @default(0) // Average adjustment direction
+  lastAnalyzedAt    DateTime?         // When analysis was last run
+  
+  // Tracking
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // History of changes
+  history     CalibrationHistory[]
+}
+
+// Calibration History - Track all changes to calibrations
+model CalibrationHistory {
+  id             String   @id @default(cuid())
+  
+  calibrationId  String
+  calibration    AgentCalibration @relation(fields: [calibrationId], references: [id], onDelete: Cascade)
+  
+  // Previous values (before this change)
+  previousAdjustment Float
+  previousGuidance   String @db.Text
+  
+  // New values (after this change)
+  newAdjustment      Float
+  newGuidance        String @db.Text
+  
+  // Analysis details
+  feedbackCount      Int      // Number of feedbacks analyzed for this update
+  periodStart        DateTime // Analysis period start
+  periodEnd          DateTime // Analysis period end
+  
+  // Summary of why the change was made
+  analysisSummary    String   @db.Text
+  
+  // Which evaluators contributed feedback
+  evaluatorIds       String   @db.Text // JSON array of evaluator IDs
+  
+  createdAt          DateTime @default(now())
+}

@@ -303,6 +303,153 @@ export async function deleteEvaluatorFeedback(
   }
 }
 
+// Calibration types
+export interface CalibrationData {
+  adjustment: number;
+  guidance: string;
+  totalFeedbacks: number;
+  avgAdjustment: number;
+  lastAnalyzedAt: string | null;
+}
+
+export interface CalibrationHistoryItem {
+  id: string;
+  parameterId: string;
+  previousAdjustment: number;
+  newAdjustment: number;
+  previousGuidance: string;
+  newGuidance: string;
+  feedbackCount: number;
+  periodStart: string;
+  periodEnd: string;
+  analysisSummary: string;
+  evaluators: string[];
+  createdAt: string;
+}
+
+export interface FeedbackHistoryItem {
+  id: string;
+  feedbackType: string;
+  parameterId: string;
+  originalScore: number | null;
+  adjustedScore: number | null;
+  adjustment: number | null;
+  comment: string;
+  evaluator: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    image: string | null;
+  };
+  candidate: {
+    id: string;
+    name: string;
+    email: string | null;
+  };
+  sessionId: string;
+  evaluationId: string;
+  createdAt: string;
+}
+
+// Fetch calibration settings
+export async function fetchCalibrations(): Promise<{
+  calibrations: Record<string, CalibrationData>;
+  parameters: string[];
+}> {
+  const response = await fetch("/api/v2/calibration");
+  if (!response.ok) {
+    throw new Error("Failed to fetch calibrations");
+  }
+  return response.json();
+}
+
+// Run calibration analysis (admin only)
+export async function runCalibrationAnalysis(periodDays: number = 7): Promise<{
+  success: boolean;
+  periodStart: string;
+  periodEnd: string;
+  totalFeedbacksAnalyzed: number;
+  results: Record<string, {
+    feedbackCount: number;
+    avgAdjustment: number;
+    newGuidance: string;
+    evaluators: string[];
+  }>;
+}> {
+  const response = await fetch("/api/v2/calibration", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ periodDays }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to run calibration analysis");
+  }
+  return response.json();
+}
+
+// Fetch calibration history
+export async function fetchCalibrationHistory(
+  parameterId?: string,
+  limit: number = 50
+): Promise<{ history: CalibrationHistoryItem[]; total: number }> {
+  const params = new URLSearchParams();
+  if (parameterId) params.set("parameterId", parameterId);
+  params.set("limit", limit.toString());
+
+  const response = await fetch(`/api/v2/calibration/history?${params}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch calibration history");
+  }
+  return response.json();
+}
+
+// Fetch feedback history with filters
+export async function fetchFeedbackHistory(filters?: {
+  startDate?: string;
+  endDate?: string;
+  evaluatorId?: string;
+  parameterId?: string;
+  feedbackType?: string;
+  limit?: number;
+  page?: number;
+}): Promise<{
+  feedbacks: FeedbackHistoryItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+  };
+  stats: {
+    byEvaluator: Array<{
+      evaluatorId: string;
+      evaluatorName: string;
+      feedbackCount: number;
+    }>;
+    byType: Array<{
+      feedbackType: string;
+      _count: { id: number };
+      _avg: { originalScore: number | null; adjustedScore: number | null };
+    }>;
+  };
+}> {
+  const params = new URLSearchParams();
+  if (filters?.startDate) params.set("startDate", filters.startDate);
+  if (filters?.endDate) params.set("endDate", filters.endDate);
+  if (filters?.evaluatorId) params.set("evaluatorId", filters.evaluatorId);
+  if (filters?.parameterId) params.set("parameterId", filters.parameterId);
+  if (filters?.feedbackType) params.set("feedbackType", filters.feedbackType);
+  if (filters?.limit) params.set("limit", filters.limit.toString());
+  if (filters?.page) params.set("page", filters.page.toString());
+
+  const response = await fetch(`/api/v2/feedback?${params}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch feedback history");
+  }
+  return response.json();
+}
+
 // Custom hook for batches with loading state
 export function useBatches() {
   const [batches, setBatches] = useState<BatchSummary[]>([]);
