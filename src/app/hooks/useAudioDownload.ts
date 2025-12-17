@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useCallback } from "react";
 import { convertWebMBlobToWav } from "../lib/audioUtils";
 
 function useAudioDownload() {
@@ -14,7 +14,7 @@ function useAudioDownload() {
    * the microphone audio.
    * @param remoteStream - The remote MediaStream (e.g., from the audio element).
    */
-  const startRecording = async (remoteStream: MediaStream) => {
+  const startRecording = useCallback(async (remoteStream: MediaStream) => {
     let micStream: MediaStream;
     try {
       // Request microphone with noise suppression and echo cancellation
@@ -84,25 +84,25 @@ function useAudioDownload() {
     } catch (err) {
       console.error("Error starting MediaRecorder with combined stream:", err);
     }
-  };
+  }, []);
 
   /**
    * Stops the MediaRecorder, if active.
    */
-  const stopRecording = () => {
+  const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current) {
       // Request any final data before stopping.
       mediaRecorderRef.current.requestData();
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current = null;
     }
-  };
+  }, []);
 
   /**
    * Initiates download of the recording after converting from WebM to WAV.
    * If the recorder is still active, we request its latest data before downloading.
    */
-  const downloadRecording = async () => {
+  const downloadRecording = useCallback(async () => {
     // If recording is still active, request the latest chunk.
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       // Request the current data.
@@ -141,18 +141,18 @@ function useAudioDownload() {
     } catch (err) {
       console.error("Error converting recording to WAV:", err);
     }
-  };
+  }, []);
 
   /**
    * Get the microphone stream for voice analysis
    */
-  const getMicStream = () => micStreamRef.current;
+  const getMicStream = useCallback(() => micStreamRef.current, []);
 
   /**
    * Get the recording as a Blob for upload (WebM format)
    * Returns null if no recording is available
    */
-  const getRecordingBlob = async (): Promise<Blob | null> => {
+  const getRecordingBlob = useCallback(async (): Promise<Blob | null> => {
     // If recording is still active, request the latest chunk
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.requestData();
@@ -167,14 +167,14 @@ function useAudioDownload() {
 
     // Combine the recorded chunks into a single WebM blob
     return new Blob(recordedChunksRef.current, { type: "audio/webm" });
-  };
+  }, []);
 
   /**
    * Clear recorded chunks (call after successful upload)
    */
-  const clearRecording = () => {
+  const clearRecording = useCallback(() => {
     recordedChunksRef.current = [];
-  };
+  }, []);
 
   return { startRecording, stopRecording, downloadRecording, getMicStream, getRecordingBlob, clearRecording };
 }
