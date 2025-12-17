@@ -26,7 +26,7 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null); // Keep reference to prevent GC
-  const animationFrameRef = useRef<number | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null); // Use setInterval instead of requestAnimationFrame
   const collectingSamplesRef = useRef<boolean>(false);
   
   const [currentMetrics, setCurrentMetrics] = useState<VoiceQualityMetrics>({
@@ -185,6 +185,7 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
 
   // Track frame count for periodic logging
   const frameCountRef = useRef(0);
+  const lastVolumeLogTimeRef = useRef(0);
   
   const analyze = useCallback(() => {
     const analyser = analyserRef.current;
@@ -196,74 +197,86 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
     const bufferLength = analyser.frequencyBinCount;
     const timeDataArray = new Uint8Array(bufferLength);
     const frequencyDataArray = new Uint8Array(bufferLength);
-    let lastVolumeLogTime = 0;
 
+    // Use setInterval instead of requestAnimationFrame for more reliable execution
+    // setInterval continues even when tab is in background (unlike requestAnimationFrame)
+    // 50ms interval = 20 samples per second, sufficient for voice analysis
     const processAudio = () => {
-      if (!analyserRef.current || !audioContextRef.current) {
-        console.log('⚠️ Analysis stopped - context or analyser no longer available');
-        return;
-      }
-
-      frameCountRef.current++;
-      
-      // Log first few frames to confirm loop is running
-      if (frameCountRef.current <= 3 || frameCountRef.current % 1000 === 0) {
-        console.log(`🔄 processAudio frame #${frameCountRef.current} (analyser ok: ${!!analyserRef.current})`);
-      }
-      analyser.getByteTimeDomainData(timeDataArray);
-      analyser.getByteFrequencyData(frequencyDataArray);
-
-      const volume = calculateVolume(timeDataArray);
-      
-      // Track last log time (silent - only log when collecting)
-      const now = Date.now();
-      
-      // Log volume every 2 seconds for diagnostics when collecting is enabled
-      if (collectingSamplesRef.current && (now - lastVolumeLogTime > 2000)) {
-        lastVolumeLogTime = now;
-        console.log(`🔊 Audio check: volume=${volume.toFixed(1)}, collecting=${collectingSamplesRef.current}, frame=${frameCountRef.current}`);
-      }
-      
-      // Only calculate other metrics if there's significant volume (raised threshold to ignore noise)
-      if (volume > 8) {
-        const pitch = calculatePitch(timeDataArray, audioContextRef.current.sampleRate);
-        const clarity = calculateClarity(frequencyDataArray);
-        const pace = calculatePace(timeDataArray);
-
-        // Removed verbose pitch detection logging
-
-        const metrics: VoiceQualityMetrics = {
-          pitch,
-          volume,
-          clarity,
-          pace,
-          timestamp: Date.now()
-        };
-
-        setCurrentMetrics(metrics);
-
-        // Add to history every 200ms if there's activity AND collection is enabled
-        if (collectingSamplesRef.current) {
-          setMetricsHistory(prev => {
-            const lastEntry = prev[prev.length - 1];
-            
-            if (!lastEntry || now - lastEntry.timestamp > 200) {
-              const newHistory = [...prev, metrics].slice(-100); // Keep last 100 samples
-              // Log every 10 samples (reduced frequency)
-              if (newHistory.length % 10 === 0 || newHistory.length === 1) {
-                console.log(`🎵 Sample #${newHistory.length} collected`);
-              }
-              return newHistory;
-            }
-            return prev;
-          });
+      try {
+        if (!analyserRef.current || !audioContextRef.current) {
+          console.log('⚠️ Analysis stopped - context or analyser no longer available');
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+          return;
         }
-      }
 
-      animationFrameRef.current = requestAnimationFrame(processAudio);
+        frameCountRef.current++;
+        
+        // Log first few frames and then every 500 frames (~25 seconds) to confirm loop is running
+        if (frameCountRef.current <= 3 || frameCountRef.current % 500 === 0) {
+          console.log(`🔄 processAudio frame #${frameCountRef.current} (analyser ok: ${!!analyserRef.current}, collecting: ${collectingSamplesRef.current})`);
+        }
+        
+        analyser.getByteTimeDomainData(timeDataArray);
+        analyser.getByteFrequencyData(frequencyDataArray);
+
+        const volume = calculateVolume(timeDataArray);
+        const now = Date.now();
+        
+        // Log volume every 2 seconds for diagnostics when collecting is enabled
+        if (collectingSamplesRef.current && (now - lastVolumeLogTimeRef.current > 2000)) {
+          lastVolumeLogTimeRef.current = now;
+          console.log(`🔊 Audio check: volume=${volume.toFixed(1)}, collecting=${collectingSamplesRef.current}, frame=${frameCountRef.current}`);
+        }
+        
+        // Only calculate other metrics if there's significant volume (threshold for voice detection)
+        if (volume > 8) {
+          const pitch = calculatePitch(timeDataArray, audioContextRef.current!.sampleRate);
+          const clarity = calculateClarity(frequencyDataArray);
+          const pace = calculatePace(timeDataArray);
+
+          const metrics: VoiceQualityMetrics = {
+            pitch,
+            volume,
+            clarity,
+            pace,
+            timestamp: now
+          };
+
+          setCurrentMetrics(metrics);
+
+          // Add to history every 200ms if there's activity AND collection is enabled
+          if (collectingSamplesRef.current) {
+            setMetricsHistory(prev => {
+              const lastEntry = prev[prev.length - 1];
+              
+              if (!lastEntry || now - lastEntry.timestamp > 200) {
+                const newHistory = [...prev, metrics].slice(-100); // Keep last 100 samples
+                // Log every 10 samples (reduced frequency)
+                if (newHistory.length % 10 === 0 || newHistory.length === 1) {
+                  console.log(`🎵 Sample #${newHistory.length} collected`);
+                }
+                return newHistory;
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error in processAudio:', error);
+        // Don't stop the loop on error - just log and continue
+      }
     };
 
+    // Start the interval-based processing loop (50ms = 20 fps)
+    intervalRef.current = setInterval(processAudio, 50);
+    
+    // Run once immediately
     processAudio();
+    
+    console.log('🔄 Audio processing loop started with setInterval (50ms)');
   }, [calculatePitch, calculateVolume, calculateClarity, calculatePace]);
 
   const startAnalysis = useCallback(async (stream: MediaStream) => {
@@ -324,9 +337,10 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
   const stopAnalysis = useCallback(() => {
     console.log('🛑 Voice analysis stopped');
     
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
+    // Stop the interval-based processing loop
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
 
     // Disconnect and clean up source node
@@ -347,8 +361,8 @@ export function useVoiceQualityAnalysis(): VoiceAnalysisHook {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
       }
       if (audioContextRef.current) {
         audioContextRef.current.close();
