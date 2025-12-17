@@ -48,3 +48,4 @@ todo.md
 /public/recordings/*.webm
 /public/recordings/*.wav
 /public/recordings/*.mp3
+/data/recordings/
