@@ -8,6 +8,11 @@ function useAudioDownload() {
   const recordedChunksRef = useRef<Blob[]>([]);
   // Ref to store the microphone stream for voice analysis (separate from recording stream)
   const micStreamRef = useRef<MediaStream | null>(null);
+  // Ref to store AudioContext to prevent garbage collection
+  const audioContextRef = useRef<AudioContext | null>(null);
+  // Ref to store source nodes to prevent garbage collection
+  const remoteSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
   /**
    * Starts recording by combining the provided remote stream with
@@ -50,21 +55,27 @@ function useAudioDownload() {
     }
 
     // Create an AudioContext to merge the streams.
+    // IMPORTANT: Store in ref to prevent garbage collection
     const audioContext = new AudioContext();
+    audioContextRef.current = audioContext;
     const destination = audioContext.createMediaStreamDestination();
 
     // Connect the remote audio stream.
+    // IMPORTANT: Store source in ref to prevent garbage collection
     try {
       const remoteSource = audioContext.createMediaStreamSource(remoteStream);
       remoteSource.connect(destination);
+      remoteSourceRef.current = remoteSource;
     } catch (err) {
       console.error("Error connecting remote stream to the audio context:", err);
     }
 
     // Connect the ORIGINAL microphone audio stream to recorder (not the clone)
+    // IMPORTANT: Store source in ref to prevent garbage collection
     try {
       const micSource = audioContext.createMediaStreamSource(micStream);
       micSource.connect(destination);
+      micSourceRef.current = micSource;
       console.log('🎤 Original mic stream connected to AudioContext for recording');
     } catch (err) {
       console.error("Error connecting microphone stream to the audio context:", err);
@@ -95,6 +106,20 @@ function useAudioDownload() {
       mediaRecorderRef.current.requestData();
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current = null;
+    }
+    
+    // Clean up audio nodes (disconnect before nulling)
+    if (remoteSourceRef.current) {
+      remoteSourceRef.current.disconnect();
+      remoteSourceRef.current = null;
+    }
+    if (micSourceRef.current) {
+      micSourceRef.current.disconnect();
+      micSourceRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
     }
   }, []);
 
