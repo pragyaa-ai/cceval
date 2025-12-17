@@ -21,6 +21,8 @@ function useAudioDownload() {
    */
   const startRecording = useCallback(async (remoteStream: MediaStream) => {
     let micStream: MediaStream;
+    let micStreamForRecording: MediaStream;
+    
     try {
       // Request microphone with noise suppression and echo cancellation
       micStream = await navigator.mediaDevices.getUserMedia({ 
@@ -33,16 +35,16 @@ function useAudioDownload() {
         }
       });
       
-      // IMPORTANT: Clone the stream for voice analysis so it's not consumed by AudioContext
-      // The clone() method creates a new MediaStream with cloned tracks that can be 
-      // consumed independently
-      const micStreamForAnalysis = micStream.clone();
-      micStreamRef.current = micStreamForAnalysis;
+      // IMPORTANT: The ORIGINAL stream should be used for voice analysis (needs live audio data)
+      // The CLONE is used for recording (connecting to AudioContext first can "consume" the data)
+      // We clone for recording, and keep original for voice analysis
+      micStreamForRecording = micStream.clone();
+      micStreamRef.current = micStream; // Keep ORIGINAL for voice analysis
       
       console.log('🎤 Microphone stream captured with noise suppression enabled');
-      console.log('🎤 Original stream ID:', micStream.id, 'tracks:', micStream.getTracks().length);
-      console.log('🎤 Cloned stream for analysis ID:', micStreamForAnalysis.id, 'tracks:', micStreamForAnalysis.getTracks().length);
-      console.log('🎤 Clone track details:', micStreamForAnalysis.getTracks().map(t => ({
+      console.log('🎤 Original stream ID (for voice analysis):', micStream.id, 'tracks:', micStream.getTracks().length);
+      console.log('🎤 Cloned stream ID (for recording):', micStreamForRecording.id, 'tracks:', micStreamForRecording.getTracks().length);
+      console.log('🎤 Original track details:', micStream.getTracks().map(t => ({
         kind: t.kind,
         enabled: t.enabled,
         readyState: t.readyState,
@@ -52,6 +54,7 @@ function useAudioDownload() {
       console.error("Error getting microphone stream:", err);
       // Fallback to an empty MediaStream if microphone access fails.
       micStream = new MediaStream();
+      micStreamForRecording = new MediaStream();
     }
 
     // Create an AudioContext to merge the streams.
@@ -70,13 +73,14 @@ function useAudioDownload() {
       console.error("Error connecting remote stream to the audio context:", err);
     }
 
-    // Connect the ORIGINAL microphone audio stream to recorder (not the clone)
+    // Connect the CLONED microphone audio stream to recorder
+    // The original is kept for voice analysis which needs the live audio data
     // IMPORTANT: Store source in ref to prevent garbage collection
     try {
-      const micSource = audioContext.createMediaStreamSource(micStream);
+      const micSource = audioContext.createMediaStreamSource(micStreamForRecording);
       micSource.connect(destination);
       micSourceRef.current = micSource;
-      console.log('🎤 Original mic stream connected to AudioContext for recording');
+      console.log('🎤 Cloned mic stream connected to AudioContext for recording');
     } catch (err) {
       console.error("Error connecting microphone stream to the audio context:", err);
     }
