@@ -13,6 +13,8 @@ function useAudioDownload() {
   // Ref to store source nodes to prevent garbage collection
   const remoteSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  // Ref to store the cloned mic stream for recording (to stop tracks on cleanup)
+  const micStreamForRecordingRef = useRef<MediaStream | null>(null);
 
   /**
    * Starts recording by combining the provided remote stream with
@@ -85,45 +87,85 @@ function useAudioDownload() {
       console.error("Error connecting microphone stream to the audio context:", err);
     }
 
+    // Store the cloned stream ref for cleanup
+    micStreamForRecordingRef.current = micStreamForRecording;
+
     const options = { mimeType: "audio/webm" };
     try {
       const mediaRecorder = new MediaRecorder(destination.stream, options);
+      
       mediaRecorder.ondataavailable = (event: BlobEvent) => {
         if (event.data && event.data.size > 0) {
           recordedChunksRef.current.push(event.data);
+          console.log(`📼 Recording chunk received: ${event.data.size} bytes (total chunks: ${recordedChunksRef.current.length})`);
         }
       };
-      // Start recording without a timeslice.
-      mediaRecorder.start();
+      
+      mediaRecorder.onerror = (event) => {
+        console.error('📼 MediaRecorder error:', event);
+      };
+      
+      // Start recording WITH a timeslice of 1000ms to collect data periodically
+      // This ensures ondataavailable fires every second, not just on stop()
+      mediaRecorder.start(1000);
       mediaRecorderRef.current = mediaRecorder;
+      console.log('📼 MediaRecorder started with 1s timeslice, state:', mediaRecorder.state);
     } catch (err) {
       console.error("Error starting MediaRecorder with combined stream:", err);
     }
   }, []);
 
   /**
-   * Stops the MediaRecorder, if active.
+   * Stops the MediaRecorder and waits for all data to be collected.
+   * Returns a Promise that resolves when the recording is fully stopped.
    */
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current) {
-      // Request any final data before stopping.
-      mediaRecorderRef.current.requestData();
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current = null;
-    }
+  const stopRecording = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      console.log('📼 stopRecording called, current chunks:', recordedChunksRef.current.length);
+      
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        const recorder = mediaRecorderRef.current;
+        console.log('📼 MediaRecorder state before stop:', recorder.state);
+        
+        // Set up onstop handler to resolve when recording is fully complete
+        recorder.onstop = () => {
+          console.log('📼 MediaRecorder onstop fired, final chunks:', recordedChunksRef.current.length);
+          
+          // Clean up audio nodes AFTER recording is fully stopped
+          cleanupAudioNodes();
+          resolve();
+        };
+        
+        // Request final data and stop
+        recorder.requestData();
+        recorder.stop();
+        mediaRecorderRef.current = null;
+      } else {
+        console.log('📼 MediaRecorder not active, cleaning up');
+        cleanupAudioNodes();
+        resolve();
+      }
+    });
     
-    // Clean up audio nodes (disconnect before nulling)
-    if (remoteSourceRef.current) {
-      remoteSourceRef.current.disconnect();
-      remoteSourceRef.current = null;
-    }
-    if (micSourceRef.current) {
-      micSourceRef.current.disconnect();
-      micSourceRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
+    function cleanupAudioNodes() {
+      // Clean up audio nodes (disconnect before nulling)
+      if (remoteSourceRef.current) {
+        remoteSourceRef.current.disconnect();
+        remoteSourceRef.current = null;
+      }
+      if (micSourceRef.current) {
+        micSourceRef.current.disconnect();
+        micSourceRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      // Stop tracks on the cloned stream used for recording
+      if (micStreamForRecordingRef.current) {
+        micStreamForRecordingRef.current.getTracks().forEach(track => track.stop());
+        micStreamForRecordingRef.current = null;
+      }
     }
   }, []);
 
@@ -180,19 +222,19 @@ function useAudioDownload() {
   /**
    * Get the recording as a Blob for upload (WebM format)
    * Returns null if no recording is available
+   * NOTE: Call this AFTER stopRecording() has completed
    */
   const getRecordingBlob = useCallback(async (): Promise<Blob | null> => {
-    // If recording is still active, request the latest chunk
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      mediaRecorderRef.current.requestData();
-      // Allow a short delay for ondataavailable to fire
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-
+    console.log('📼 getRecordingBlob called, chunks available:', recordedChunksRef.current.length);
+    
     if (recordedChunksRef.current.length === 0) {
-      console.warn("No recorded chunks available for upload.");
+      console.warn("📼 No recorded chunks available for upload.");
       return null;
     }
+
+    // Calculate total size for logging
+    const totalSize = recordedChunksRef.current.reduce((acc, chunk) => acc + chunk.size, 0);
+    console.log(`📼 Creating blob from ${recordedChunksRef.current.length} chunks, total size: ${totalSize} bytes`);
 
     // Combine the recorded chunks into a single WebM blob
     return new Blob(recordedChunksRef.current, { type: "audio/webm" });

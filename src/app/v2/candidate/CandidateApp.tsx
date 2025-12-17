@@ -572,8 +572,12 @@ function CandidateAppContent() {
   const handleDisconnect = async () => {
     disconnect();
     stopAnalysis();
-    stopRecording(); // Stop the recording
     setCurrentPhase("completed");
+    
+    // Stop the recording and wait for all data to be collected
+    console.log('[v2] 📼 Stopping recording...');
+    await stopRecording();
+    console.log('[v2] 📼 Recording stopped, getting blob...');
 
     // Update candidate status to completed in database
     if (authenticatedCandidate) {
