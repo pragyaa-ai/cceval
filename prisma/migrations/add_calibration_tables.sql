@@ -47,3 +47,5 @@ ON DELETE CASCADE ON UPDATE CASCADE;
 -- Index for faster lookups
 CREATE INDEX IF NOT EXISTS "CalibrationHistory_calibrationId_idx" ON "CalibrationHistory"("calibrationId");
 CREATE INDEX IF NOT EXISTS "CalibrationHistory_createdAt_idx" ON "CalibrationHistory"("createdAt" DESC);
+
+

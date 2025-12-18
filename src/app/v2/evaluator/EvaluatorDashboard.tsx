@@ -1700,6 +1700,81 @@ function VoiceAnalysisDisplay({
   );
 }
 
+// Reprocess Button Component - For regenerating scores from recording/transcript
+function ReprocessButton({ 
+  evaluationId, 
+  onSuccess 
+}: { 
+  evaluationId: string; 
+  onSuccess?: () => void;
+}) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleReprocess = async () => {
+    if (!evaluationId || isProcessing) return;
+    
+    setIsProcessing(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/v2/evaluations/${evaluationId}/reprocess`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Reprocessing failed");
+      }
+      
+      const result = await response.json();
+      console.log("[Reprocess] Success:", result);
+      
+      // Show success and refresh
+      alert(`✅ Reprocessing complete!\n\n${result.scoresGenerated} scores generated from ${result.source}.`);
+      onSuccess?.();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(message);
+      console.error("[Reprocess] Error:", err);
+      alert(`❌ Reprocessing failed: ${message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleReprocess}
+      disabled={isProcessing}
+      className={`px-3 py-1 rounded text-sm transition-colors flex items-center gap-1 ${
+        isProcessing
+          ? "bg-amber-100 text-amber-600 cursor-wait"
+          : "bg-amber-500 text-white hover:bg-amber-600"
+      }`}
+      title="Regenerate scores from recording or transcript"
+    >
+      {isProcessing ? (
+        <>
+          <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          Processing...
+        </>
+      ) : (
+        <>
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Reprocess
+        </>
+      )}
+    </button>
+  );
+}
+
 // Results Tab
 function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () => void }) {
   const completedCandidates = batch.candidates.filter((c) => c.status === "completed");
@@ -1821,12 +1896,22 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
                       <span className="text-slate-400">/5</span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button 
-                        onClick={() => setSelectedCandidate(candidate)}
-                        className="px-3 py-1 bg-slate-100 text-slate-700 rounded text-sm hover:bg-slate-200 transition-colors"
-                      >
-                        View Details
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Show Reprocess button if scores are missing but recording exists */}
+                        {(!overallScore || candidate.evaluation?.scores?.length === 0) &&
+                         candidate.evaluation?.recordingUrl && (
+                          <ReprocessButton
+                            evaluationId={candidate.evaluation?.id || ""}
+                            onSuccess={() => onRefresh?.()}
+                          />
+                        )}
+                        <button 
+                          onClick={() => setSelectedCandidate(candidate)}
+                          className="px-3 py-1 bg-slate-100 text-slate-700 rounded text-sm hover:bg-slate-200 transition-colors"
+                        >
+                          View Details
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
