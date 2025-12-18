@@ -130,12 +130,35 @@ export async function POST(
       },
     });
 
-    // If there's an adjusted score for a scoring parameter, update the score record
-    if (feedbackType === "score" && adjustedScore !== undefined && feedbackData.scoreId) {
-      await prisma.score.update({
-        where: { id: feedbackData.scoreId },
-        data: { score: adjustedScore },
-      });
+    // If there's an adjusted score for a scoring parameter, update or create the score record
+    if (feedbackType === "score" && adjustedScore !== undefined && parameterId) {
+      if (feedbackData.scoreId) {
+        // Update existing score
+        await prisma.score.update({
+          where: { id: feedbackData.scoreId },
+          data: { 
+            score: adjustedScore,
+            notes: `[Evaluator adjusted] ${comment.trim().substring(0, 200)}`,
+          },
+        });
+      } else {
+        // Create new score if it doesn't exist
+        const newScore = await prisma.score.create({
+          data: {
+            evaluationId,
+            parameterId,
+            score: adjustedScore,
+            notes: `[Evaluator created] ${comment.trim().substring(0, 200)}`,
+          },
+        });
+        console.log(`[Feedback API] Created missing score for ${parameterId}: ${newScore.id}`);
+        
+        // Update the feedback record with the new scoreId
+        await prisma.evaluatorFeedback.update({
+          where: { id: feedback.id },
+          data: { scoreId: newScore.id },
+        });
+      }
     }
 
     // If there's an adjusted score for voice quality, we need to update the voiceAnalysisData

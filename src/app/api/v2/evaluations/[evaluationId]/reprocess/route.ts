@@ -10,7 +10,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Scoring parameters
+// Scoring parameters - must match V2EvaluationContext.tsx
 const SCORE_PARAMETERS = [
   { id: "clarity_pace", label: "Clarity & Pace", description: "Smooth flow, no hesitation, clear articulation" },
   { id: "product_knowledge", label: "Product Knowledge", description: "PV & EV awareness, accurate information" },
@@ -18,6 +18,8 @@ const SCORE_PARAMETERS = [
   { id: "customer_understanding", label: "Customer Understanding", description: "Ability to probe needs, active listening" },
   { id: "handling_pressure", label: "Handling Pressure", description: "Composure in tough scenarios, no fumbling" },
   { id: "confidence", label: "Confidence", description: "Tone stability, self-assurance" },
+  { id: "process_accuracy", label: "Process Accuracy", description: "Lead capturing, summarizing, CTA" },
+  { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete" },
 ];
 
 // POST /api/v2/evaluations/[evaluationId]/reprocess - Reprocess evaluation from recording
