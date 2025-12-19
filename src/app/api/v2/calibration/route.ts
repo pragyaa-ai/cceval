@@ -114,24 +114,38 @@ export async function POST(request: NextRequest) {
     console.log(`[Calibration API] Running analysis for period: ${periodStart.toISOString()} to ${periodEnd.toISOString()}`);
 
     // Fetch all feedback from the period
-    const feedbacks = await prisma.evaluatorFeedback.findMany({
-      where: {
-        createdAt: {
-          gte: periodStart,
-          lte: periodEnd,
+    let feedbacks;
+    try {
+      feedbacks = await prisma.evaluatorFeedback.findMany({
+        where: {
+          createdAt: {
+            gte: periodStart,
+            lte: periodEnd,
+          },
+          feedbackType: "score",
         },
-        feedbackType: "score",
-        adjustedScore: { not: null },
-      },
-      include: {
-        score: true,
-        evaluator: {
-          select: { id: true, name: true, email: true },
+        include: {
+          score: true,
+          evaluator: {
+            select: { id: true, name: true, email: true },
+          },
         },
-      },
-    });
+      });
+    } catch (queryError) {
+      console.error("[Calibration API] Error querying feedbacks:", queryError);
+      throw queryError;
+    }
 
-    console.log(`[Calibration API] Found ${feedbacks.length} feedbacks to analyze`);
+    console.log(`[Calibration API] Found ${feedbacks.length} total feedbacks`);
+    
+    // Log feedback details for debugging
+    for (const fb of feedbacks) {
+      console.log(`[Calibration API] Feedback: id=${fb.id}, scoreId=${fb.scoreId}, parameterId=${fb.score?.parameterId}, original=${fb.originalScore}, adjusted=${fb.adjustedScore}`);
+    }
+    
+    // Filter to only those with adjusted scores
+    const feedbacksWithAdjustments = feedbacks.filter(fb => fb.adjustedScore !== null);
+    console.log(`[Calibration API] Feedbacks with adjustments: ${feedbacksWithAdjustments.length}`);
 
     // Group feedbacks by parameter
     const feedbacksByParam: Record<string, Array<{
@@ -142,9 +156,12 @@ export async function POST(request: NextRequest) {
       evaluatorName: string;
     }>> = {};
 
-    for (const fb of feedbacks) {
+    for (const fb of feedbacksWithAdjustments) {
       const parameterId = fb.score?.parameterId;
-      if (!parameterId) continue;
+      if (!parameterId) {
+        console.log(`[Calibration API] Skipping feedback ${fb.id} - no parameterId (scoreId: ${fb.scoreId})`);
+        continue;
+      }
 
       if (!feedbacksByParam[parameterId]) {
         feedbacksByParam[parameterId] = [];
@@ -158,6 +175,8 @@ export async function POST(request: NextRequest) {
         evaluatorName: fb.evaluator.name || fb.evaluator.email || "Unknown",
       });
     }
+    
+    console.log(`[Calibration API] Grouped feedbacks by parameter:`, Object.keys(feedbacksByParam).map(k => `${k}: ${feedbacksByParam[k].length}`));
 
     const results: Record<string, {
       feedbackCount: number;
