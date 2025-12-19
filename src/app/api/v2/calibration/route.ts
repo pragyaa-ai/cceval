@@ -23,11 +23,25 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get all calibrations
-    const calibrations = await prisma.agentCalibration.findMany({
-      where: { isActive: true },
-      orderBy: { parameterId: "asc" },
-    });
+    // Get all calibrations - handle case where table doesn't exist
+    let calibrations: Array<{
+      parameterId: string;
+      adjustment: number;
+      guidance: string;
+      totalFeedbacks: number;
+      avgAdjustment: number;
+      lastAnalyzedAt: Date | null;
+    }> = [];
+    
+    try {
+      calibrations = await prisma.agentCalibration.findMany({
+        where: { isActive: true },
+        orderBy: { parameterId: "asc" },
+      });
+    } catch (dbError) {
+      console.error("[Calibration API] Database error (table may not exist):", dbError);
+      // Return empty calibrations if table doesn't exist
+    }
 
     // Create a map for easy lookup
     const calibrationMap: Record<string, {
@@ -265,7 +279,20 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("[Calibration API] Error running analysis:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    
+    // Check if it's a Prisma error about missing table
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("does not exist") || errorMessage.includes("P2021") || errorMessage.includes("relation")) {
+      return NextResponse.json({ 
+        error: "Database tables not found. Please run the SQL migration first.",
+        details: "Run: sudo -u postgres psql -d hce_evaluations -f prisma/migrations/add_calibration_tables.sql"
+      }, { status: 500 });
+    }
+    
+    return NextResponse.json({ 
+      error: "Internal server error",
+      details: errorMessage.substring(0, 200)
+    }, { status: 500 });
   }
 }
 

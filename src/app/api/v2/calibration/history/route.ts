@@ -21,20 +21,47 @@ export async function GET(request: NextRequest) {
       whereClause.calibration = { parameterId };
     }
 
-    const history = await prisma.calibrationHistory.findMany({
-      where: whereClause,
-      include: {
-        calibration: {
-          select: {
-            parameterId: true,
-            adjustment: true,
-            guidance: true,
+    // Try to fetch history - handle case where table doesn't exist
+    let history: Array<{
+      id: string;
+      calibrationId: string;
+      previousAdjustment: number;
+      previousGuidance: string;
+      newAdjustment: number;
+      newGuidance: string;
+      feedbackCount: number;
+      periodStart: Date;
+      periodEnd: Date;
+      analysisSummary: string;
+      evaluatorIds: string;
+      createdAt: Date;
+      calibration: {
+        parameterId: string;
+        adjustment: number;
+        guidance: string;
+      };
+    }> = [];
+    
+    try {
+      history = await prisma.calibrationHistory.findMany({
+        where: whereClause,
+        include: {
+          calibration: {
+            select: {
+              parameterId: true,
+              adjustment: true,
+              guidance: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
+        orderBy: { createdAt: "desc" },
+        take: limit,
+      });
+    } catch (dbError) {
+      console.error("[Calibration History API] Database error (table may not exist):", dbError);
+      // Return empty history if table doesn't exist
+      return NextResponse.json({ history: [], total: 0 });
+    }
 
     // Parse evaluator IDs and fetch evaluator names
     const historyWithEvaluators = await Promise.all(
