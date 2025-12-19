@@ -42,20 +42,43 @@ export async function GET(
 }
 
 // PATCH /api/v2/candidates/[candidateId] - Update candidate
+// Allows unauthenticated status updates to "completed" (for candidate session ending)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ candidateId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { candidateId } = await params;
     const body = await request.json();
     const { name, email, phone, status, selectedPassage, selectedScenario } = body;
+
+    // Allow unauthenticated access ONLY for status update to "completed"
+    // (This is how candidates end their evaluation session)
+    const isCompletingEvaluation = status === "completed" && Object.keys(body).length === 1;
+    
+    if (!session?.user?.id && !isCompletingEvaluation) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // For completing evaluation, verify candidate has an active evaluation
+    if (isCompletingEvaluation) {
+      const candidate = await prisma.candidate.findUnique({
+        where: { id: candidateId },
+        include: { evaluation: true },
+      });
+      
+      if (!candidate) {
+        return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
+      }
+      
+      // Only allow completing if there's an evaluation in progress
+      if (!candidate.evaluation || candidate.status === "completed") {
+        return NextResponse.json({ error: "No active evaluation to complete" }, { status: 400 });
+      }
+      
+      console.log(`[Candidates API] Candidate ${candidateId} completing evaluation (unauthenticated)`);
+    }
 
     // Build update data
     const updateData: {
