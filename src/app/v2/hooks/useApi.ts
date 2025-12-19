@@ -72,6 +72,18 @@ export interface EvaluationData {
     name: string | null;
     email: string | null;
   } | null;
+  // Manager recommendation
+  managerDecision?: string | null;
+  managerComments?: string | null;
+  managerName?: string | null;
+  managerDesignation?: string | null;
+  managerDecisionAt?: string | null;
+  // HR decision
+  hrDecision?: string | null;
+  hrComments?: string | null;
+  hrName?: string | null;
+  hrDesignation?: string | null;
+  hrDecisionAt?: string | null;
 }
 
 export interface ScoreData {

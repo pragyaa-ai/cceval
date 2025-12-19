@@ -141,6 +141,20 @@ model Evaluation {
   // Voice Quality Analysis (JSON data from reading phase)
   voiceAnalysisData String? @db.Text // JSON containing clarity, volume, tone, pace, overall score, recommendations
   
+  // Manager Recommendation
+  managerDecision      String?   // hire, dont_hire, improvement_needed
+  managerComments      String?   @db.Text
+  managerName          String?
+  managerDesignation   String?
+  managerDecisionAt    DateTime?
+  
+  // HR Decision
+  hrDecision           String?   // hire, dont_hire, improvement_needed
+  hrComments           String?   @db.Text
+  hrName               String?
+  hrDesignation        String?
+  hrDecisionAt         DateTime?
+  
   // Related data
   scores          Score[]
   transcriptItems TranscriptItem[]

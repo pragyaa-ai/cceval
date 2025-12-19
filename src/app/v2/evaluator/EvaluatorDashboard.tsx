@@ -1809,24 +1809,113 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
     return Math.round((total / candidate.evaluation.scores.length) * 10) / 10;
   };
 
-  const exportResults = () => {
-    const data = {
-      batchId: batch.id,
-      batchName: batch.name,
-      createdAt: batch.createdAt,
-      creator: batch.creator,
-      candidates: completedCandidates.map((c) => ({
-        ...c,
-        overallScore: getOverallScore(c),
-      })),
-      exportedAt: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `evaluation-results-${batch.name}-${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const exportResults = (format: "json" | "csv" | "excel") => {
+    const dateStr = new Date().toISOString().split("T")[0];
+    const filename = `evaluation-results-${batch.name}-${dateStr}`;
+
+    if (format === "json") {
+      const data = {
+        batchId: batch.id,
+        batchName: batch.name,
+        createdAt: batch.createdAt,
+        creator: batch.creator,
+        candidates: completedCandidates.map((c) => ({
+          ...c,
+          overallScore: getOverallScore(c),
+        })),
+        exportedAt: new Date().toISOString(),
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${filename}.json`;
+      a.click();
+    } else {
+      // CSV / Excel format
+      const headers = [
+        "Candidate Name",
+        "Email",
+        "Phone",
+        "Passage",
+        "Scenario",
+        "Overall Score",
+        "Clarity & Pace",
+        "Product Knowledge",
+        "Empathy",
+        "Customer Understanding",
+        "Handling Pressure",
+        "Confidence",
+        "Process Accuracy",
+        "Closure Quality",
+        "Manager Decision",
+        "Manager Name",
+        "Manager Comments",
+        "HR Decision",
+        "HR Name",
+        "HR Comments",
+        "Session Start",
+        "Session End",
+      ];
+
+      const getScoreForParam = (candidate: CandidateData, paramId: string) => {
+        return candidate.evaluation?.scores.find(s => s.parameterId === paramId)?.score || "";
+      };
+
+      const rows = completedCandidates.map(c => [
+        c.name,
+        c.email || "",
+        c.phone || "",
+        READING_PASSAGES[c.selectedPassage as keyof typeof READING_PASSAGES]?.title || c.selectedPassage,
+        CALL_SCENARIOS[c.selectedScenario as keyof typeof CALL_SCENARIOS]?.level || c.selectedScenario,
+        getOverallScore(c) || "",
+        getScoreForParam(c, "clarity_pace"),
+        getScoreForParam(c, "product_knowledge"),
+        getScoreForParam(c, "empathy"),
+        getScoreForParam(c, "customer_understanding"),
+        getScoreForParam(c, "handling_pressure"),
+        getScoreForParam(c, "confidence"),
+        getScoreForParam(c, "process_accuracy"),
+        getScoreForParam(c, "closure_quality"),
+        c.evaluation?.managerDecision || "Pending",
+        c.evaluation?.managerName || "",
+        c.evaluation?.managerComments || "",
+        c.evaluation?.hrDecision || "Pending",
+        c.evaluation?.hrName || "",
+        c.evaluation?.hrComments || "",
+        c.evaluation?.startTime ? new Date(c.evaluation.startTime).toLocaleString() : "",
+        c.evaluation?.endTime ? new Date(c.evaluation.endTime).toLocaleString() : "",
+      ]);
+
+      // Escape CSV values
+      const escapeCsv = (val: string | number) => {
+        const str = String(val);
+        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const csvContent = [
+        headers.map(escapeCsv).join(","),
+        ...rows.map(row => row.map(escapeCsv).join(",")),
+      ].join("\n");
+
+      const mimeType = format === "excel" 
+        ? "application/vnd.ms-excel" 
+        : "text/csv;charset=utf-8";
+      const extension = format === "excel" ? "xls" : "csv";
+      
+      const blob = new Blob(["\ufeff" + csvContent], { type: mimeType }); // BOM for Excel
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${filename}.${extension}`;
+      a.click();
+    }
+    setShowExportMenu(false);
   };
 
   return (
@@ -1836,12 +1925,39 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
           <h2 className="text-xl font-bold text-slate-800">Evaluation Results</h2>
           <p className="text-slate-500 text-sm mt-1">{completedCandidates.length} completed evaluations</p>
         </div>
-        <button
-          onClick={exportResults}
-          className="px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors"
-        >
-          Export All Results
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowExportMenu(!showExportMenu)}
+            className="px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors flex items-center gap-2"
+          >
+            Export All Results
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {showExportMenu && (
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-2 z-10">
+              <button
+                onClick={() => exportResults("csv")}
+                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <span>📊</span> Export as CSV
+              </button>
+              <button
+                onClick={() => exportResults("excel")}
+                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <span>📗</span> Export as Excel
+              </button>
+              <button
+                onClick={() => exportResults("json")}
+                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <span>📋</span> Export as JSON
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {completedCandidates.length === 0 ? (
@@ -1855,14 +1971,36 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
               <tr>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Candidate</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Configuration</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Scored By</th>
                 <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Overall Score</th>
+                <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Manager Feedback</th>
+                <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">HR Decision</th>
                 <th className="text-right px-4 py-3 text-sm font-medium text-slate-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {completedCandidates.map((candidate) => {
                 const overallScore = getOverallScore(candidate);
+                const managerDec = candidate.evaluation?.managerDecision;
+                const hrDec = candidate.evaluation?.hrDecision;
+
+                const getDecisionBadge = (decision: string | null | undefined, type: "manager" | "hr") => {
+                  if (!decision) return <span className="text-slate-400 text-xs">Pending</span>;
+                  const colors = {
+                    hire: "bg-emerald-100 text-emerald-700",
+                    dont_hire: "bg-red-100 text-red-700",
+                    improvement_needed: "bg-amber-100 text-amber-700",
+                  };
+                  const labels = {
+                    hire: "Hire",
+                    dont_hire: "Don't Hire",
+                    improvement_needed: "Improvement",
+                  };
+                  return (
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[decision as keyof typeof colors] || "bg-slate-100"}`}>
+                      {labels[decision as keyof typeof labels] || decision}
+                    </span>
+                  );
+                };
 
                 return (
                   <tr key={candidate.id} className="hover:bg-slate-50">
@@ -1881,11 +2019,6 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
                         Level
                       </p>
                     </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-slate-600">
-                        {candidate.evaluation?.scorer?.name || candidate.evaluation?.scorer?.email || "—"}
-                      </p>
-                    </td>
                     <td className="px-4 py-3 text-center">
                       <span
                         className={`text-2xl font-bold ${
@@ -1899,6 +2032,12 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
                         {overallScore || "—"}
                       </span>
                       <span className="text-slate-400">/5</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {getDecisionBadge(managerDec, "manager")}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {getDecisionBadge(hrDec, "hr")}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -1948,7 +2087,7 @@ function CandidateDetailsModal({
   onClose: () => void;
   onRefresh?: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"overview" | "scores" | "voice" | "transcript" | "feedback">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "scores" | "voice" | "transcript" | "manager_feedback" | "hr_decision">("overview");
   const [transcript, setTranscript] = useState<Array<{role: string; content: string; phase: string}>>([]);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [feedbacks, setFeedbacks] = useState<EvaluatorFeedbackData[]>([]);
@@ -1961,10 +2100,24 @@ function CandidateDetailsModal({
     voiceMetric?: string;
     currentScore?: number;
   } | null>(null);
+  
+  // Manager recommendation state
+  const [managerDecision, setManagerDecision] = useState<string>(candidate.evaluation?.managerDecision || "");
+  const [managerComments, setManagerComments] = useState<string>(candidate.evaluation?.managerComments || "");
+  const [managerName, setManagerName] = useState<string>(candidate.evaluation?.managerName || "");
+  const [managerDesignation, setManagerDesignation] = useState<string>(candidate.evaluation?.managerDesignation || "");
+  const [savingManager, setSavingManager] = useState(false);
+  
+  // HR decision state
+  const [hrDecision, setHrDecision] = useState<string>(candidate.evaluation?.hrDecision || "");
+  const [hrComments, setHrComments] = useState<string>(candidate.evaluation?.hrComments || "");
+  const [hrName, setHrName] = useState<string>(candidate.evaluation?.hrName || "");
+  const [hrDesignation, setHrDesignation] = useState<string>(candidate.evaluation?.hrDesignation || "");
+  const [savingHr, setSavingHr] = useState(false);
 
-  // Load feedback when modal opens or tab changes to feedback
+  // Load feedback when modal opens or tab changes to manager_feedback
   useEffect(() => {
-    if (candidate.evaluation?.id && (activeTab === "feedback" || activeTab === "scores" || activeTab === "voice")) {
+    if (candidate.evaluation?.id && (activeTab === "manager_feedback" || activeTab === "scores" || activeTab === "voice")) {
       loadFeedback();
     }
   }, [candidate.evaluation?.id, activeTab]);
@@ -2043,7 +2196,8 @@ function CandidateDetailsModal({
                 { id: "scores" as const, label: "Scores", icon: "📊" },
                 { id: "voice" as const, label: "Voice", icon: "🎙️" },
                 { id: "transcript" as const, label: "Transcript", icon: "📝" },
-                { id: "feedback" as const, label: "Feedback", icon: "💬" },
+                { id: "manager_feedback" as const, label: "Manager Feedback", icon: "👔" },
+                { id: "hr_decision" as const, label: "HR Decision", icon: "🏢" },
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -2350,53 +2504,314 @@ function CandidateDetailsModal({
             </div>
           )}
 
-          {activeTab === "feedback" && (
+          {activeTab === "manager_feedback" && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-slate-800">Feedback History</h3>
-                <button 
-                  onClick={loadFeedback}
-                  className="text-sm text-violet-600 hover:text-violet-700 flex items-center gap-1"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh
-                </button>
+              {/* Section 1: Evaluation Update History */}
+              <div className="bg-slate-50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-medium text-slate-800">📝 Evaluation Update History</h3>
+                  <button 
+                    onClick={loadFeedback}
+                    className="text-sm text-violet-600 hover:text-violet-700 flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mb-3">Updates made by evaluators to AI-generated scores</p>
+
+                {loadingFeedback ? (
+                  <div className="text-center py-4 text-slate-500">Loading...</div>
+                ) : feedbacks.length === 0 ? (
+                  <div className="text-center py-4 text-slate-500 text-sm">
+                    No evaluation updates yet. Use the Scores or Voice tabs to review and update AI feedback.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                    {feedbacks.map((feedback) => (
+                      <FeedbackHistoryItem 
+                        key={feedback.id} 
+                        feedback={feedback}
+                        onDelete={async () => {
+                          if (!candidate.evaluation?.id) return;
+                          if (!confirm("Delete this feedback?")) return;
+                          try {
+                            await deleteEvaluatorFeedback(candidate.evaluation.id, feedback.id);
+                            await loadFeedback();
+                            onRefresh?.();
+                          } catch (error) {
+                            console.error("Failed to delete feedback:", error);
+                            alert("Failed to delete feedback");
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {loadingFeedback ? (
-                <div className="text-center py-8 text-slate-500">Loading feedback...</div>
-              ) : feedbacks.length === 0 ? (
-                <div className="bg-slate-50 rounded-xl p-8 text-center">
-                  <svg className="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                  </svg>
-                  <p className="text-slate-600 font-medium">No feedback yet</p>
-                  <p className="text-slate-500 text-sm mt-1">
-                    Use the Scores or Voice tabs to review and add feedback
-                  </p>
+              {/* Section 2: Manager Recommendation */}
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <h3 className="font-medium text-blue-800 mb-4">👔 Manager Recommendation to HR</h3>
+                
+                {/* Decision Buttons */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-blue-700 mb-2">Recommendation *</label>
+                  <div className="flex gap-3">
+                    {[
+                      { value: "hire", label: "✅ Hire", color: "bg-emerald-500 hover:bg-emerald-600" },
+                      { value: "dont_hire", label: "❌ Don't Hire", color: "bg-red-500 hover:bg-red-600" },
+                      { value: "improvement_needed", label: "⚠️ Improvement Needed", color: "bg-amber-500 hover:bg-amber-600" },
+                    ].map(option => (
+                      <button
+                        key={option.value}
+                        onClick={() => setManagerDecision(option.value)}
+                        className={`px-4 py-2 rounded-lg text-white font-medium transition-colors ${
+                          managerDecision === option.value 
+                            ? `${option.color} ring-2 ring-offset-2 ring-blue-500` 
+                            : "bg-slate-300 hover:bg-slate-400"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {feedbacks.map((feedback) => (
-                    <FeedbackHistoryItem 
-                      key={feedback.id} 
-                      feedback={feedback}
-                      onDelete={async () => {
-                        if (!candidate.evaluation?.id) return;
-                        if (!confirm("Delete this feedback?")) return;
-                        try {
-                          await deleteEvaluatorFeedback(candidate.evaluation.id, feedback.id);
-                          await loadFeedback();
-                          onRefresh?.();
-                        } catch (error) {
-                          console.error("Failed to delete feedback:", error);
-                          alert("Failed to delete feedback");
-                        }
-                      }}
+
+                {/* Comments */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-blue-700 mb-2">Comments & Feedback</label>
+                  <textarea
+                    value={managerComments}
+                    onChange={(e) => setManagerComments(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter your comments and feedback for HR..."
+                  />
+                </div>
+
+                {/* Manager Details */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-blue-700 mb-1">Manager Name *</label>
+                    <input
+                      type="text"
+                      value={managerName}
+                      onChange={(e) => setManagerName(e.target.value)}
+                      className="w-full px-3 py-2 border border-blue-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Your name"
                     />
-                  ))}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-700 mb-1">Designation</label>
+                    <input
+                      type="text"
+                      value={managerDesignation}
+                      onChange={(e) => setManagerDesignation(e.target.value)}
+                      className="w-full px-3 py-2 border border-blue-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., Senior Manager, Operations"
+                    />
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <button
+                  onClick={async () => {
+                    if (!managerDecision) {
+                      alert("Please select a recommendation");
+                      return;
+                    }
+                    if (!managerName.trim()) {
+                      alert("Please enter your name");
+                      return;
+                    }
+                    if (!candidate.evaluation?.id) return;
+                    
+                    setSavingManager(true);
+                    try {
+                      const response = await fetch(`/api/v2/evaluations/${candidate.evaluation.id}/manager-decision`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          decision: managerDecision,
+                          comments: managerComments,
+                          name: managerName,
+                          designation: managerDesignation,
+                        }),
+                      });
+                      if (response.ok) {
+                        alert("Manager recommendation saved successfully!");
+                        onRefresh?.();
+                      } else {
+                        throw new Error("Failed to save");
+                      }
+                    } catch (error) {
+                      console.error("Failed to save manager decision:", error);
+                      alert("Failed to save recommendation");
+                    } finally {
+                      setSavingManager(false);
+                    }
+                  }}
+                  disabled={savingManager || !managerDecision || !managerName.trim()}
+                  className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingManager ? "Saving..." : "Save Manager Recommendation"}
+                </button>
+
+                {/* Existing Decision Display */}
+                {candidate.evaluation?.managerDecisionAt && (
+                  <div className="mt-4 p-3 bg-blue-100 rounded-lg text-sm">
+                    <p className="text-blue-800">
+                      <strong>Last saved:</strong> {new Date(candidate.evaluation.managerDecisionAt).toLocaleString()}
+                      {candidate.evaluation.managerName && ` by ${candidate.evaluation.managerName}`}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* HR Decision Tab */}
+          {activeTab === "hr_decision" && (
+            <div className="space-y-6">
+              <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                <h3 className="font-medium text-purple-800 mb-4">🏢 HR Decision</h3>
+                
+                {/* Decision Buttons */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-purple-700 mb-2">Final Decision *</label>
+                  <div className="flex gap-3">
+                    {[
+                      { value: "hire", label: "✅ Hire", color: "bg-emerald-500 hover:bg-emerald-600" },
+                      { value: "dont_hire", label: "❌ Don't Hire", color: "bg-red-500 hover:bg-red-600" },
+                      { value: "improvement_needed", label: "⚠️ Hold / Training Required", color: "bg-amber-500 hover:bg-amber-600" },
+                    ].map(option => (
+                      <button
+                        key={option.value}
+                        onClick={() => setHrDecision(option.value)}
+                        className={`px-4 py-2 rounded-lg text-white font-medium transition-colors ${
+                          hrDecision === option.value 
+                            ? `${option.color} ring-2 ring-offset-2 ring-purple-500` 
+                            : "bg-slate-300 hover:bg-slate-400"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Comments */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-purple-700 mb-2">HR Comments & Feedback</label>
+                  <textarea
+                    value={hrComments}
+                    onChange={(e) => setHrComments(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-purple-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Enter HR comments and notes..."
+                  />
+                </div>
+
+                {/* HR Details */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-purple-700 mb-1">HR Manager Name *</label>
+                    <input
+                      type="text"
+                      value={hrName}
+                      onChange={(e) => setHrName(e.target.value)}
+                      className="w-full px-3 py-2 border border-purple-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="Your name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-purple-700 mb-1">Designation</label>
+                    <input
+                      type="text"
+                      value={hrDesignation}
+                      onChange={(e) => setHrDesignation(e.target.value)}
+                      className="w-full px-3 py-2 border border-purple-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="e.g., HR Manager, Talent Acquisition Lead"
+                    />
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <button
+                  onClick={async () => {
+                    if (!hrDecision) {
+                      alert("Please select a decision");
+                      return;
+                    }
+                    if (!hrName.trim()) {
+                      alert("Please enter your name");
+                      return;
+                    }
+                    if (!candidate.evaluation?.id) return;
+                    
+                    setSavingHr(true);
+                    try {
+                      const response = await fetch(`/api/v2/evaluations/${candidate.evaluation.id}/hr-decision`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          decision: hrDecision,
+                          comments: hrComments,
+                          name: hrName,
+                          designation: hrDesignation,
+                        }),
+                      });
+                      if (response.ok) {
+                        alert("HR decision saved successfully!");
+                        onRefresh?.();
+                      } else {
+                        throw new Error("Failed to save");
+                      }
+                    } catch (error) {
+                      console.error("Failed to save HR decision:", error);
+                      alert("Failed to save decision");
+                    } finally {
+                      setSavingHr(false);
+                    }
+                  }}
+                  disabled={savingHr || !hrDecision || !hrName.trim()}
+                  className="w-full py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingHr ? "Saving..." : "Save HR Decision"}
+                </button>
+
+                {/* Existing Decision Display */}
+                {candidate.evaluation?.hrDecisionAt && (
+                  <div className="mt-4 p-3 bg-purple-100 rounded-lg text-sm">
+                    <p className="text-purple-800">
+                      <strong>Last saved:</strong> {new Date(candidate.evaluation.hrDecisionAt).toLocaleString()}
+                      {candidate.evaluation.hrName && ` by ${candidate.evaluation.hrName}`}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Manager Recommendation Summary (if exists) */}
+              {candidate.evaluation?.managerDecision && (
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <h4 className="font-medium text-blue-800 mb-2">📋 Manager Recommendation Summary</h4>
+                  <div className="text-sm text-blue-700">
+                    <p><strong>Decision:</strong> {
+                      candidate.evaluation.managerDecision === "hire" ? "✅ Hire" :
+                      candidate.evaluation.managerDecision === "dont_hire" ? "❌ Don't Hire" :
+                      "⚠️ Improvement Needed"
+                    }</p>
+                    {candidate.evaluation.managerComments && (
+                      <p className="mt-1"><strong>Comments:</strong> {candidate.evaluation.managerComments}</p>
+                    )}
+                    <p className="mt-1">
+                      <strong>By:</strong> {candidate.evaluation.managerName}
+                      {candidate.evaluation.managerDesignation && ` (${candidate.evaluation.managerDesignation})`}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
