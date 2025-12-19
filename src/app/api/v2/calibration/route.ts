@@ -75,17 +75,20 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Allow any authenticated user to run calibration
+    // In production, you might want to restrict to admin/evaluator roles
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
     });
-    if (user?.role !== "admin") {
-      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+
+    console.log(`[Calibration API] User ${user.email} (${user.role}) running calibration`);
 
     const body = await request.json();
     const { periodDays = 7 } = body; // Default to last 7 days
