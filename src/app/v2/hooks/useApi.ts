@@ -310,6 +310,9 @@ export interface CalibrationData {
   totalFeedbacks: number;
   avgAdjustment: number;
   lastAnalyzedAt: string | null;
+  // Computed fields for display
+  adjustmentDirection?: "higher" | "lower" | "neutral";
+  feedbackCount?: number;
 }
 
 export interface CalibrationHistoryItem {
@@ -323,7 +326,7 @@ export interface CalibrationHistoryItem {
   periodStart: string;
   periodEnd: string;
   analysisSummary: string;
-  evaluators: string[];
+  evaluators: string[]; // Evaluator names
   createdAt: string;
 }
 

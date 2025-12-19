@@ -206,10 +206,144 @@ export async function POST(
 
     console.log(`[Feedback API] Created feedback: ${feedback.id} by ${session.user.email}`);
 
+    // Auto-calibration: Check if we've reached the threshold (every 10 feedbacks)
+    const AUTO_CALIBRATION_THRESHOLD = 10;
+    try {
+      // Count feedbacks since last calibration
+      const lastCalibration = await prisma.calibrationHistory.findFirst({
+        orderBy: { createdAt: "desc" },
+      });
+
+      const feedbacksSinceLastCalibration = await prisma.evaluatorFeedback.count({
+        where: lastCalibration ? {
+          createdAt: { gt: lastCalibration.createdAt },
+        } : {},
+      });
+
+      if (feedbacksSinceLastCalibration >= AUTO_CALIBRATION_THRESHOLD) {
+        console.log(`[Feedback API] 🔄 Auto-calibration triggered (${feedbacksSinceLastCalibration} feedbacks since last calibration)`);
+        
+        // Trigger calibration in the background (don't await to not slow down response)
+        runAutoCalibration(session.user.id).catch((err) => {
+          console.error("[Auto-Calibration] Error:", err);
+        });
+      }
+    } catch (calibrationError) {
+      // Don't fail the request if calibration check fails
+      console.error("[Feedback API] Error checking auto-calibration:", calibrationError);
+    }
+
     return NextResponse.json(feedback, { status: 201 });
   } catch (error) {
     console.error("Error creating feedback:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+// Auto-calibration function (runs in background)
+async function runAutoCalibration(triggeredById: string) {
+  try {
+    const periodDays = 7; // Analyze last 7 days
+    const periodStart = new Date();
+    periodStart.setDate(periodStart.getDate() - periodDays);
+
+    // Get all recent feedbacks with score adjustments
+    const feedbacks = await prisma.evaluatorFeedback.findMany({
+      where: {
+        createdAt: { gte: periodStart },
+        adjustedScore: { not: null },
+        feedbackType: "score",
+      },
+      include: {
+        score: true,
+        evaluator: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    if (feedbacks.length === 0) {
+      console.log("[Auto-Calibration] No feedbacks with adjustments found");
+      return;
+    }
+
+    // Group feedbacks by parameterId
+    const feedbacksByParam: Record<string, typeof feedbacks> = {};
+    for (const fb of feedbacks) {
+      const paramId = fb.score?.parameterId;
+      if (!paramId) continue;
+      if (!feedbacksByParam[paramId]) feedbacksByParam[paramId] = [];
+      feedbacksByParam[paramId].push(fb);
+    }
+
+    // Calculate adjustments for each parameter
+    for (const [parameterId, paramFeedbacks] of Object.entries(feedbacksByParam)) {
+      if (paramFeedbacks.length < 2) continue; // Need at least 2 feedbacks
+
+      // Calculate average adjustment
+      const adjustments = paramFeedbacks
+        .filter((f) => f.originalScore !== null && f.adjustedScore !== null)
+        .map((f) => (f.adjustedScore as number) - (f.originalScore as number));
+
+      if (adjustments.length === 0) continue;
+
+      const avgAdjustment = adjustments.reduce((a, b) => a + b, 0) / adjustments.length;
+
+      // Get common themes from comments
+      const comments = paramFeedbacks.map((f) => f.comment).filter(Boolean);
+      const newGuidance = comments.length > 0 
+        ? `Evaluator feedback themes: ${comments.slice(0, 3).join("; ").substring(0, 200)}`
+        : "";
+
+      // Upsert calibration
+      const existing = await prisma.agentCalibration.findUnique({
+        where: { parameterId },
+      });
+
+      const previousAdjustment = existing?.avgAdjustment || 0;
+      const previousGuidance = existing?.guidance || "";
+
+      const calibration = await prisma.agentCalibration.upsert({
+        where: { parameterId },
+        update: {
+          adjustment: avgAdjustment,
+          avgAdjustment,
+          totalFeedbacks: paramFeedbacks.length,
+          guidance: newGuidance,
+          lastAnalyzedAt: new Date(),
+        },
+        create: {
+          parameterId,
+          adjustment: avgAdjustment,
+          avgAdjustment,
+          totalFeedbacks: paramFeedbacks.length,
+          guidance: newGuidance,
+          lastAnalyzedAt: new Date(),
+        },
+      });
+
+      // Collect evaluator IDs
+      const evaluatorIds = [...new Set(paramFeedbacks.map(f => f.evaluatorId))];
+
+      // Log history
+      await prisma.calibrationHistory.create({
+        data: {
+          calibrationId: calibration.id,
+          previousAdjustment,
+          previousGuidance,
+          newAdjustment: avgAdjustment,
+          newGuidance,
+          feedbackCount: paramFeedbacks.length,
+          periodStart,
+          periodEnd: new Date(),
+          analysisSummary: `Auto-calibration: ${paramFeedbacks.length} feedbacks analyzed`,
+          evaluatorIds: JSON.stringify(evaluatorIds),
+        },
+      });
+    }
+
+    console.log(`[Auto-Calibration] ✅ Complete - updated ${Object.keys(feedbacksByParam).length} parameters`);
+  } catch (error) {
+    console.error("[Auto-Calibration] Failed:", error);
+    throw error;
   }
 }
 

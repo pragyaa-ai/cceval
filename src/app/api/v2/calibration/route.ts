@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
-// Scoring parameters that can be calibrated
+// Scoring parameters that can be calibrated - must match V2EvaluationContext.tsx
 const SCORING_PARAMETERS = [
   "clarity_pace",
   "product_knowledge", 
@@ -11,6 +11,8 @@ const SCORING_PARAMETERS = [
   "customer_understanding",
   "handling_pressure",
   "confidence",
+  "process_accuracy",
+  "closure_quality",
 ];
 
 // GET /api/v2/calibration - Get all calibration settings

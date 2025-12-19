@@ -19,12 +19,17 @@ import {
   fetchEvaluatorFeedback,
   addEvaluatorFeedback,
   deleteEvaluatorFeedback,
+  fetchCalibrations,
+  runCalibrationAnalysis,
+  fetchCalibrationHistory,
   BatchSummary,
   BatchDetail,
   CandidateData,
   EvaluationData,
   VoiceAnalysisReport,
   EvaluatorFeedbackData,
+  CalibrationData,
+  CalibrationHistoryItem,
 } from "../hooks/useApi";
 
 type TabType = "batches" | "candidates" | "evaluation" | "results" | "settings";
@@ -3019,6 +3024,64 @@ function SettingsTab({
 }) {
   const [batchNameInput, setBatchNameInput] = useState(batch.name);
   const [saving, setSaving] = useState(false);
+  
+  // Calibration state
+  const [calibrations, setCalibrations] = useState<Record<string, CalibrationData>>({});
+  const [calibrationHistory, setCalibrationHistory] = useState<CalibrationHistoryItem[]>([]);
+  const [loadingCalibration, setLoadingCalibration] = useState(false);
+  const [runningCalibration, setRunningCalibration] = useState(false);
+  const [calibrationPeriod, setCalibrationPeriod] = useState(7);
+  const [lastCalibrationResult, setLastCalibrationResult] = useState<{
+    success: boolean;
+    totalFeedbacksAnalyzed: number;
+    results: Record<string, { feedbackCount: number; avgAdjustment: number }>;
+  } | null>(null);
+
+  // Load calibration data on mount
+  useEffect(() => {
+    loadCalibrationData();
+  }, []);
+
+  const loadCalibrationData = async () => {
+    setLoadingCalibration(true);
+    try {
+      const [calibrationResult, historyResult] = await Promise.all([
+        fetchCalibrations(),
+        fetchCalibrationHistory(undefined, 20),
+      ]);
+      setCalibrations(calibrationResult.calibrations);
+      setCalibrationHistory(historyResult.history);
+    } catch (error) {
+      console.error("Failed to load calibration data:", error);
+    } finally {
+      setLoadingCalibration(false);
+    }
+  };
+
+  const handleRunCalibration = async () => {
+    if (!confirm(`Run calibration analysis for the last ${calibrationPeriod} days?\n\nThis will analyze evaluator feedback and update AI scoring guidance.`)) {
+      return;
+    }
+
+    setRunningCalibration(true);
+    setLastCalibrationResult(null);
+    try {
+      const result = await runCalibrationAnalysis(calibrationPeriod);
+      setLastCalibrationResult({
+        success: result.success,
+        totalFeedbacksAnalyzed: result.totalFeedbacksAnalyzed,
+        results: result.results,
+      });
+      // Reload calibration data
+      await loadCalibrationData();
+      alert(`✅ Calibration complete!\n\nAnalyzed ${result.totalFeedbacksAnalyzed} feedback items.`);
+    } catch (error) {
+      console.error("Failed to run calibration:", error);
+      alert("Failed to run calibration analysis");
+    } finally {
+      setRunningCalibration(false);
+    }
+  };
 
   const handleSaveName = async () => {
     setSaving(true);
@@ -3044,8 +3107,14 @@ function SettingsTab({
     }
   };
 
+  const getParamLabel = (parameterId: string) => {
+    const param = SCORING_PARAMETERS.find(p => p.id === parameterId);
+    return param?.label || parameterId;
+  };
+
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-4xl space-y-6">
+      {/* Batch Settings */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
         <h3 className="font-medium text-slate-800 mb-4">Batch Settings</h3>
 
@@ -3069,38 +3138,206 @@ function SettingsTab({
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm text-slate-600 mb-2">Batch ID</label>
-            <p className="font-mono text-sm text-slate-500 bg-slate-50 px-3 py-2 rounded">{batch.id}</p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-slate-600 mb-2">Created By</label>
-            <p className="text-slate-700">{batch.creator.name || batch.creator.email}</p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-slate-600 mb-2">Created</label>
-            <p className="text-slate-700">{new Date(batch.createdAt).toLocaleString()}</p>
-          </div>
-
-          <div>
-            <label className="block text-sm text-slate-600 mb-2">Status</label>
-            <span
-              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                batch.status === "active"
-                  ? "bg-emerald-100 text-emerald-700"
-                  : batch.status === "completed"
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-slate-100 text-slate-600"
-              }`}
-            >
-              {batch.status.charAt(0).toUpperCase() + batch.status.slice(1)}
-            </span>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-slate-600 mb-2">Batch ID</label>
+              <p className="font-mono text-sm text-slate-500 bg-slate-50 px-3 py-2 rounded">{batch.id}</p>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-600 mb-2">Status</label>
+              <span
+                className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  batch.status === "active"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : batch.status === "completed"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {batch.status.charAt(0).toUpperCase() + batch.status.slice(1)}
+              </span>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-600 mb-2">Created By</label>
+              <p className="text-slate-700">{batch.creator.name || batch.creator.email}</p>
+            </div>
+            <div>
+              <label className="block text-sm text-slate-600 mb-2">Created</label>
+              <p className="text-slate-700">{new Date(batch.createdAt).toLocaleString()}</p>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* AI Calibration Section */}
+      <div className="bg-violet-50 rounded-xl border border-violet-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-medium text-violet-800 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              AI Scoring Calibration
+            </h3>
+            <p className="text-sm text-violet-600 mt-1">
+              Analyze evaluator feedback to improve AI scoring accuracy
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={calibrationPeriod}
+              onChange={(e) => setCalibrationPeriod(Number(e.target.value))}
+              className="px-3 py-2 border border-violet-300 rounded-lg text-sm text-violet-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+            >
+              <option value={1}>Last 1 day</option>
+              <option value={7}>Last 7 days</option>
+              <option value={14}>Last 14 days</option>
+              <option value={30}>Last 30 days</option>
+            </select>
+            <button
+              onClick={handleRunCalibration}
+              disabled={runningCalibration}
+              className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {runningCalibration ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Running...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Run Calibration
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Last Calibration Result */}
+        {lastCalibrationResult && (
+          <div className="mb-4 p-3 bg-emerald-100 border border-emerald-200 rounded-lg">
+            <p className="text-sm text-emerald-700">
+              ✅ Last run analyzed <strong>{lastCalibrationResult.totalFeedbacksAnalyzed}</strong> feedback items
+              across <strong>{Object.keys(lastCalibrationResult.results).length}</strong> parameters.
+            </p>
+          </div>
+        )}
+
+        {/* Current Calibration Settings */}
+        <div className="mb-4">
+          <h4 className="text-sm font-medium text-violet-700 mb-3">Current Calibration Settings</h4>
+          {loadingCalibration ? (
+            <div className="text-center py-4 text-violet-500">Loading calibration data...</div>
+          ) : Object.keys(calibrations).length === 0 ? (
+            <div className="text-center py-4 text-slate-500 bg-white rounded-lg border border-slate-200">
+              No calibration data yet. Run calibration analysis after collecting evaluator feedback.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {SCORING_PARAMETERS.map((param) => {
+                const cal = calibrations[param.id];
+                // Derive direction from avgAdjustment
+                const direction = cal && cal.avgAdjustment > 0.2 ? "higher" 
+                  : cal && cal.avgAdjustment < -0.2 ? "lower" 
+                  : "neutral";
+                return (
+                  <div key={param.id} className="bg-white rounded-lg p-3 border border-slate-200">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-slate-700">{param.label}</span>
+                      {cal && cal.totalFeedbacks > 0 ? (
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                          direction === "higher" 
+                            ? "bg-emerald-100 text-emerald-700"
+                            : direction === "lower"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-slate-100 text-slate-600"
+                        }`}>
+                          {direction === "higher" ? "↑ Score Higher" :
+                           direction === "lower" ? "↓ Score Lower" : "— Neutral"}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">No data</span>
+                      )}
+                    </div>
+                    {cal && cal.totalFeedbacks > 0 && (
+                      <>
+                        <p className="text-xs text-slate-500">
+                          Avg adjustment: <strong>{cal.avgAdjustment > 0 ? "+" : ""}{cal.avgAdjustment.toFixed(2)}</strong> 
+                          {" "}({cal.totalFeedbacks} feedbacks)
+                        </p>
+                        {cal.guidance && (
+                          <p className="text-xs text-violet-600 mt-1 italic line-clamp-2">
+                            &quot;{cal.guidance}&quot;
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Calibration History */}
+        <div>
+          <h4 className="text-sm font-medium text-violet-700 mb-3">Calibration History</h4>
+          {calibrationHistory.length === 0 ? (
+            <div className="text-center py-4 text-slate-500 bg-white rounded-lg border border-slate-200">
+              No calibration history yet.
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-64 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 sticky top-0">
+                  <tr>
+                    <th className="text-left px-3 py-2 text-slate-600">Date</th>
+                    <th className="text-left px-3 py-2 text-slate-600">Parameter</th>
+                    <th className="text-left px-3 py-2 text-slate-600">Change</th>
+                    <th className="text-left px-3 py-2 text-slate-600">Triggered By</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {calibrationHistory.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50">
+                      <td className="px-3 py-2 text-slate-600">
+                        {new Date(item.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2 text-slate-700 font-medium">
+                        {getParamLabel(item.parameterId)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`text-xs font-medium ${
+                          item.newAdjustment > item.previousAdjustment 
+                            ? "text-emerald-600" 
+                            : item.newAdjustment < item.previousAdjustment
+                            ? "text-amber-600"
+                            : "text-slate-500"
+                        }`}>
+                          {item.previousAdjustment.toFixed(2)} → {item.newAdjustment.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-slate-500 text-xs">
+                        {item.evaluators && item.evaluators.length > 0 
+                          ? item.evaluators.slice(0, 2).join(", ") + (item.evaluators.length > 2 ? ` +${item.evaluators.length - 2}` : "")
+                          : "System"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Archive Batch */}
       <div className="bg-amber-50 rounded-xl border border-amber-200 p-6">
         <h3 className="font-medium text-amber-800 mb-2">Archive Batch</h3>
         <p className="text-sm text-amber-600 mb-4">
