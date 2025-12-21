@@ -1,94 +1,97 @@
-# Topik VoiceAgent v1.0.0
+# CCEval v2.0.0
 
-**AI-Powered Personalized Teacher for Topik Platform Onboarding**
+**AI-Powered Call Center Candidate Evaluation Platform**
 
-An intelligent voice agent that guides new team members through the Topik platform onboarding experience with personalized, conversational support in English and French.
+An intelligent evaluation system that conducts comprehensive voice-based assessments of call center candidates using advanced AI agents. CCEval transforms traditional hiring processes by providing consistent, unbiased, and data-driven candidate evaluations.
 
-## 🎯 What is Topik VoiceAgent?
+## 🎯 What is CCEval?
 
-Topik VoiceAgent transforms traditional onboarding into an engaging, conversational experience. Our **Personalized Teacher** agent adapts to each user's role, background, and learning style while introducing them to Topik's collaborative learning platform.
+CCEval is an enterprise-grade platform designed to evaluate call center candidates through realistic simulations and voice analysis. The system conducts structured interviews, role-play scenarios, and comprehensive assessments while providing detailed performance metrics and scoring.
 
 ### 🌟 Key Features
 
-- **🗣️ Conversational Language Selection**: Natural English/French language choice during conversation
-- **🎓 Personalized Teaching**: Adapts to user's role, experience level, and learning preferences  
-- **🤝 Community Focus**: Emphasizes Topik's "On avance ensemble" (We move forward together) philosophy
-- **📊 Comprehensive Onboarding**: Tracks 17 data points for complete user profiling
-- **🔄 Real-time Progress**: Live onboarding progress monitoring and export
-- **🎨 Professional UI**: Clean, focused interface with Topik branding
+- **🤖 AI-Powered Interviews**: Intelligent agents conduct structured evaluations with natural conversation flow
+- **🎤 Voice Analysis**: Real-time voice quality assessment (clarity, pace, tone, volume)
+- **📊 Multi-Dimensional Scoring**: 8 comprehensive evaluation parameters with AI-generated justifications
+- **🎭 Role-Play Scenarios**: Realistic customer interaction simulations including escalation handling
+- **🔄 Manager & HR Workflow**: Complete hiring pipeline from evaluation to final decision
+- **🎯 AI Calibration System**: Learns from evaluator feedback to align with organizational standards
+- **📈 Comprehensive Dashboard**: Real-time monitoring, batch management, and detailed analytics
+- **🔐 Secure Authentication**: Role-based access control for evaluators and candidates
 
-## 🤖 Meet Your Personalized Teacher
+## 🤖 Evaluation Features
 
-The **Personalized Teacher** agent is your dedicated onboarding companion that:
+### Mahindra HCE Evaluation Agent
+The **Eva 2.0** agent conducts comprehensive assessments through six structured phases:
 
-- **Greets authentically**: Welcomes users with role-specific guidance
-- **Speaks your language**: Asks for English/French preference and maintains consistency
-- **Knows Topik deeply**: Integrates real platform knowledge from [topik.space](https://topik.space/)
-- **Compares intelligently**: Explains Topik's advantages over traditional tools (Trello, Slack, etc.)
-- **Tracks progress**: Captures onboarding data and recommends next steps
+#### Evaluation Flow
+1. **Welcome & Candidate Information**: Professional greeting and candidate data collection
+2. **Personal Questions**: Background, motivation, and domain knowledge assessment
+3. **Reading Task**: Voice quality baseline with automated voice analysis
+4. **Call Scenario Simulation**: Product knowledge and customer service skills
+5. **Empathy & De-escalation**: High-pressure situation handling
+6. **Closure Task**: Professional call closure quality assessment
 
-### Sample Interaction
-```
-Teacher: "Welcome to Topik! Before we begin your onboarding, do you prefer English or French?"
-User: "English please"
-Teacher: "Perfect! Welcome, and great to have you on the team! 🎉
-I've gone through all your onboarding materials and matched them to your role.
-We'll move step by step, focusing on what's most relevant to you as a [ROLE].
-To begin, here's the core idea behind our platform in simple terms:
-'Topik reinvents community learning by creating spaces where people grow together — 
-it's not just training you follow, it's learning you experience collaboratively.'
-Does that make sense so far? Want to dive deeper into how it compares to tools you may have used before?"
-```
+#### Scoring Parameters (1-5 Scale)
+- **Clarity & Pace**: Speech quality, articulation, and flow
+- **Product Knowledge**: Industry and product awareness
+- **Empathy**: Emotional intelligence and customer understanding
+- **Customer Understanding**: Active listening and needs assessment
+- **Handling Pressure**: Composure under stress
+- **Confidence**: Tone stability and self-assurance
+- **Process Accuracy**: Lead capture and follow-up procedures
+- **Closure Quality**: Professional conversation ending
 
-## 📊 Onboarding Data Collection
+### Voice Analysis Engine
+Real-time audio processing provides:
+- **Clarity Score**: Speech intelligibility and articulation
+- **Volume Analysis**: Consistent projection and audibility
+- **Tone Assessment**: Professional and appropriate tonality
+- **Pace Measurement**: Speaking speed and rhythm
+- **Sample Collection**: Continuous voice quality monitoring
 
-The agent captures 17 comprehensive data points for complete user profiling:
+## 📊 Dashboard Capabilities
 
-### User Profile
-- Preferred Language (English/French)
-- Employee Name & Contact
-- Job Role/Position
-- Department/Team
-- Experience Level
+### Evaluator Dashboard
+- **Batch Management**: Create and manage evaluation batches
+- **Candidate Tracking**: Monitor evaluation progress and status
+- **Real-time Evaluation**: Live candidate assessment interface
+- **Score Review**: Detailed performance breakdowns with AI-generated reasons
+- **Manager Feedback**: Provide hiring recommendations
+- **HR Decision**: Final hiring decisions with feedback
+- **Audio Playback**: Review complete evaluation recordings
+- **Transcript Access**: Full conversation transcripts with Q&A format
+- **Calibration System**: AI learning from evaluator feedback
 
-### Learning Preferences  
-- Learning Style Preference
-- Prior LMS Experience
-- Primary Topik Use Case
-
-### Platform Configuration
-- Community Role (Admin/Instructor/Learner)
-- Training Goals & Objectives
-- Collaboration Requirements
-- Content Creation Needs
-
-### Technical Requirements
-- Analytics & Reporting Needs
-- Integration Requirements
-
-### Progress Tracking
-- Onboarding Module Progress
-- Questions Answered
-- Recommended Next Steps
+### Candidate Portal
+- **Secure Access**: Unique evaluation codes for each candidate
+- **Voice Evaluation**: Seamless audio interface for assessments
+- **Progress Tracking**: Real-time evaluation phase indicators
+- **Professional Experience**: Clean, focused evaluation interface
 
 ## 🛠️ Installation & Setup
 
 ### Prerequisites
 - Node.js 18+ and npm
+- PostgreSQL database
 - OpenAI API key with Realtime API access
 
 ### Quick Start
 ```bash
 # Clone the repository
-git clone <your-repo-url>
-cd TopikVoiceAgent2.0
+git clone https://github.com/pragyaa-ai/cceval.git
+cd cceval
 
 # Install dependencies
 npm install
 
 # Set up environment variables
-echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
-echo "NEXT_PUBLIC_OPENAI_API_KEY=your_openai_api_key_here" >> .env
+cp env.example .env
+# Edit .env with your configuration
+
+# Set up the database
+npx prisma migrate dev
+npx prisma generate
 
 # Start development server
 npm run dev
@@ -97,8 +100,15 @@ npm run dev
 ### Environment Configuration
 Create a `.env` file in the root directory:
 ```env
+# OpenAI Configuration
 OPENAI_API_KEY=sk-your-openai-api-key-here
-NEXT_PUBLIC_OPENAI_API_KEY=sk-your-openai-api-key-here
+
+# Database Configuration
+DATABASE_URL="postgresql://user:password@localhost:5432/cceval"
+
+# NextAuth Configuration
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-nextauth-secret-here
 ```
 
 ### Production Deployment
@@ -110,103 +120,137 @@ npm run build
 npm run start
 ```
 
-## 🚀 Using Topik VoiceAgent
+## 🚀 Using CCEval
 
-### Accessing the Application
-1. Open your browser to [http://localhost:3000](http://localhost:3000)
-2. The **Personalised Teacher** agent is pre-selected
-3. Click "Connect" to start your voice conversation
-4. Follow the conversational onboarding flow
+### For Evaluators
+1. **Login**: Access the evaluator dashboard at `/v2/login`
+2. **Create Batch**: Set up a new evaluation batch with candidate details
+3. **Share Codes**: Distribute unique evaluation codes to candidates
+4. **Monitor Progress**: Track evaluations in real-time
+5. **Review Scores**: Assess AI-generated scores and transcripts
+6. **Provide Feedback**: Add manager recommendations
+7. **Final Decision**: HR team makes final hiring decisions
 
-### Features Overview
-- **🎤 Voice Interaction**: Natural speech conversation with the AI teacher
-- **📱 Clean Interface**: Focused onboarding experience without distractions
-- **📊 Progress Monitoring**: Real-time tracking in the Onboarding Progress Center
-- **💾 Data Export**: Download complete onboarding profiles as JSON
-- **🔄 Session Management**: Seamless connection and session handling
-
-### Onboarding Flow
-1. **Language Selection**: Choose English or French conversationally
-2. **Welcome & Introduction**: Role-specific greeting and Topik overview
-3. **Profile Building**: Natural conversation to capture user details
-4. **Platform Comparison**: Understanding Topik vs. other tools
-5. **Goal Setting**: Training objectives and collaboration needs
-6. **Progress Summary**: Next steps and recommendations
+### For Candidates
+1. **Access Portal**: Visit the candidate portal at `/v2/candidate`
+2. **Enter Code**: Input your unique evaluation code
+3. **Start Evaluation**: Click "Connect" to begin voice conversation
+4. **Follow Agent**: Complete all evaluation phases
+5. **Await Results**: Evaluation automatically saved and submitted
 
 ## 🎨 User Interface
 
-### Main Components
-- **Left Panel**: Live conversation transcript with the Personalized Teacher
-- **Right Panel**: Onboarding Progress Center with data collection status
-- **Bottom Toolbar**: Voice controls and session management
-- **Top Header**: Clean navigation focused on the onboarding experience
+### Evaluator Dashboard Components
+- **Left Panel**: Batch and candidate management
+- **Center Panel**: Active evaluation interface or candidate list
+- **Right Panel**: Evaluation details, scores, and feedback
+- **Audio Player**: Playback controls for evaluation recordings
+- **Transcript Viewer**: Q&A format conversation display
 
-### Progress Center Features
-- **Live Status**: "ONBOARDING" indicator with real-time updates
-- **Data Points**: Visual tracking of all 17 onboarding categories
-- **Progress Bar**: Completion percentage and status indicators
-- **Export Function**: Download `topik-onboarding-data-YYYY-MM-DD.json`
+### Candidate Interface
+- **Clean Design**: Distraction-free evaluation experience
+- **Voice Visualizer**: Real-time audio feedback
+- **Progress Indicator**: Current evaluation phase tracking
+- **Professional Branding**: Pragyaa.ai branded interface
 
 ## 🔧 Technical Architecture
 
+### Tech Stack
+- **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes, Prisma ORM
+- **Database**: PostgreSQL
+- **Authentication**: NextAuth.js with Prisma adapter
+- **AI Engine**: OpenAI Realtime API, GPT-4 for calibration
+- **Audio Processing**: Web Audio API, MediaRecorder
+
 ### Agent Configuration
-- **Instructions**: Comprehensive Topik platform knowledge and conversation flow
-- **Tools**: `capture_onboarding_data` and `update_onboarding_progress`
-- **Context**: Integration with DataCollectionContext for real-time updates
+- **Instructions**: Comprehensive evaluation protocols and conversation flows
+- **Tools**: Data capture, phase management, voice analysis
+- **Context**: Real-time state management and calibration guidance
+- **Personas**: Dynamic role-playing for realistic scenarios
 
 ### Data Management
-- **Real-time Collection**: Captures data points during natural conversation
-- **Type Safety**: Full TypeScript support for onboarding data structure
-- **State Management**: Efficient tracking of user progress and preferences
+- **Candidate Records**: Complete profile and evaluation history
+- **Evaluation Sessions**: Detailed scoring with AI justifications
+- **Audio Storage**: Secure recording management
+- **Calibration Data**: Continuous learning from evaluator feedback
+- **Batch Operations**: Efficient multi-candidate processing
 
 ### Integration Points
-- **OpenAI Realtime API**: Powers the conversational voice interface
+- **OpenAI Realtime API**: Powers conversational voice interface
+- **Prisma ORM**: Type-safe database access
 - **Next.js Framework**: Full-stack application with API routes
-- **React Context**: Global state management for onboarding data
-
-## 🌟 Topik Platform Integration
-
-### Authentic Knowledge Base
-The agent incorporates real Topik platform information:
-- **Mission**: "Empowering communities through collaborative learning"
-- **Key Features**: AI-adaptive learning, native community integration, neuroatypical support
-- **Value Propositions**: 100% user satisfaction, 2-minute setup, free start, French hosting
-- **User Testimonials**: Real Trustpilot 5.0/5 reviews
-
-### Competitive Differentiation
-Explains how Topik differs from traditional tools:
-- **vs. Trello**: Beyond task management to collaborative learning experiences
-- **vs. Slack**: Native learning community vs. communication-only platform
-- **vs. Traditional LMS**: AI-adaptive content vs. static course delivery
+- **React Context**: Global state management
 
 ## 📋 Version History
 
-### v1.0.0 (Current) - Topik VoiceAgent
-- **🎯 Complete Transformation**: From generic verification to Topik onboarding
-- **🤖 Personalized Teacher**: Dedicated onboarding agent with authentic Topik knowledge
-- **🗣️ Conversational Language**: Natural English/French selection
-- **📊 17 Data Points**: Comprehensive onboarding data collection
-- **🎨 Clean UI**: Focused, distraction-free onboarding experience
+### v2.0.0 (Current) - December 19, 2024
+- **Manager Feedback & HR Decision Workflow**: Complete hiring pipeline
+- **AI Calibration System**: Learning from evaluator feedback
+- **Reprocess API**: Regenerate scores from recordings
+- **Enhanced Data Collection**: Comprehensive candidate profiling
+- **Improved Evaluation Flow**: Smoother phase transitions
+- **Better Error Handling**: Graceful fallbacks and validation
+
+### v1.3.0 - December 17, 2025
+- **Voice Analysis**: Reliable sample collection with setInterval
+- **Audio Recording**: Full recording playback and download
+- **AI-Generated Reasons**: Detailed score justifications
+- **Transcript Display**: Q&A format conversations
+- **Voice Quality Metrics**: Clarity, volume, tone, pace analysis
+- **Candidate Demographics**: Age, gender, native language detection
+
+### v1.x.x - Previous Versions
+- Basic evaluation infrastructure
+- Core agent functionality
+- Simple UI interface
+- Initial voice integration
 
 ## 🚀 Future Roadmap
 
-- **Advanced Analytics**: Enhanced progress tracking and reporting
-- **Platform Integration**: Direct API connections to Topik platform
-- **Additional Agents**: Specialized agents for sales and support use cases
-- **Mobile Support**: Responsive design for mobile onboarding
-- **Audio Processing**: Enhanced audio upload and transcription features
+- **Advanced Analytics**: Comprehensive reporting and insights
+- **Multi-Language Support**: Evaluations in multiple languages
+- **Custom Scoring Templates**: Industry-specific evaluation criteria
+- **Video Integration**: Visual candidate assessment capabilities
+- **API Integrations**: Connect with ATS and HRMS systems
+- **Mobile Application**: Native mobile apps for candidates
+- **Bulk Upload**: CSV import for candidate batches
+- **White-Label Solution**: Customizable branding options
 
-## 🤝 Support & Contribution
+## 🔒 Security & Privacy
+
+- **Data Encryption**: All sensitive data encrypted at rest and in transit
+- **Access Control**: Role-based permissions (Admin, Evaluator, HR, Candidate)
+- **Secure Authentication**: Industry-standard auth with NextAuth.js
+- **Audit Trails**: Complete logging of all evaluation activities
+- **GDPR Compliant**: Data retention and deletion policies
+
+## 🤝 Support & Contact
 
 ### Getting Help
 - Review the installation instructions above
 - Check that your OpenAI API key has Realtime API access
-- Ensure Node.js 18+ is installed
-- Verify `.env` file configuration
+- Ensure Node.js 18+ and PostgreSQL are properly installed
+- Verify `.env` file configuration and database connection
 
-### Contributing
-This project focuses on demonstrating conversational onboarding patterns for the Topik platform. Contributions that enhance the core onboarding experience are welcome.
+### Enterprise Support
+For enterprise licensing, custom features, or support:
+- Website: [https://pragyaa.ai](https://pragyaa.ai)
+- Email: support@pragyaa.ai
+
+### Technical Requirements
+- Modern web browser with WebRTC support
+- Microphone access for voice evaluations
+- Stable internet connection (minimum 1 Mbps)
+- PostgreSQL 12+ database server
 
 ---
 
-**Ready to transform your onboarding experience?** Start with Topik VoiceAgent and see how conversational AI can make platform adoption engaging, personalized, and effective! 🎉
+**Transform your hiring process with AI-powered evaluations.** CCEval delivers consistent, unbiased, and comprehensive candidate assessments at scale. 🚀
+
+---
+
+© 2025 Pragyaa.ai - All Rights Reserved
+
+This software is proprietary and licensed for commercial use only by Pragyaa.ai.
+See LICENSE file for complete terms and conditions.
