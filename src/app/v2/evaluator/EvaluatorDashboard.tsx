@@ -32,7 +32,7 @@ import {
   CalibrationHistoryItem,
 } from "../hooks/useApi";
 
-type TabType = "batches" | "candidates" | "evaluation" | "results" | "settings";
+type TabType = "batches" | "candidates" | "evaluation" | "results" | "settings" | "scenarios";
 
 export default function EvaluatorDashboard() {
   const { data: session, status } = useSession();
@@ -149,6 +149,7 @@ export default function EvaluatorDashboard() {
         <div className="flex items-center gap-1 mb-6 bg-white rounded-xl p-1 shadow-sm border border-slate-200 w-fit">
           {[
             { id: "batches" as TabType, label: "Batch History", icon: "📅" },
+            { id: "scenarios" as TabType, label: "Scenarios", icon: "🎯" },
             { id: "candidates" as TabType, label: "Candidates", icon: "👥", disabled: !activeBatch },
             { id: "evaluation" as TabType, label: "Live Evaluation", icon: "🎙️", disabled: !activeBatch },
             { id: "results" as TabType, label: "Results", icon: "📊", disabled: !activeBatch },
@@ -209,6 +210,9 @@ export default function EvaluatorDashboard() {
             }}
           />
         )}
+        {activeTab === "scenarios" && (
+          <ScenariosTab />
+        )}
       </div>
     </div>
   );
@@ -230,16 +234,36 @@ function BatchHistoryTab({
 }) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newBatchName, setNewBatchName] = useState("");
+  const [selectedScenarioId, setSelectedScenarioId] = useState("");
+  const [scenarios, setScenarios] = useState<Array<{ id: string; name: string; industry: string | null; isDefault: boolean }>>([]);
   const [creating, setCreating] = useState(false);
   const [filterDate, setFilterDate] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+
+  // Load available scenarios when form is shown
+  useEffect(() => {
+    if (showCreateForm) {
+      fetch("/api/v2/scenarios?status=active")
+        .then(res => res.json())
+        .then(data => {
+          setScenarios(data);
+          // Auto-select default scenario
+          const defaultScenario = data.find((s: { isDefault: boolean }) => s.isDefault);
+          if (defaultScenario) {
+            setSelectedScenarioId(defaultScenario.id);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [showCreateForm]);
 
   const handleCreateBatch = async () => {
     if (!newBatchName.trim()) return;
     setCreating(true);
     try {
-      const batch = await createBatch(newBatchName);
+      const batch = await createBatch(newBatchName, selectedScenarioId || undefined);
       setNewBatchName("");
+      setSelectedScenarioId("");
       setShowCreateForm(false);
       onSelectBatch(batch.id);
     } catch (error) {
@@ -295,27 +319,53 @@ function BatchHistoryTab({
       {showCreateForm && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
           <h3 className="font-medium text-slate-800 mb-4">Create New Batch</h3>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              placeholder="Batch name (e.g., Morning Session - Dec 5)"
-              value={newBatchName}
-              onChange={(e) => setNewBatchName(e.target.value)}
-              className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-            <button
-              onClick={handleCreateBatch}
-              disabled={!newBatchName.trim() || creating}
-              className="px-6 py-2 bg-violet-500 text-white rounded-lg font-medium hover:bg-violet-600 disabled:opacity-50 transition-colors"
-            >
-              {creating ? "Creating..." : "Create"}
-            </button>
-            <button
-              onClick={() => setShowCreateForm(false)}
-              className="px-4 py-2 text-slate-600 hover:text-slate-800"
-            >
-              Cancel
-            </button>
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <input
+                type="text"
+                placeholder="Batch name (e.g., Morning Session - Dec 5)"
+                value={newBatchName}
+                onChange={(e) => setNewBatchName(e.target.value)}
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+            </div>
+            {scenarios.length > 0 && (
+              <div>
+                <label className="block text-sm text-slate-600 mb-2">
+                  Evaluation Scenario <span className="text-slate-400">(optional)</span>
+                </label>
+                <select
+                  value={selectedScenarioId}
+                  onChange={(e) => setSelectedScenarioId(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="">Use default evaluation</option>
+                  {scenarios.map((scenario) => (
+                    <option key={scenario.id} value={scenario.id}>
+                      {scenario.name} {scenario.industry ? `(${scenario.industry})` : ""} {scenario.isDefault ? "⭐" : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400 mt-1">
+                  Custom scenarios define specific evaluation criteria, role-play scenarios, and scoring parameters.
+                </p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={handleCreateBatch}
+                disabled={!newBatchName.trim() || creating}
+                className="px-6 py-2 bg-violet-500 text-white rounded-lg font-medium hover:bg-violet-600 disabled:opacity-50 transition-colors"
+              >
+                {creating ? "Creating..." : "Create Batch"}
+              </button>
+              <button
+                onClick={() => setShowCreateForm(false)}
+                className="px-4 py-2 text-slate-600 hover:text-slate-800"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3765,6 +3815,700 @@ function SettingsTab({
         >
           {batch.status === "archived" ? "Already Archived" : "Archive Batch"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// SCENARIOS TAB - Custom Evaluation Scenarios
+// ==========================================
+
+interface Scenario {
+  id: string;
+  name: string;
+  description: string;
+  industry: string | null;
+  roleType: string | null;
+  agentName: string;
+  agentVoice: string;
+  status: string;
+  isDefault: boolean;
+  createdAt: string;
+  _count: {
+    criteria: number;
+    batches: number;
+  };
+}
+
+interface ScoringCriteriaItem {
+  id: string;
+  parameterId: string;
+  label: string;
+  description: string;
+  category: string;
+  weight: number;
+  scoringGuidance: string;
+  isActive: boolean;
+  isSuggested: boolean;
+  displayOrder: number;
+}
+
+interface SuggestedCriteria {
+  parameterId: string;
+  label: string;
+  description: string;
+  scoringGuidance: string;
+  category: string;
+  scoreExamples: Array<{ score: number; description: string; example: string }>;
+}
+
+function ScenariosTab() {
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedScenario, setSelectedScenario] = useState<string | null>(null);
+  const [scenarioDetails, setScenarioDetails] = useState<Scenario & { criteria: ScoringCriteriaItem[] } | null>(null);
+  
+  // Create form state
+  const [newScenario, setNewScenario] = useState({
+    name: "",
+    description: "",
+    industry: "",
+    roleType: "",
+    agentName: "Eva",
+  });
+  const [creating, setCreating] = useState(false);
+  
+  // AI Analysis state
+  const [showAIAnalysis, setShowAIAnalysis] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [suggestedCriteria, setSuggestedCriteria] = useState<SuggestedCriteria[]>([]);
+  const [analysisResult, setAnalysisResult] = useState<{ summary: string; strengths: string[]; improvementAreas: string[] } | null>(null);
+  
+  // Criteria editing state
+  const [editingCriteria, setEditingCriteria] = useState(false);
+  const [newCriteria, setNewCriteria] = useState({
+    parameterId: "",
+    label: "",
+    description: "",
+    category: "general",
+    scoringGuidance: "",
+  });
+
+  const loadScenarios = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/v2/scenarios");
+      if (!response.ok) throw new Error("Failed to fetch scenarios");
+      const data = await response.json();
+      setScenarios(data);
+    } catch (error) {
+      console.error("Error loading scenarios:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadScenarioDetails = useCallback(async (scenarioId: string) => {
+    try {
+      const response = await fetch(`/api/v2/scenarios/${scenarioId}`);
+      if (!response.ok) throw new Error("Failed to fetch scenario details");
+      const data = await response.json();
+      setScenarioDetails(data);
+    } catch (error) {
+      console.error("Error loading scenario details:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadScenarios();
+  }, [loadScenarios]);
+
+  useEffect(() => {
+    if (selectedScenario) {
+      loadScenarioDetails(selectedScenario);
+    } else {
+      setScenarioDetails(null);
+    }
+  }, [selectedScenario, loadScenarioDetails]);
+
+  const handleCreateScenario = async () => {
+    if (!newScenario.name || !newScenario.description) return;
+    
+    try {
+      setCreating(true);
+      const response = await fetch("/api/v2/scenarios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newScenario),
+      });
+      
+      if (!response.ok) throw new Error("Failed to create scenario");
+      
+      const created = await response.json();
+      setNewScenario({ name: "", description: "", industry: "", roleType: "", agentName: "Eva" });
+      setShowCreateForm(false);
+      setSelectedScenario(created.id);
+      loadScenarios();
+    } catch (error) {
+      console.error("Error creating scenario:", error);
+      alert("Failed to create scenario");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleAnalyzeTranscript = async () => {
+    if (!transcript.trim() || !selectedScenario) return;
+    
+    try {
+      setAnalyzing(true);
+      const response = await fetch(`/api/v2/scenarios/${selectedScenario}/analyze-recording`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to analyze transcript");
+      
+      const data = await response.json();
+      setSuggestedCriteria(data.suggestedCriteria);
+      setAnalysisResult(data.analysis);
+    } catch (error) {
+      console.error("Error analyzing transcript:", error);
+      alert("Failed to analyze transcript");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleAddSuggestedCriteria = async (criteria: SuggestedCriteria) => {
+    if (!selectedScenario) return;
+    
+    try {
+      const response = await fetch(`/api/v2/scenarios/${selectedScenario}/criteria`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...criteria,
+          isSuggested: true,
+        }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to add criteria");
+      
+      // Remove from suggested list
+      setSuggestedCriteria(prev => prev.filter(c => c.parameterId !== criteria.parameterId));
+      
+      // Reload scenario details
+      loadScenarioDetails(selectedScenario);
+    } catch (error) {
+      console.error("Error adding criteria:", error);
+      alert("Failed to add criteria");
+    }
+  };
+
+  const handleAddManualCriteria = async () => {
+    if (!selectedScenario || !newCriteria.parameterId || !newCriteria.label) return;
+    
+    try {
+      const response = await fetch(`/api/v2/scenarios/${selectedScenario}/criteria`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCriteria),
+      });
+      
+      if (!response.ok) throw new Error("Failed to add criteria");
+      
+      setNewCriteria({ parameterId: "", label: "", description: "", category: "general", scoringGuidance: "" });
+      setEditingCriteria(false);
+      loadScenarioDetails(selectedScenario);
+    } catch (error) {
+      console.error("Error adding criteria:", error);
+      alert("Failed to add criteria");
+    }
+  };
+
+  const handleActivateScenario = async (scenarioId: string) => {
+    try {
+      const response = await fetch(`/api/v2/scenarios/${scenarioId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "active" }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to activate scenario");
+      
+      loadScenarios();
+      if (selectedScenario === scenarioId) {
+        loadScenarioDetails(scenarioId);
+      }
+    } catch (error) {
+      console.error("Error activating scenario:", error);
+      alert("Failed to activate scenario");
+    }
+  };
+
+  const handleSetDefault = async (scenarioId: string) => {
+    try {
+      const response = await fetch(`/api/v2/scenarios/${scenarioId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isDefault: true }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to set default");
+      
+      loadScenarios();
+    } catch (error) {
+      console.error("Error setting default:", error);
+      alert("Failed to set default scenario");
+    }
+  };
+
+  const INDUSTRY_OPTIONS = [
+    "Automotive",
+    "Banking & Finance",
+    "Insurance",
+    "Telecom",
+    "Retail",
+    "Healthcare",
+    "E-commerce",
+    "Travel & Hospitality",
+    "Other",
+  ];
+
+  const ROLE_OPTIONS = [
+    "Sales",
+    "Customer Support",
+    "Collections",
+    "Technical Support",
+    "Lead Generation",
+    "Retention",
+    "Other",
+  ];
+
+  const CATEGORY_OPTIONS = [
+    { id: "voice_quality", label: "Voice Quality" },
+    { id: "communication", label: "Communication Skills" },
+    { id: "domain_knowledge", label: "Domain Knowledge" },
+    { id: "soft_skills", label: "Soft Skills" },
+    { id: "process_compliance", label: "Process Compliance" },
+    { id: "general", label: "General" },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Left Panel - Scenario List */}
+      <div className="lg:col-span-1 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-slate-800">Evaluation Scenarios</h2>
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="px-3 py-1.5 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 transition-colors flex items-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New
+          </button>
+        </div>
+
+        {/* Create Scenario Form */}
+        {showCreateForm && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+            <h3 className="font-medium text-slate-800">Create New Scenario</h3>
+            <input
+              type="text"
+              placeholder="Scenario Name"
+              value={newScenario.name}
+              onChange={(e) => setNewScenario({ ...newScenario, name: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+            <textarea
+              placeholder="Description (e.g., Evaluation for credit card sales representatives)"
+              value={newScenario.description}
+              onChange={(e) => setNewScenario({ ...newScenario, description: e.target.value })}
+              rows={3}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={newScenario.industry}
+                onChange={(e) => setNewScenario({ ...newScenario, industry: e.target.value })}
+                className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Industry</option>
+                {INDUSTRY_OPTIONS.map((ind) => (
+                  <option key={ind} value={ind}>{ind}</option>
+                ))}
+              </select>
+              <select
+                value={newScenario.roleType}
+                onChange={(e) => setNewScenario({ ...newScenario, roleType: e.target.value })}
+                className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Role Type</option>
+                {ROLE_OPTIONS.map((role) => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreateScenario}
+                disabled={!newScenario.name || !newScenario.description || creating}
+                className="flex-1 px-3 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 disabled:opacity-50 transition-colors"
+              >
+                {creating ? "Creating..." : "Create Scenario"}
+              </button>
+              <button
+                onClick={() => setShowCreateForm(false)}
+                className="px-3 py-2 text-slate-600 hover:text-slate-800 text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Scenario List */}
+        {loading ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+            <p className="text-slate-500">Loading scenarios...</p>
+          </div>
+        ) : scenarios.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+            <div className="text-4xl mb-3">🎯</div>
+            <h3 className="font-medium text-slate-800 mb-2">No Scenarios Yet</h3>
+            <p className="text-sm text-slate-500">Create your first evaluation scenario to get started</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {scenarios.map((scenario) => (
+              <div
+                key={scenario.id}
+                onClick={() => setSelectedScenario(scenario.id)}
+                className={`bg-white rounded-xl border p-4 cursor-pointer transition-all ${
+                  selectedScenario === scenario.id
+                    ? "border-violet-500 ring-2 ring-violet-200"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-medium text-slate-800">{scenario.name}</h3>
+                  <div className="flex items-center gap-1">
+                    {scenario.isDefault && (
+                      <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Default</span>
+                    )}
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      scenario.status === "active"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : scenario.status === "draft"
+                        ? "bg-slate-100 text-slate-600"
+                        : "bg-slate-100 text-slate-500"
+                    }`}>
+                      {scenario.status}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-500 line-clamp-2 mb-2">{scenario.description}</p>
+                <div className="flex items-center gap-3 text-xs text-slate-400">
+                  {scenario.industry && <span>🏢 {scenario.industry}</span>}
+                  {scenario.roleType && <span>👤 {scenario.roleType}</span>}
+                  <span>📊 {scenario._count.criteria} criteria</span>
+                  <span>📁 {scenario._count.batches} batches</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Right Panel - Scenario Details */}
+      <div className="lg:col-span-2">
+        {!selectedScenario ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+            <div className="text-5xl mb-4">👈</div>
+            <h3 className="text-lg font-medium text-slate-800 mb-2">Select a Scenario</h3>
+            <p className="text-slate-500">Choose a scenario from the list to view and edit its criteria</p>
+          </div>
+        ) : !scenarioDetails ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+            <p className="text-slate-500">Loading scenario details...</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Scenario Header */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">{scenarioDetails.name}</h2>
+                  <p className="text-slate-500 mt-1">{scenarioDetails.description}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {scenarioDetails.status === "draft" && (
+                    <button
+                      onClick={() => handleActivateScenario(scenarioDetails.id)}
+                      className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-sm font-medium hover:bg-emerald-600 transition-colors"
+                    >
+                      Activate
+                    </button>
+                  )}
+                  {!scenarioDetails.isDefault && scenarioDetails.status === "active" && (
+                    <button
+                      onClick={() => handleSetDefault(scenarioDetails.id)}
+                      className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors"
+                    >
+                      Set as Default
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="flex items-center gap-1 text-slate-600">
+                  <span className="text-lg">🏢</span> {scenarioDetails.industry || "General"}
+                </span>
+                <span className="flex items-center gap-1 text-slate-600">
+                  <span className="text-lg">👤</span> {scenarioDetails.roleType || "Customer Service"}
+                </span>
+                <span className="flex items-center gap-1 text-slate-600">
+                  <span className="text-lg">🤖</span> {scenarioDetails.agentName}
+                </span>
+              </div>
+            </div>
+
+            {/* AI Analysis Section */}
+            <div className="bg-gradient-to-r from-violet-50 to-indigo-50 rounded-xl border border-violet-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-medium text-violet-800 flex items-center gap-2">
+                    <span className="text-xl">🤖</span> AI-Powered Criteria Suggestions
+                  </h3>
+                  <p className="text-sm text-violet-600 mt-1">
+                    Paste a sample call transcript to get AI-suggested evaluation criteria
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAIAnalysis(!showAIAnalysis)}
+                  className="px-3 py-1.5 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 transition-colors"
+                >
+                  {showAIAnalysis ? "Hide" : "Analyze Sample Call"}
+                </button>
+              </div>
+
+              {showAIAnalysis && (
+                <div className="space-y-4 mt-4">
+                  <textarea
+                    placeholder="Paste a sample call transcript here... (The AI will analyze it and suggest relevant evaluation criteria)"
+                    value={transcript}
+                    onChange={(e) => setTranscript(e.target.value)}
+                    rows={6}
+                    className="w-full px-4 py-3 border border-violet-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white"
+                  />
+                  <button
+                    onClick={handleAnalyzeTranscript}
+                    disabled={!transcript.trim() || analyzing}
+                    className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                  >
+                    {analyzing ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <span>✨</span> Analyze & Suggest Criteria
+                      </>
+                    )}
+                  </button>
+
+                  {/* Analysis Results */}
+                  {analysisResult && (
+                    <div className="bg-white rounded-lg border border-violet-200 p-4 mt-4">
+                      <h4 className="font-medium text-slate-800 mb-2">Analysis Summary</h4>
+                      <p className="text-sm text-slate-600 mb-3">{analysisResult.summary}</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h5 className="text-xs font-medium text-emerald-700 mb-1">Strengths Observed</h5>
+                          <ul className="text-xs text-slate-600 space-y-1">
+                            {analysisResult.strengths.map((s, i) => (
+                              <li key={i} className="flex items-start gap-1">
+                                <span className="text-emerald-500">✓</span> {s}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-medium text-amber-700 mb-1">Areas for Improvement</h5>
+                          <ul className="text-xs text-slate-600 space-y-1">
+                            {analysisResult.improvementAreas.map((a, i) => (
+                              <li key={i} className="flex items-start gap-1">
+                                <span className="text-amber-500">!</span> {a}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Suggested Criteria */}
+                  {suggestedCriteria.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="font-medium text-slate-800 mb-3">Suggested Criteria ({suggestedCriteria.length})</h4>
+                      <div className="space-y-2">
+                        {suggestedCriteria.map((criteria) => (
+                          <div key={criteria.parameterId} className="bg-white rounded-lg border border-slate-200 p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h5 className="font-medium text-slate-800">{criteria.label}</h5>
+                                  <span className="text-xs px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full">
+                                    {criteria.category}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-slate-500">{criteria.description}</p>
+                              </div>
+                              <button
+                                onClick={() => handleAddSuggestedCriteria(criteria)}
+                                className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-medium hover:bg-emerald-600 transition-colors flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Evaluation Criteria */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-medium text-slate-800">Evaluation Criteria ({scenarioDetails.criteria?.length || 0})</h3>
+                <button
+                  onClick={() => setEditingCriteria(!editingCriteria)}
+                  className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors flex items-center gap-1"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Criteria
+                </button>
+              </div>
+
+              {/* Add Criteria Form */}
+              {editingCriteria && (
+                <div className="bg-slate-50 rounded-lg p-4 mb-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Parameter ID (e.g., product_knowledge)"
+                      value={newCriteria.parameterId}
+                      onChange={(e) => setNewCriteria({ ...newCriteria, parameterId: e.target.value.toLowerCase().replace(/\s+/g, "_") })}
+                      className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Display Label"
+                      value={newCriteria.label}
+                      onChange={(e) => setNewCriteria({ ...newCriteria, label: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                  <textarea
+                    placeholder="Description of what this criteria measures"
+                    value={newCriteria.description}
+                    onChange={(e) => setNewCriteria({ ...newCriteria, description: e.target.value })}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <select
+                      value={newCriteria.category}
+                      onChange={(e) => setNewCriteria({ ...newCriteria, category: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    >
+                      {CATEGORY_OPTIONS.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.label}</option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleAddManualCriteria}
+                        disabled={!newCriteria.parameterId || !newCriteria.label}
+                        className="flex-1 px-3 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 disabled:opacity-50 transition-colors"
+                      >
+                        Add
+                      </button>
+                      <button
+                        onClick={() => setEditingCriteria(false)}
+                        className="px-3 py-2 text-slate-600 hover:text-slate-800 text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Criteria List */}
+              {!scenarioDetails.criteria || scenarioDetails.criteria.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <div className="text-3xl mb-2">📊</div>
+                  <p>No criteria defined yet. Add criteria manually or use AI analysis.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {scenarioDetails.criteria.map((criteria, index) => (
+                    <div
+                      key={criteria.id}
+                      className={`border rounded-lg p-4 ${
+                        criteria.isActive ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50 opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs text-slate-400 font-mono">#{index + 1}</span>
+                            <h5 className="font-medium text-slate-800">{criteria.label}</h5>
+                            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">
+                              {criteria.category}
+                            </span>
+                            {criteria.isSuggested && (
+                              <span className="text-xs px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full">
+                                AI Suggested
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-500">{criteria.description}</p>
+                          {criteria.scoringGuidance && (
+                            <p className="text-xs text-slate-400 mt-1 italic">
+                              Guidance: {criteria.scoringGuidance}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-xs text-slate-400 font-mono">{criteria.parameterId}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

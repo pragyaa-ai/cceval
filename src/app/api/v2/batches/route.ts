@@ -87,20 +87,51 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name } = body;
+    const { name, scenarioId } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Batch name is required" }, { status: 400 });
+    }
+
+    // Get user's organization
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true },
+    });
+
+    // Validate scenario belongs to user's organization if provided
+    if (scenarioId) {
+      const scenario = await prisma.evaluationScenario.findUnique({
+        where: { id: scenarioId },
+        select: { organizationId: true, status: true },
+      });
+
+      if (!scenario) {
+        return NextResponse.json({ error: "Scenario not found" }, { status: 404 });
+      }
+
+      if (scenario.organizationId !== user?.organizationId) {
+        return NextResponse.json({ error: "Scenario belongs to different organization" }, { status: 403 });
+      }
+
+      if (scenario.status !== "active") {
+        return NextResponse.json({ error: "Scenario is not active" }, { status: 400 });
+      }
     }
 
     const batch = await prisma.batch.create({
       data: {
         name,
         creatorId: session.user.id,
+        organizationId: user?.organizationId || null,
+        scenarioId: scenarioId || null,
       },
       include: {
         creator: {
           select: { id: true, name: true, email: true, image: true },
+        },
+        scenario: {
+          select: { id: true, name: true, industry: true, roleType: true },
         },
       },
     });

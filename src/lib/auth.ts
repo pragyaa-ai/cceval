@@ -13,10 +13,28 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async session({ session, user }) {
-      // Add user id and role to session
+      // Add user id, role, and organization to session
       if (session.user) {
         session.user.id = user.id;
         session.user.role = (user as { role?: string }).role || "evaluator";
+        
+        // Get organization info
+        const userWithOrg = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: {
+            organizationId: true,
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        });
+        
+        session.user.organizationId = userWithOrg?.organizationId || null;
+        session.user.organization = userWithOrg?.organization || null;
       }
       return session;
     },
@@ -39,6 +57,12 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       role?: string;
+      organizationId?: string | null;
+      organization?: {
+        id: string;
+        name: string;
+        slug: string;
+      } | null;
     };
   }
 }

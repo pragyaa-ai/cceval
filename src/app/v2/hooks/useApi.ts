@@ -139,11 +139,11 @@ export async function fetchBatch(batchId: string): Promise<BatchDetail> {
   return response.json();
 }
 
-export async function createBatch(name: string): Promise<BatchSummary> {
+export async function createBatch(name: string, scenarioId?: string): Promise<BatchSummary> {
   const response = await fetch("/api/v2/batches", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, scenarioId }),
   });
   if (!response.ok) {
     const error = await response.json();

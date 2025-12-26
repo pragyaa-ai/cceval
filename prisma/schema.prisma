@@ -10,7 +10,231 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// NextAuth.js required models
+// ==========================================
+// MULTI-TENANT ORGANIZATION MODEL
+// ==========================================
+
+// Organization - Top-level entity for multi-tenancy
+model Organization {
+  id          String   @id @default(cuid())
+  name        String   // Company name (e.g., "Mahindra", "HDFC Bank")
+  slug        String   @unique // URL-friendly identifier (e.g., "mahindra", "hdfc-bank")
+  logo        String?  // Logo URL
+  description String?  @db.Text
+  
+  // Branding & Customization
+  primaryColor   String @default("#7c3aed") // Violet-500
+  secondaryColor String @default("#8b5cf6") // Violet-400
+  
+  // Settings
+  isActive    Boolean  @default(true)
+  settings    String?  @db.Text // JSON for additional settings
+  
+  // Relationships
+  users       User[]
+  scenarios   EvaluationScenario[]
+  batches     Batch[]
+  calibrations OrganizationCalibration[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// CUSTOM EVALUATION SCENARIOS
+// ==========================================
+
+// EvaluationScenario - Custom scenario created by organization
+model EvaluationScenario {
+  id          String   @id @default(cuid())
+  name        String   // "Credit Card Sales Evaluation"
+  description String   @db.Text // Detailed description of the scenario
+  industry    String?  // "Banking", "Automotive", "Telecom", etc.
+  roleType    String?  // "Sales", "Support", "Collections", etc.
+  
+  // Organization relationship
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Scenario Configuration
+  agentName        String  @default("Eva") // AI agent name
+  agentVoice       String  @default("coral") // OpenAI voice
+  agentPersona     String  @db.Text @default("") // Custom persona description
+  agentInstructions String @db.Text @default("") // Full AI agent instructions (generated or custom)
+  
+  // Evaluation Flow Configuration (JSON)
+  // Contains: phases, role-play scenarios, empathy scenarios, etc.
+  flowConfig       String  @db.Text @default("{}") 
+  
+  // Status
+  status      String   @default("draft") // draft, active, archived
+  isDefault   Boolean  @default(false)   // Default scenario for organization
+  
+  // Relationships
+  criteria        ScoringCriteria[]
+  readingPassages ReadingPassage[]
+  rolePlayScenarios RolePlayScenario[]
+  sampleRecordings SampleRecording[]
+  batches         Batch[]
+  
+  // Creator
+  createdById String?
+  createdBy   User?    @relation("ScenarioCreator", fields: [createdById], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([organizationId])
+}
+
+// ScoringCriteria - Custom evaluation criteria for a scenario
+model ScoringCriteria {
+  id          String   @id @default(cuid())
+  parameterId String   // Unique identifier within scenario (e.g., "product_knowledge")
+  label       String   // Display label (e.g., "Product Knowledge")
+  description String   @db.Text // What this criteria measures
+  
+  // Scoring configuration
+  minScore    Int      @default(1)
+  maxScore    Int      @default(5)
+  weight      Float    @default(1.0) // Weight for overall score calculation
+  
+  // AI Guidance
+  scoringGuidance String @db.Text @default("") // Instructions for AI on how to score
+  
+  // Examples for each score level (JSON array)
+  // [{ score: 1, description: "...", example: "..." }, ...]
+  scoreExamples   String @db.Text @default("[]")
+  
+  // Category for grouping
+  category    String   @default("general") // voice_quality, communication, domain_knowledge, etc.
+  
+  // Order in which criteria appear
+  displayOrder Int     @default(0)
+  
+  // Whether this is required or optional
+  isRequired  Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  
+  // AI-suggested flag
+  isSuggested Boolean  @default(false) // Was this suggested by AI analysis?
+  
+  // Scenario relationship
+  scenarioId  String
+  scenario    EvaluationScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([scenarioId, parameterId])
+  @@index([scenarioId])
+}
+
+// ReadingPassage - Custom reading passages for voice assessment
+model ReadingPassage {
+  id          String   @id @default(cuid())
+  title       String   // "Credit Card Benefits"
+  text        String   @db.Text // The passage text
+  wordCount   Int      @default(0)
+  
+  // Industry/domain context
+  context     String?  @db.Text // Why this passage is relevant
+  
+  // Difficulty level
+  difficulty  String   @default("medium") // easy, medium, hard
+  
+  // Status
+  isActive    Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  
+  // Scenario relationship
+  scenarioId  String
+  scenario    EvaluationScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([scenarioId])
+}
+
+// RolePlayScenario - Custom role-play scenarios for call simulations
+model RolePlayScenario {
+  id              String   @id @default(cuid())
+  title           String   // "Angry Customer - Card Blocked"
+  description     String   @db.Text // Scenario description
+  
+  // Customer persona
+  customerName    String   @default("Customer") // "Rita Sharma"
+  customerPersona String   @db.Text // Detailed persona description
+  customerMood    String   @default("neutral") // neutral, frustrated, confused, angry, happy
+  
+  // Opening line and context
+  openingLine     String   @db.Text // Initial customer statement
+  context         String   @db.Text // Background context for the scenario
+  
+  // Expected behaviors (JSON array of strings)
+  expectedBehaviors String @db.Text @default("[]")
+  
+  // Escalation triggers (JSON array)
+  escalationTriggers String @db.Text @default("[]")
+  
+  // Difficulty
+  difficulty      String   @default("beginner") // beginner, moderate, experienced
+  
+  // Status
+  isActive        Boolean  @default(true)
+  displayOrder    Int      @default(0)
+  
+  // Scenario relationship
+  scenarioId      String
+  scenario        EvaluationScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([scenarioId])
+}
+
+// SampleRecording - Sample call recordings for AI analysis
+model SampleRecording {
+  id          String   @id @default(cuid())
+  title       String   // "Good Sales Call Example"
+  description String?  @db.Text
+  
+  // Recording details
+  fileUrl     String   // URL to the audio file
+  fileName    String
+  fileSize    Int      @default(0) // in bytes
+  duration    Int      @default(0) // in seconds
+  mimeType    String   @default("audio/webm")
+  
+  // AI Analysis Results
+  transcript      String?  @db.Text // Transcribed text
+  analysisResult  String?  @db.Text // JSON with AI analysis
+  suggestedCriteria String? @db.Text // JSON array of suggested criteria from AI
+  analysisStatus  String   @default("pending") // pending, processing, completed, failed
+  
+  // Quality indicator
+  qualityLabel    String?  // "good", "average", "poor" - evaluator marked
+  
+  // Scenario relationship
+  scenarioId  String
+  scenario    EvaluationScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  
+  // Uploaded by
+  uploadedById String?
+  uploadedBy   User?    @relation("RecordingUploader", fields: [uploadedById], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([scenarioId])
+}
+
+// ==========================================
+// NEXTAUTH.JS MODELS
+// ==========================================
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -46,6 +270,10 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+// ==========================================
+// USER MODEL (Extended for multi-tenancy)
+// ==========================================
+
 // Evaluator (extends NextAuth User)
 model User {
   id            String    @id @default(cuid())
@@ -53,7 +281,11 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
-  role          String    @default("evaluator") // evaluator, admin
+  role          String    @default("evaluator") // evaluator, admin, org_admin, hr
+  
+  // Organization relationship (for multi-tenancy)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
   
   accounts Account[]
   sessions Session[]
@@ -63,9 +295,19 @@ model User {
   evaluationsScored Evaluation[] @relation("EvaluationScorer")
   feedbacks         EvaluatorFeedback[] @relation("EvaluatorFeedbacks")
   
+  // Scenario relationships
+  scenariosCreated  EvaluationScenario[] @relation("ScenarioCreator")
+  recordingsUploaded SampleRecording[] @relation("RecordingUploader")
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  @@index([organizationId])
 }
+
+// ==========================================
+// EVALUATION MODELS (Updated for scenarios)
+// ==========================================
 
 // Evaluation Batch
 model Batch {
@@ -78,11 +320,22 @@ model Batch {
   creatorId String
   creator   User   @relation("BatchCreator", fields: [creatorId], references: [id])
   
+  // Organization (for multi-tenancy)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  
+  // Scenario to use for this batch
+  scenarioId String?
+  scenario   EvaluationScenario? @relation(fields: [scenarioId], references: [id])
+  
   // Candidates in this batch
   candidates Candidate[]
   
   // Status
   status String @default("active") // active, archived, completed
+  
+  @@index([organizationId])
+  @@index([scenarioId])
 }
 
 // Candidate
@@ -247,7 +500,41 @@ model PhaseResult {
   completedAt DateTime @default(now())
 }
 
-// Agent Calibration - AI scoring adjustments based on evaluator feedback
+// ==========================================
+// CALIBRATION MODELS (Updated for org-level)
+// ==========================================
+
+// Organization-level calibration (replaces global AgentCalibration)
+model OrganizationCalibration {
+  id          String   @id @default(cuid())
+  parameterId String   // clarity_pace, product_knowledge, confidence, etc.
+  
+  // Organization relationship
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Calibration adjustment (-2 to +2, applied to AI scores)
+  adjustment  Float    @default(0)
+  
+  // Guidance text included in AI prompts for this parameter
+  guidance    String   @db.Text @default("")
+  
+  // Statistics from feedback analysis
+  totalFeedbacks    Int @default(0)  // Total feedback entries analyzed
+  avgAdjustment     Float @default(0) // Average adjustment direction
+  lastAnalyzedAt    DateTime?         // When analysis was last run
+  
+  // Tracking
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([organizationId, parameterId])
+  @@index([organizationId])
+}
+
+// Legacy global calibration (for backwards compatibility)
 model AgentCalibration {
   id          String   @id @default(cuid())
   parameterId String   @unique // clarity_pace, product_knowledge, confidence, etc.
