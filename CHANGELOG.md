@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2024-12-28
+
+### Added
+- **Scenario Templates**: Pre-built evaluation scenarios that can be cloned and customized
+  - Automotive Call Center template with 8 evaluation criteria
+  - Banking Call Center template with 6 evaluation criteria
+  - Browse templates from any organization
+  - Industry-grouped template browsing
+
+- **Clone Scenario Feature**: Create new scenarios from existing ones
+  - Clone scenarios with selective criteria inclusion
+  - Option to include/exclude reading passages and role-plays
+  - Customize name, industry, and role type during cloning
+  - Retain, drop, or add metrics when cloning
+
+- **Template Browser**: Visual interface to discover and use templates
+  - Card-based template preview
+  - Criteria count and passage count display
+  - One-click template selection
+
+- **Seed Script for Sample Data**: Database seeding for templates
+  - `prisma/seed-scenarios.ts` for creating sample scenarios
+  - Pre-configured criteria with scoring guidance
+  - Sample reading passages (Safety/ADAS, EV Charging, Connected Car)
+  - Sample role-play scenarios (Beginner, Moderate, Experienced)
+
+### API Endpoints
+- `POST /api/v2/scenarios/{id}/clone` - Clone a scenario with criteria selection
+- `GET /api/v2/scenarios/templates` - List available scenario templates
+
+---
+
 ## [3.0.0] - 2024-12-26
 
 ### Added

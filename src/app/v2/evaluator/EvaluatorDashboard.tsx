@@ -3896,6 +3896,25 @@ function ScenariosTab() {
     category: "general",
     scoringGuidance: "",
   });
+  
+  // Clone scenario state
+  const [showCloneModal, setShowCloneModal] = useState(false);
+  const [cloneConfig, setCloneConfig] = useState({
+    name: "",
+    description: "",
+    industry: "",
+    roleType: "",
+    selectedCriteria: [] as string[],
+    includePassages: true,
+    includeRolePlays: true,
+  });
+  const [cloning, setCloning] = useState(false);
+  
+  // Template browser state
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templates, setTemplates] = useState<(Scenario & { criteria: ScoringCriteriaItem[] })[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<(Scenario & { criteria: ScoringCriteriaItem[] }) | null>(null);
 
   const loadScenarios = useCallback(async () => {
     try {
@@ -3910,6 +3929,75 @@ function ScenariosTab() {
       setLoading(false);
     }
   }, []);
+
+  const loadTemplates = useCallback(async () => {
+    try {
+      setLoadingTemplates(true);
+      const response = await fetch("/api/v2/scenarios/templates");
+      if (!response.ok) throw new Error("Failed to fetch templates");
+      const data = await response.json();
+      setTemplates(data.templates || []);
+    } catch (error) {
+      console.error("Error loading templates:", error);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  }, []);
+
+  const handleOpenTemplates = () => {
+    setShowTemplates(true);
+    loadTemplates();
+  };
+
+  const handleUseTemplate = (template: Scenario & { criteria: ScoringCriteriaItem[] }) => {
+    setSelectedTemplate(template);
+    setCloneConfig({
+      name: `${template.name} (Copy)`,
+      description: template.description,
+      industry: template.industry || "",
+      roleType: template.roleType || "",
+      selectedCriteria: template.criteria?.map(c => c.parameterId) || [],
+      includePassages: true,
+      includeRolePlays: true,
+    });
+    setShowTemplates(false);
+    setShowCloneModal(true);
+  };
+
+  const handleCloneFromTemplate = async () => {
+    if (!selectedTemplate || !cloneConfig.name) return;
+    
+    try {
+      setCloning(true);
+      const response = await fetch(`/api/v2/scenarios/${selectedTemplate.id}/clone`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: cloneConfig.name,
+          description: cloneConfig.description,
+          industry: cloneConfig.industry,
+          roleType: cloneConfig.roleType,
+          includeCriteria: cloneConfig.selectedCriteria,
+          includePassages: cloneConfig.includePassages,
+          includeRolePlays: cloneConfig.includeRolePlays,
+        }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to clone template");
+      
+      const data = await response.json();
+      setShowCloneModal(false);
+      setSelectedTemplate(null);
+      setSelectedScenario(data.scenario.id);
+      loadScenarios();
+      alert(`Template cloned successfully! ${data.stats.criteriaCloned} criteria copied.`);
+    } catch (error) {
+      console.error("Error cloning template:", error);
+      alert("Failed to clone template");
+    } finally {
+      setCloning(false);
+    }
+  };
 
   const loadScenarioDetails = useCallback(async (scenarioId: string) => {
     try {
@@ -4068,6 +4156,63 @@ function ScenariosTab() {
     }
   };
 
+  const handleOpenCloneModal = () => {
+    if (!scenarioDetails) return;
+    setCloneConfig({
+      name: `${scenarioDetails.name} (Copy)`,
+      description: scenarioDetails.description,
+      industry: scenarioDetails.industry || "",
+      roleType: scenarioDetails.roleType || "",
+      selectedCriteria: scenarioDetails.criteria?.map(c => c.parameterId) || [],
+      includePassages: true,
+      includeRolePlays: true,
+    });
+    setShowCloneModal(true);
+  };
+
+  const handleCloneScenario = async () => {
+    if (!selectedScenario || !cloneConfig.name) return;
+    
+    try {
+      setCloning(true);
+      const response = await fetch(`/api/v2/scenarios/${selectedScenario}/clone`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: cloneConfig.name,
+          description: cloneConfig.description,
+          industry: cloneConfig.industry,
+          roleType: cloneConfig.roleType,
+          includeCriteria: cloneConfig.selectedCriteria,
+          includePassages: cloneConfig.includePassages,
+          includeRolePlays: cloneConfig.includeRolePlays,
+        }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to clone scenario");
+      
+      const data = await response.json();
+      setShowCloneModal(false);
+      setSelectedScenario(data.scenario.id);
+      loadScenarios();
+      alert(`Scenario cloned successfully! ${data.stats.criteriaCloned} criteria copied.`);
+    } catch (error) {
+      console.error("Error cloning scenario:", error);
+      alert("Failed to clone scenario");
+    } finally {
+      setCloning(false);
+    }
+  };
+
+  const toggleCriteriaSelection = (parameterId: string) => {
+    setCloneConfig(prev => ({
+      ...prev,
+      selectedCriteria: prev.selectedCriteria.includes(parameterId)
+        ? prev.selectedCriteria.filter(id => id !== parameterId)
+        : [...prev.selectedCriteria, parameterId],
+    }));
+  };
+
   const INDUSTRY_OPTIONS = [
     "Automotive",
     "Banking & Finance",
@@ -4105,15 +4250,26 @@ function ScenariosTab() {
       <div className="lg:col-span-1 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-slate-800">Evaluation Scenarios</h2>
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="px-3 py-1.5 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 transition-colors flex items-center gap-1"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenTemplates}
+              className="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-200 transition-colors flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+              Templates
+            </button>
+            <button
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className="px-3 py-1.5 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 transition-colors flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New
+            </button>
+          </div>
         </div>
 
         {/* Create Scenario Form */}
@@ -4249,6 +4405,15 @@ function ScenariosTab() {
                   <p className="text-slate-500 mt-1">{scenarioDetails.description}</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleOpenCloneModal}
+                    className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Clone
+                  </button>
                   {scenarioDetails.status === "draft" && (
                     <button
                       onClick={() => handleActivateScenario(scenarioDetails.id)}
@@ -4510,6 +4675,282 @@ function ScenariosTab() {
           </div>
         )}
       </div>
+      
+      {/* Template Browser Modal */}
+      {showTemplates && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Browse Scenario Templates</h3>
+                <p className="text-sm text-slate-500">Pre-built evaluation scenarios ready to customize</p>
+              </div>
+              <button
+                onClick={() => setShowTemplates(false)}
+                className="text-slate-400 hover:text-slate-600 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingTemplates ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full" />
+                </div>
+              ) : templates.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-5xl mb-4">📁</div>
+                  <h4 className="text-lg font-medium text-slate-700 mb-2">No Templates Available</h4>
+                  <p className="text-slate-500">Templates will appear here once they are set up.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {templates.map((template) => (
+                    <div
+                      key={template.id}
+                      className="border border-slate-200 rounded-xl p-5 hover:border-violet-300 hover:shadow-md transition-all cursor-pointer group"
+                      onClick={() => handleUseTemplate(template)}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h4 className="font-semibold text-slate-800 group-hover:text-violet-600 transition-colors">
+                            {template.name}
+                          </h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            {template.industry && (
+                              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                                {template.industry}
+                              </span>
+                            )}
+                            {template.roleType && (
+                              <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">
+                                {template.roleType}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-violet-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                          </svg>
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-500 line-clamp-2 mb-3">{template.description}</p>
+                      <div className="flex items-center gap-4 text-xs text-slate-400">
+                        <span className="flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          {template._count.criteria} criteria
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          {template.criteria?.length || 0} passages
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="border-t border-slate-200 px-6 py-4 bg-slate-50 text-center text-sm text-slate-500">
+              💡 Click on a template to customize and create your own scenario
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clone Scenario Modal */}
+      {showCloneModal && (scenarioDetails || selectedTemplate) && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">
+                  {selectedTemplate ? "Create from Template" : "Clone Scenario"}
+                </h3>
+                <p className="text-sm text-slate-500">
+                  Create a new scenario based on &quot;{selectedTemplate?.name || scenarioDetails?.name}&quot;
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCloneModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Basic Info */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-slate-700 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-violet-100 text-violet-600 text-sm flex items-center justify-center">1</span>
+                  Basic Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Scenario Name *</label>
+                    <input
+                      type="text"
+                      value={cloneConfig.name}
+                      onChange={(e) => setCloneConfig({ ...cloneConfig, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      placeholder="e.g., Insurance Call Center Evaluation"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Industry</label>
+                    <input
+                      type="text"
+                      value={cloneConfig.industry}
+                      onChange={(e) => setCloneConfig({ ...cloneConfig, industry: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      placeholder="e.g., Insurance, Healthcare"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Role Type</label>
+                    <input
+                      type="text"
+                      value={cloneConfig.roleType}
+                      onChange={(e) => setCloneConfig({ ...cloneConfig, roleType: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      placeholder="e.g., Sales, Customer Support"
+                    />
+                  </div>
+                  <div className="flex items-end gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={cloneConfig.includePassages}
+                        onChange={(e) => setCloneConfig({ ...cloneConfig, includePassages: e.target.checked })}
+                        className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500"
+                      />
+                      <span className="text-sm text-slate-700">Include Reading Passages</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={cloneConfig.includeRolePlays}
+                        onChange={(e) => setCloneConfig({ ...cloneConfig, includeRolePlays: e.target.checked })}
+                        className="w-4 h-4 text-violet-600 rounded focus:ring-violet-500"
+                      />
+                      <span className="text-sm text-slate-700">Include Role-Play Scenarios</span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                  <textarea
+                    value={cloneConfig.description}
+                    onChange={(e) => setCloneConfig({ ...cloneConfig, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    placeholder="Describe the evaluation scenario..."
+                  />
+                </div>
+              </div>
+              
+              {/* Select Criteria */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-slate-700 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-violet-100 text-violet-600 text-sm flex items-center justify-center">2</span>
+                  Select Criteria to Include
+                  <span className="text-sm text-slate-400 font-normal ml-2">
+                    ({cloneConfig.selectedCriteria.length} of {(selectedTemplate?.criteria || scenarioDetails?.criteria)?.length || 0} selected)
+                  </span>
+                </h4>
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={() => setCloneConfig({ ...cloneConfig, selectedCriteria: (selectedTemplate?.criteria || scenarioDetails?.criteria)?.map(c => c.parameterId) || [] })}
+                    className="px-3 py-1.5 text-sm text-violet-600 bg-violet-50 rounded-lg hover:bg-violet-100 transition-colors"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => setCloneConfig({ ...cloneConfig, selectedCriteria: [] })}
+                    className="px-3 py-1.5 text-sm text-slate-600 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                  >
+                    Deselect All
+                  </button>
+                </div>
+                <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                  {(selectedTemplate?.criteria || scenarioDetails?.criteria)?.map((criteria) => (
+                    <label
+                      key={criteria.id}
+                      className={`flex items-start gap-3 p-3 cursor-pointer transition-colors ${
+                        cloneConfig.selectedCriteria.includes(criteria.parameterId)
+                          ? "bg-violet-50"
+                          : "hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={cloneConfig.selectedCriteria.includes(criteria.parameterId)}
+                        onChange={() => toggleCriteriaSelection(criteria.parameterId)}
+                        className="mt-1 w-4 h-4 text-violet-600 rounded focus:ring-violet-500"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-slate-800">{criteria.label}</span>
+                          <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">
+                            {criteria.category}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-500 mt-0.5">{criteria.description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-sm text-slate-500 italic">
+                  💡 Tip: You can add new criteria after cloning the scenario
+                </p>
+              </div>
+            </div>
+            
+            <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3 rounded-b-2xl">
+              <button
+                onClick={() => {
+                  setShowCloneModal(false);
+                  setSelectedTemplate(null);
+                }}
+                className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={selectedTemplate ? handleCloneFromTemplate : handleCloneScenario}
+                disabled={!cloneConfig.name || cloning}
+                className="px-6 py-2 bg-indigo-500 text-white rounded-lg font-medium hover:bg-indigo-600 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {cloning ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={selectedTemplate ? "M12 4v16m8-8H4" : "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"} />
+                    </svg>
+                    {selectedTemplate ? "Create Scenario" : "Clone Scenario"}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
