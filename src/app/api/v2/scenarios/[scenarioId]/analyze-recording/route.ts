@@ -40,12 +40,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Scenario not found" }, { status: 404 });
     }
 
+    // Get the user's organization
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { organizationId: true },
     });
 
-    if (scenario.organizationId !== user?.organizationId) {
+    // Allow access if:
+    // 1. Scenario belongs to user's organization
+    // 2. Scenario is from sample-org (templates are public)
+    // 3. User doesn't have an org yet (for initial setup)
+    const scenarioOrg = await prisma.organization.findUnique({
+      where: { id: scenario.organizationId || '' },
+      select: { slug: true },
+    });
+
+    const isOwnOrg = scenario.organizationId === user?.organizationId;
+    const isSampleOrg = scenarioOrg?.slug === 'sample-org';
+    
+    if (!isOwnOrg && !isSampleOrg) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -166,8 +179,26 @@ Return your response as a JSON object with the following structure:
     });
   } catch (error) {
     console.error("Error analyzing recording:", error);
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes("API key")) {
+        return NextResponse.json(
+          { error: "OpenAI API key not configured" },
+          { status: 500 }
+        );
+      }
+      if (error.message.includes("rate limit")) {
+        return NextResponse.json(
+          { error: "Rate limit exceeded. Please try again later." },
+          { status: 429 }
+        );
+      }
+      console.error("Error details:", error.message);
+    }
+    
     return NextResponse.json(
-      { error: "Failed to analyze recording" },
+      { error: "Failed to analyze recording. Check server logs for details." },
       { status: 500 }
     );
   }
