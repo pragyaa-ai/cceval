@@ -216,16 +216,6 @@ export default function V2LandingPage() {
             © 2025 Pragyaa.ai • HR Services Evaluation Platform for Acengage
           </p>
         </div>
-
-        {/* Link to v1 */}
-        <div className="mt-8">
-          <Link 
-            href="/" 
-            className="text-slate-400 hover:text-slate-600 text-sm underline underline-offset-4 transition-colors"
-          >
-            ← Back to v1.0 (Legacy)
-          </Link>
-        </div>
       </div>
     </div>
   );
