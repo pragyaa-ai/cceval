@@ -2054,7 +2054,9 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Candidate</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Configuration</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Use Case</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Reading Passage</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Scenario</th>
                 <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Overall Score</th>
                 <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Manager Feedback</th>
                 <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">HR Decision</th>
@@ -2094,13 +2096,19 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-sm text-slate-600">
-                        {READING_PASSAGES[candidate.selectedPassage as keyof typeof READING_PASSAGES]?.title ||
-                          candidate.selectedPassage}
+                        {USE_CASE_LABELS[(candidate as any).useCase as UseCase] || "Exit Interviews"}
                       </p>
-                      <p className="text-sm text-slate-500">
-                        {CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.level ||
-                          candidate.selectedScenario}{" "}
-                        Level
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-slate-600">
+                        {READING_PASSAGES[candidate.selectedPassage as keyof typeof READING_PASSAGES]?.title ||
+                          candidate.selectedPassage || "—"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-slate-600">
+                        {CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.title ||
+                          candidate.selectedScenario || "—"}
                       </p>
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -2330,17 +2338,23 @@ function CandidateDetailsModal({
               </div>
 
               {/* Configuration */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-sm text-slate-500">Reading Passage</p>
+                  <p className="text-sm text-slate-500">Use Case</p>
                   <p className="font-medium text-slate-800 mt-1">
-                    {READING_PASSAGES[candidate.selectedPassage as keyof typeof READING_PASSAGES]?.title || candidate.selectedPassage}
+                    {USE_CASE_LABELS[(candidate as any).useCase as UseCase] || "Exit Interviews"}
                   </p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-sm text-slate-500">Call Scenario</p>
+                  <p className="text-sm text-slate-500">Reading Passage</p>
                   <p className="font-medium text-slate-800 mt-1">
-                    {CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.level || candidate.selectedScenario} Level
+                    {READING_PASSAGES[candidate.selectedPassage as keyof typeof READING_PASSAGES]?.title || candidate.selectedPassage || "—"}
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-sm text-slate-500">Scenario</p>
+                  <p className="font-medium text-slate-800 mt-1">
+                    {CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.title || candidate.selectedScenario || "—"}
                   </p>
                 </div>
               </div>
