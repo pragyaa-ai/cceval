@@ -27,7 +27,7 @@ export default function V2LandingPage() {
             />
           </div>
           <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-500 bg-clip-text text-transparent">
-            VoiceLens Evaluations
+            VoiceAgent Evaluations
           </h1>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
             HR Services Evaluation Platform
