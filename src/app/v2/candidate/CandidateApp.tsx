@@ -338,9 +338,17 @@ function CandidateAppContent() {
   }, []); // No dependencies - use ref
 
   // Score parameter IDs that should be saved to the database
+  // Includes all parameters across all use cases (Exits, NHE, CE)
   const SCORE_PARAMETERS = [
-    "clarity_pace", "product_knowledge", "empathy", "customer_understanding",
-    "handling_pressure", "confidence", "process_accuracy", "closure_quality"
+    // Exit Interview parameters
+    "enthusiasm", "listening", "language", "probing", "convincing",
+    "start_conversation", "end_conversation",
+    // NHE additional parameters
+    "tone_language", "probing_dissatisfaction",
+    // CE additional parameters
+    "opening", "selling_benefits", "objection_handling", "taking_feedback",
+    "solving_queries", "conversational_skills", "taking_ownership",
+    "reference_previous", "closing"
   ];
 
   // Capture evaluation data point (scores) and save to database
