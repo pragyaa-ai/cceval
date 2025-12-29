@@ -628,7 +628,7 @@ Use advance_phase tool when completing each phase:
 
     tool({
       name: "start_voice_analysis",
-      description: "Start collecting voice quality metrics. Call this BEFORE asking the candidate to read the paragraph aloud.",
+      description: "Start collecting voice quality metrics. Call this BEFORE asking the candidate to read the paragraph aloud. This begins the voice analysis phase and automatically sets the current phase to 'reading_task'.",
       parameters: {
         type: "object",
         properties: {},
@@ -638,22 +638,29 @@ Use advance_phase tool when completing each phase:
       execute: async (_input, details) => {
         const context = details?.context as any;
         
-        console.log('[Voice Analysis Tool] 🎬 start_voice_analysis TOOL CALLED');
+        console.log('[Voice Analysis Tool] 🎬🎬🎬 start_voice_analysis TOOL CALLED');
+        console.log('[Voice Analysis Tool] 📋 Context available:', !!context);
+        console.log('[Voice Analysis Tool] 📋 Context keys:', context ? Object.keys(context) : 'N/A');
+        console.log('[Voice Analysis Tool] 📋 startVoiceAnalysis fn available:', typeof context?.startVoiceAnalysis);
+        console.log('[Voice Analysis Tool] 📋 setCurrentPhase fn available:', typeof context?.setCurrentPhase);
         
-        // Set the phase to reading_task FIRST
+        // CRITICAL: Set the phase to reading_task FIRST (this persists to DB)
         if (context?.setCurrentPhase) {
           try {
             await context.setCurrentPhase('reading_task');
-            console.log('[Voice Analysis Tool] ✅ Phase set to reading_task');
+            console.log('[Voice Analysis Tool] ✅ Phase set to reading_task (should be in DB now)');
           } catch (error) {
             console.error('[Voice Analysis Tool] ❌ Failed to set phase:', error);
           }
+        } else {
+          console.error('[Voice Analysis Tool] ❌ setCurrentPhase not available in context!');
         }
         
         // Then start voice analysis
         if (context?.startVoiceAnalysis) {
+          console.log('[Voice Analysis Tool] 🔥 About to call context.startVoiceAnalysis()...');
           context.startVoiceAnalysis();
-          console.log('[Voice Analysis Tool] ✅ Voice analysis started');
+          console.log('[Voice Analysis Tool] ✅ context.startVoiceAnalysis() was called');
           return { success: true, message: 'Voice analysis started - phase set to reading_task, metrics collection enabled' };
         }
         
@@ -664,7 +671,7 @@ Use advance_phase tool when completing each phase:
 
     tool({
       name: "stop_voice_analysis",
-      description: "Stop collecting voice quality metrics. Call this AFTER the candidate finishes reading the paragraph.",
+      description: "Stop collecting voice quality metrics. Call this AFTER the candidate finishes reading the paragraph. This ends the voice analysis phase and prepares the report.",
       parameters: {
         type: "object",
         properties: {},
