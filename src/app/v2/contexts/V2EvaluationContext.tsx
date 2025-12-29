@@ -2,54 +2,148 @@
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
 
-// Reading passage options
+// Use case types for Acengage
+export type UseCase = "exits" | "nhe" | "ce";
+
+export const USE_CASE_LABELS: Record<UseCase, string> = {
+  exits: "Exit Interviews",
+  nhe: "New Hire Engagement (NHE)",
+  ce: "Continuous Engagement (CE)"
+};
+
+// Reading passage options - HR focused for Acengage
 export const READING_PASSAGES = {
-  safety_adas: {
-    id: "safety_adas",
-    title: "Safety & ADAS",
-    wordCount: 63,
-    text: "Safety has become a top priority in the Indian automobile market. Features like six airbags, advanced driver assistance systems, electronic stability control, and hill hold assist help drivers manage difficult road and traffic conditions. As customers compare multiple brands, explaining these safety features in simple, relatable terms plays an important role in building trust and supporting informed decision-making."
+  // Exit Interview Passages
+  exit_retention: {
+    id: "exit_retention",
+    title: "Employee Retention & Exit Process",
+    useCase: "exits" as UseCase,
+    wordCount: 65,
+    text: "Employee retention is a critical focus for organizations today. When an employee decides to leave, conducting a meaningful exit interview helps understand their reasons and gather valuable feedback. By listening actively and showing genuine concern, we can identify patterns that lead to attrition and implement changes that improve workplace culture and reduce future turnover."
   },
-  ev_fast_charging: {
-    id: "ev_fast_charging",
-    title: "EV Fast Charging",
-    wordCount: 58,
-    text: "Electric vehicle customers in India look for fast-charging capability, practical daily range, and battery longevity. With growing public charging infrastructure, modern EVs offer quick charge options that significantly reduce waiting time. Communicating these benefits clearly helps customers understand the convenience of adopting an electric vehicle for long commutes and everyday usage."
+  exit_feedback: {
+    id: "exit_feedback",
+    title: "Constructive Exit Feedback",
+    useCase: "exits" as UseCase,
+    wordCount: 62,
+    text: "Exit interviews provide a unique opportunity to receive honest feedback about the organization. Employees leaving often share insights they may have hesitated to express during their tenure. Creating a safe, non-judgmental environment encourages open dialogue and helps the company understand what improvements can be made in management practices, career growth opportunities, and workplace policies."
   },
-  connected_car: {
-    id: "connected_car",
-    title: "Connected Car Technology",
+  
+  // New Hire Engagement Passages
+  nhe_onboarding: {
+    id: "nhe_onboarding",
+    title: "New Employee Onboarding Experience",
+    useCase: "nhe" as UseCase,
+    wordCount: 64,
+    text: "The first few weeks of a new employee's journey are crucial for long-term engagement and success. A structured onboarding program that includes regular check-ins, clear communication of expectations, and mentorship support helps new hires feel welcomed and confident. Proactive engagement during this period significantly improves retention rates and accelerates productivity."
+  },
+  nhe_integration: {
+    id: "nhe_integration",
+    title: "Team Integration & Support",
+    useCase: "nhe" as UseCase,
     wordCount: 61,
-    text: "Connected car technology is becoming essential in India, with drivers expecting features like remote lock–unlock, live vehicle tracking, geo-fencing, emergency alerts, and over-the-air updates. These features not only enhance safety but also improve convenience. When speaking to customers, it is important to describe how these technologies add value to their daily driving experience."
+    text: "Successful integration of new employees requires attention to both professional and social aspects of their experience. Regular conversations to understand their challenges, addressing concerns promptly, and facilitating connections with team members create a supportive environment. Early identification of dissatisfaction allows for timely intervention and demonstrates organizational commitment to employee success."
+  },
+  
+  // Continuous Engagement Passages
+  ce_satisfaction: {
+    id: "ce_satisfaction",
+    title: "Employee Satisfaction & Engagement",
+    useCase: "ce" as UseCase,
+    wordCount: 66,
+    text: "Continuous employee engagement is the foundation of a thriving workplace. Regular touchpoints allow organizations to gauge satisfaction levels, understand evolving needs, and address concerns before they escalate. By maintaining open communication channels and demonstrating genuine interest in employee wellbeing, companies build trust and loyalty that translates into higher productivity and reduced attrition."
+  },
+  ce_growth: {
+    id: "ce_growth",
+    title: "Career Development & Growth",
+    useCase: "ce" as UseCase,
+    wordCount: 63,
+    text: "Employees who see a clear path for growth are more likely to remain engaged and committed. Regular conversations about career aspirations, skill development opportunities, and performance feedback help align individual goals with organizational objectives. Proactive engagement in career planning demonstrates investment in employee success and strengthens the employer-employee relationship."
   }
 };
 
-// Call scenario levels
+// Call scenario levels - HR focused for Acengage
 export const CALL_SCENARIOS = {
-  beginner: {
-    id: "beginner",
-    level: "Beginner",
-    title: "Basic Inquiry - Mahindra Bolero Neo (PV)",
-    wordCount: 109,
-    description: "Customer inquires about basic price and features of Bolero Neo"
-  },
-  moderate: {
-    id: "moderate",
+  // Exit Interview Scenarios
+  exit_reluctant: {
+    id: "exit_reluctant",
     level: "Moderate",
-    title: "Comparison Scenario - Mahindra XUV700 (PV)",
-    wordCount: 142,
-    description: "Customer compares XUV700 with competitor, needs convincing"
+    title: "Reluctant Exit - Retention Opportunity",
+    useCase: "exits" as UseCase,
+    wordCount: 120,
+    description: "Employee has resigned but shows signs of hesitation, potential retention opportunity"
   },
-  experienced: {
-    id: "experienced",
+  exit_frustrated: {
+    id: "exit_frustrated",
     level: "Experienced",
-    title: "Tough EV Scenario - Mahindra XUV400 EV",
-    wordCount: 167,
-    description: "Frustrated customer with EV concerns about charging and range"
+    title: "Frustrated Exit - Negative Experience",
+    useCase: "exits" as UseCase,
+    wordCount: 145,
+    description: "Employee leaving due to negative experiences, needs empathetic handling"
+  },
+  exit_opportunity: {
+    id: "exit_opportunity",
+    level: "Beginner",
+    title: "Opportunity-Driven Exit",
+    useCase: "exits" as UseCase,
+    wordCount: 100,
+    description: "Employee leaving for better opportunity, standard exit interview"
+  },
+  
+  // NHE Scenarios
+  nhe_struggling: {
+    id: "nhe_struggling",
+    level: "Moderate",
+    title: "Struggling New Hire",
+    useCase: "nhe" as UseCase,
+    wordCount: 125,
+    description: "New employee facing integration challenges, needs support"
+  },
+  nhe_disengaged: {
+    id: "nhe_disengaged",
+    level: "Experienced",
+    title: "Disengaged New Hire - Early Warning",
+    useCase: "nhe" as UseCase,
+    wordCount: 140,
+    description: "New employee showing early signs of dissatisfaction"
+  },
+  nhe_positive: {
+    id: "nhe_positive",
+    level: "Beginner",
+    title: "Positive New Hire Check-in",
+    useCase: "nhe" as UseCase,
+    wordCount: 95,
+    description: "Standard engagement call with new hire doing well"
+  },
+  
+  // CE Scenarios
+  ce_concerns: {
+    id: "ce_concerns",
+    level: "Moderate",
+    title: "Employee with Concerns",
+    useCase: "ce" as UseCase,
+    wordCount: 130,
+    description: "Long-term employee with workplace concerns needing resolution"
+  },
+  ce_attrition_risk: {
+    id: "ce_attrition_risk",
+    level: "Experienced",
+    title: "High Attrition Risk",
+    useCase: "ce" as UseCase,
+    wordCount: 150,
+    description: "Valuable employee showing signs of disengagement, flight risk"
+  },
+  ce_routine: {
+    id: "ce_routine",
+    level: "Beginner",
+    title: "Routine Engagement Check-in",
+    useCase: "ce" as UseCase,
+    wordCount: 90,
+    description: "Standard periodic engagement call with satisfied employee"
   }
 };
 
-// Personal questions
+// Personal questions - HR focused
 export const PERSONAL_QUESTIONS = [
   {
     id: "intro",
@@ -59,37 +153,78 @@ export const PERSONAL_QUESTIONS = [
   },
   {
     id: "motivation",
-    question: "Why do you want to work in the automotive customer experience domain?",
+    question: "Why do you want to work in employee engagement and HR services?",
     purpose: "Intent & motivation"
   },
   {
     id: "challenge",
-    question: "Describe a situation where you handled a challenging customer.",
+    question: "Describe a situation where you handled a difficult conversation with someone who was upset or frustrated.",
     purpose: "Stress-handling"
   },
   {
     id: "domain",
-    question: "What do you know about Mahindra & Mahindra's PV or EV lineup?",
+    question: "What do you understand about exit interviews and employee engagement processes?",
     purpose: "Domain knowledge"
   },
   {
     id: "targets",
-    question: "How comfortable are you with achieving lead generation targets and consistent calling?",
+    question: "How comfortable are you with making outbound calls and building rapport with strangers quickly?",
     purpose: "Role suitability"
   }
 ];
 
-// Scoring parameters
-export const SCORING_PARAMETERS = [
-  { id: "clarity_pace", label: "Clarity & Pace", description: "Smooth flow, no hesitation" },
-  { id: "product_knowledge", label: "Product Knowledge", description: "PV & EV awareness" },
-  { id: "empathy", label: "Empathy", description: "Quality of reassurance lines" },
-  { id: "customer_understanding", label: "Customer Understanding", description: "Ability to probe needs" },
-  { id: "handling_pressure", label: "Handling Pressure", description: "Composure in tough scenarios" },
-  { id: "confidence", label: "Confidence", description: "Tone stability" },
-  { id: "process_accuracy", label: "Process Accuracy", description: "Lead capturing, summarizing, CTA" },
-  { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete" }
-];
+// Scoring parameters by use case
+export const SCORING_PARAMETERS_BY_USE_CASE: Record<UseCase, Array<{ id: string; label: string; description: string }>> = {
+  exits: [
+    { id: "enthusiasm", label: "Enthusiasm", description: "Energy and genuine interest in the conversation" },
+    { id: "listening", label: "Listening", description: "Active listening and understanding responses" },
+    { id: "language", label: "Language", description: "Professional and empathetic language use" },
+    { id: "probing", label: "Probing", description: "Effective questioning to uncover insights" },
+    { id: "convincing", label: "Convincing", description: "Ability to retain or gather honest feedback" },
+    { id: "start_conversation", label: "Start of Conversation", description: "Professional and warm opening" },
+    { id: "end_conversation", label: "End of Conversation", description: "Proper closure and next steps" }
+  ],
+  nhe: [
+    { id: "enthusiasm", label: "Enthusiasm", description: "Welcoming energy and genuine interest" },
+    { id: "tone_language", label: "Tone & Language", description: "Supportive and encouraging communication" },
+    { id: "listening", label: "Listening", description: "Active listening to new hire concerns" },
+    { id: "start_conversation", label: "Start of Conversation", description: "Warm and reassuring opening" },
+    { id: "end_conversation", label: "End of Conversation", description: "Clear next steps and support offered" },
+    { id: "probing_dissatisfaction", label: "Probing to Identify Dissatisfaction", description: "Skill in uncovering hidden concerns" },
+    { id: "convincing", label: "Convincing Skills", description: "Ability to reassure and build confidence" }
+  ],
+  ce: [
+    { id: "opening", label: "Opening", description: "Professional and engaging call opening" },
+    { id: "selling_benefits", label: "Selling Client Benefits", description: "Articulating value of engagement" },
+    { id: "objection_handling", label: "Objection Handling", description: "Addressing concerns effectively" },
+    { id: "probing", label: "Asking Questions/Probing", description: "Effective discovery questions" },
+    { id: "taking_feedback", label: "Taking Feedback", description: "Receptive to employee input" },
+    { id: "solving_queries", label: "Solving Queries", description: "Providing helpful responses" },
+    { id: "conversational_skills", label: "Conversational Skills", description: "Natural flow and rapport building" },
+    { id: "taking_ownership", label: "Taking Ownership on the Call", description: "Accountability and follow-through" },
+    { id: "enthusiasm", label: "Enthusiasm", description: "Energy and genuine engagement" },
+    { id: "reference_previous", label: "Reference of Previous Call", description: "Continuity and personalization" },
+    { id: "closing", label: "Closing", description: "Professional and complete call closure" }
+  ]
+};
+
+// Default scoring parameters (used when no use case selected)
+export const SCORING_PARAMETERS = SCORING_PARAMETERS_BY_USE_CASE.exits;
+
+// Helper function to get scoring parameters by use case
+export const getScoringParameters = (useCase: UseCase) => {
+  return SCORING_PARAMETERS_BY_USE_CASE[useCase] || SCORING_PARAMETERS;
+};
+
+// Helper function to get reading passages by use case
+export const getReadingPassages = (useCase: UseCase) => {
+  return Object.values(READING_PASSAGES).filter(p => p.useCase === useCase);
+};
+
+// Helper function to get call scenarios by use case
+export const getCallScenarios = (useCase: UseCase) => {
+  return Object.values(CALL_SCENARIOS).filter(s => s.useCase === useCase);
+};
 
 // Evaluation phases
 export type EvaluationPhase = 
@@ -112,6 +247,7 @@ export interface CandidateInfo {
   status: CandidateStatus;
   createdAt: string;
   // Evaluation settings per candidate
+  useCase: UseCase;
   selectedPassage: keyof typeof READING_PASSAGES | null;
   selectedScenario: keyof typeof CALL_SCENARIOS | null;
 }
@@ -179,7 +315,7 @@ const generateAccessCode = (): string => {
 
 const generateBatchId = () => `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
 const generateCandidateId = () => `CAND-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-const generateSessionId = () => `MHCE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+const generateSessionId = () => `ACEE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 interface V2EvaluationContextType {
   state: V2EvaluationState;
@@ -251,7 +387,7 @@ const createInitialState = (): V2EvaluationState => ({
 const V2EvaluationContext = createContext<V2EvaluationContextType | undefined>(undefined);
 
 // Local storage key
-const STORAGE_KEY = "mahindra_hce_evaluation_v2";
+const STORAGE_KEY = "acengage_evaluation_v2";
 
 export const V2EvaluationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, setState] = useState<V2EvaluationState>(createInitialState);
@@ -284,14 +420,19 @@ export const V2EvaluationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const addCandidate = useCallback((candidate: Omit<CandidateInfo, "id" | "accessCode" | "status" | "createdAt">): string => {
     const id = generateCandidateId();
+    const useCase = candidate.useCase || "exits";
+    const defaultPassages = getReadingPassages(useCase);
+    const defaultScenarios = getCallScenarios(useCase);
+    
     const newCandidate: CandidateInfo = {
       ...candidate,
       id,
       accessCode: generateAccessCode(),
       status: "pending",
       createdAt: new Date().toISOString(),
-      selectedPassage: candidate.selectedPassage || "safety_adas",
-      selectedScenario: candidate.selectedScenario || "beginner",
+      useCase,
+      selectedPassage: candidate.selectedPassage || (defaultPassages[0]?.id as keyof typeof READING_PASSAGES) || null,
+      selectedScenario: candidate.selectedScenario || (defaultScenarios[0]?.id as keyof typeof CALL_SCENARIOS) || null,
     };
     
     setState(prev => ({
@@ -302,18 +443,25 @@ export const V2EvaluationProvider: React.FC<{ children: ReactNode }> = ({ childr
     return id;
   }, []);
 
-  const addMultipleCandidates = useCallback((candidates: Array<{ name: string; email?: string; phone?: string }>): string[] => {
-    const newCandidates: CandidateInfo[] = candidates.map(c => ({
-      id: generateCandidateId(),
-      name: c.name,
-      email: c.email || "",
-      phone: c.phone || "",
-      accessCode: generateAccessCode(),
-      status: "pending" as CandidateStatus,
-      createdAt: new Date().toISOString(),
-      selectedPassage: "safety_adas" as keyof typeof READING_PASSAGES,
-      selectedScenario: "beginner" as keyof typeof CALL_SCENARIOS,
-    }));
+  const addMultipleCandidates = useCallback((candidates: Array<{ name: string; email?: string; phone?: string; useCase?: UseCase }>): string[] => {
+    const newCandidates: CandidateInfo[] = candidates.map(c => {
+      const useCase = c.useCase || "exits";
+      const defaultPassages = getReadingPassages(useCase);
+      const defaultScenarios = getCallScenarios(useCase);
+      
+      return {
+        id: generateCandidateId(),
+        name: c.name,
+        email: c.email || "",
+        phone: c.phone || "",
+        accessCode: generateAccessCode(),
+        status: "pending" as CandidateStatus,
+        createdAt: new Date().toISOString(),
+        useCase,
+        selectedPassage: (defaultPassages[0]?.id as keyof typeof READING_PASSAGES) || null,
+        selectedScenario: (defaultScenarios[0]?.id as keyof typeof CALL_SCENARIOS) || null,
+      };
+    });
     
     setState(prev => ({
       ...prev,

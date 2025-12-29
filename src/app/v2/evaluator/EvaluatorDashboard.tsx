@@ -5,7 +5,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { SCORING_PARAMETERS, READING_PASSAGES, CALL_SCENARIOS } from "../contexts/V2EvaluationContext";
+import { 
+  SCORING_PARAMETERS, 
+  READING_PASSAGES, 
+  CALL_SCENARIOS,
+  SCORING_PARAMETERS_BY_USE_CASE,
+  USE_CASE_LABELS,
+  UseCase,
+  getReadingPassages,
+  getCallScenarios,
+  getScoringParameters,
+} from "../contexts/V2EvaluationContext";
 import {
   useBatches,
   useBatch,
@@ -780,6 +790,7 @@ function CandidatesTab({
             <tr>
               <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Candidate</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Access Code</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Use Case</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Reading Passage</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Scenario</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Status</th>
@@ -789,7 +800,7 @@ function CandidatesTab({
           <tbody className="divide-y divide-slate-100">
             {batch.candidates.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
                   <svg
                     className="w-12 h-12 mx-auto mb-4 text-slate-300"
                     fill="none"
@@ -839,15 +850,38 @@ function CandidatesTab({
                   </td>
                   <td className="px-4 py-3">
                     <select
-                      value={candidate.selectedPassage || "safety_adas"}
+                      value={(candidate as any).useCase || "exits"}
+                      onChange={(e) => {
+                        const newUseCase = e.target.value as UseCase;
+                        const passages = getReadingPassages(newUseCase);
+                        const scenarios = getCallScenarios(newUseCase);
+                        handleUpdateCandidate(candidate.id, { 
+                          useCase: newUseCase,
+                          selectedPassage: passages[0]?.id || null,
+                          selectedScenario: scenarios[0]?.id || null,
+                        } as any);
+                      }}
+                      disabled={candidate.status !== "pending"}
+                      className="px-2 py-1 border border-slate-300 rounded text-sm text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {Object.entries(USE_CASE_LABELS).map(([key, label]) => (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={candidate.selectedPassage || ""}
                       onChange={(e) =>
                         handleUpdateCandidate(candidate.id, { selectedPassage: e.target.value })
                       }
                       disabled={candidate.status !== "pending"}
                       className="px-2 py-1 border border-slate-300 rounded text-sm text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {Object.entries(READING_PASSAGES).map(([key, passage]) => (
-                        <option key={key} value={key}>
+                      {getReadingPassages((candidate as any).useCase || "exits").map((passage) => (
+                        <option key={passage.id} value={passage.id}>
                           {passage.title}
                         </option>
                       ))}
@@ -855,16 +889,16 @@ function CandidatesTab({
                   </td>
                   <td className="px-4 py-3">
                     <select
-                      value={candidate.selectedScenario || "beginner"}
+                      value={candidate.selectedScenario || ""}
                       onChange={(e) =>
                         handleUpdateCandidate(candidate.id, { selectedScenario: e.target.value })
                       }
                       disabled={candidate.status !== "pending"}
                       className="px-2 py-1 border border-slate-300 rounded text-sm text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {Object.entries(CALL_SCENARIOS).map(([key, scenario]) => (
-                        <option key={key} value={key}>
-                          {scenario.level}
+                      {getCallScenarios((candidate as any).useCase || "exits").map((scenario) => (
+                        <option key={scenario.id} value={scenario.id}>
+                          {scenario.title}
                         </option>
                       ))}
                     </select>

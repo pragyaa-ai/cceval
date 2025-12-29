@@ -4,15 +4,29 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // Scoring parameters that can be calibrated - must match V2EvaluationContext.tsx
+// Includes all parameters across all use cases (Exits, NHE, CE)
 const SCORING_PARAMETERS = [
-  "clarity_pace",
-  "product_knowledge", 
-  "empathy",
-  "customer_understanding",
-  "handling_pressure",
-  "confidence",
-  "process_accuracy",
-  "closure_quality",
+  // Exit Interview parameters
+  "enthusiasm",
+  "listening",
+  "language",
+  "probing",
+  "convincing",
+  "start_conversation",
+  "end_conversation",
+  // NHE additional parameters
+  "tone_language",
+  "probing_dissatisfaction",
+  // CE additional parameters
+  "opening",
+  "selling_benefits",
+  "objection_handling",
+  "taking_feedback",
+  "solving_queries",
+  "conversational_skills",
+  "taking_ownership",
+  "reference_previous",
+  "closing",
 ];
 
 // GET /api/v2/calibration - Get all calibration settings
