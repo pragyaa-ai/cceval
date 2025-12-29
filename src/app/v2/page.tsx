@@ -45,53 +45,112 @@ export default function V2LandingPage() {
         </div>
 
         {/* Role Selection Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl w-full">
+        <div className="grid md:grid-cols-3 gap-6 max-w-6xl w-full">
           {/* Candidate Card */}
           <Link href="/v2/candidate" className="group">
-            <div className="relative overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-200 p-8 transition-all duration-300 hover:shadow-xl hover:border-emerald-300 hover:-translate-y-1">
+            <div className="relative overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-200 p-6 transition-all duration-300 hover:shadow-xl hover:border-emerald-300 hover:-translate-y-1 h-full">
               {/* Icon */}
-              <div className="mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="mb-5">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                  <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
               </div>
 
               {/* Content */}
-              <h2 className="text-2xl font-bold text-slate-800 mb-3">
+              <h2 className="text-xl font-bold text-slate-800 mb-2">
                 I'm a Candidate
               </h2>
-              <p className="text-slate-500 mb-6 leading-relaxed">
-                Start your voice-based evaluation for HR services position. Enter your access code to begin your personalized assessment.
+              <p className="text-slate-500 mb-5 leading-relaxed text-sm">
+                Start your voice-based evaluation for HR services position. Enter your access code to begin.
               </p>
 
               {/* Features */}
-              <ul className="space-y-2 text-sm text-slate-600 mb-6">
+              <ul className="space-y-2 text-sm text-slate-600 mb-5">
                 <li className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                   Personal interview questions
                 </li>
                 <li className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
-                  Reading comprehension task
+                  Reading comprehension
                 </li>
                 <li className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
-                  Employee engagement simulation scenarios
+                  Simulation scenarios
                 </li>
               </ul>
 
               {/* CTA */}
-              <div className="flex items-center text-emerald-600 font-medium group-hover:text-emerald-700 transition-colors">
+              <div className="flex items-center text-emerald-600 font-medium group-hover:text-emerald-700 transition-colors text-sm">
                 Enter Access Code
-                <svg className="w-5 h-5 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </div>
+            </div>
+          </Link>
+
+          {/* Continuous Learner Card */}
+          <Link href="/v2/learner" className="group">
+            <div className="relative overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-200 p-6 transition-all duration-300 hover:shadow-xl hover:border-amber-300 hover:-translate-y-1 h-full">
+              {/* Badge */}
+              <div className="absolute top-3 right-3">
+                <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
+                  Training
+                </span>
+              </div>
+
+              {/* Icon */}
+              <div className="mb-5">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                  <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Content */}
+              <h2 className="text-xl font-bold text-slate-800 mb-2">
+                Continuous Learner
+              </h2>
+              <p className="text-slate-500 mb-5 leading-relaxed text-sm">
+                Practice and improve your skills with mock sessions. Perfect for Acengage employees preparing for new campaigns.
+              </p>
+
+              {/* Features */}
+              <ul className="space-y-2 text-sm text-slate-600 mb-5">
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Practice mock sessions
+                </li>
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Train on new use cases
+                </li>
+                <li className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Instant feedback & tips
+                </li>
+              </ul>
+
+              {/* CTA */}
+              <div className="flex items-center text-amber-600 font-medium group-hover:text-amber-700 transition-colors text-sm">
+                Start Learning
+                <svg className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </div>
@@ -100,50 +159,50 @@ export default function V2LandingPage() {
 
           {/* Evaluator Card */}
           <Link href="/v2/evaluator" className="group">
-            <div className="relative overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-200 p-8 transition-all duration-300 hover:shadow-xl hover:border-violet-300 hover:-translate-y-1">
+            <div className="relative overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-200 p-6 transition-all duration-300 hover:shadow-xl hover:border-violet-300 hover:-translate-y-1 h-full">
               {/* Icon */}
-              <div className="mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="mb-5">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                  <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
               </div>
 
               {/* Content */}
-              <h2 className="text-2xl font-bold text-slate-800 mb-3">
+              <h2 className="text-xl font-bold text-slate-800 mb-2">
                 I'm an Evaluator
               </h2>
-              <p className="text-slate-500 mb-6 leading-relaxed">
-                Manage candidates, configure evaluations, and monitor assessment results. Create batches of candidates with unique access codes.
+              <p className="text-slate-500 mb-5 leading-relaxed text-sm">
+                Manage candidates, configure evaluations, and create training use cases for continuous learners.
               </p>
 
               {/* Features */}
-              <ul className="space-y-2 text-sm text-slate-600 mb-6">
+              <ul className="space-y-2 text-sm text-slate-600 mb-5">
                 <li className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 text-violet-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
-                  Batch candidate management
+                  Batch management
                 </li>
                 <li className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 text-violet-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
-                  Auto-generated access codes
+                  Create training scenarios
                 </li>
                 <li className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 text-violet-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
-                  Comprehensive scoring dashboard
+                  Scoring dashboard
                 </li>
               </ul>
 
               {/* CTA */}
-              <div className="flex items-center text-violet-600 font-medium group-hover:text-violet-700 transition-colors">
+              <div className="flex items-center text-violet-600 font-medium group-hover:text-violet-700 transition-colors text-sm">
                 Open Dashboard
-                <svg className="w-5 h-5 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </div>
