@@ -479,11 +479,26 @@ The Candidate Portal provides a streamlined interface for completing evaluations
 
 ### Login & Authentication
 
+Candidates access their evaluations using a unique 4-digit access code provided by their evaluator.
+
+**Getting Your Access Code:**
+- Your evaluator will provide you with a 4-digit access code
+- Each code is unique to you and your scheduled evaluation
+- The code is valid until your evaluation is completed
+
+**Logging In:**
+
 1. Navigate to the VoiceAgent Evaluations URL
-2. Click on **"Candidate"** card
-3. Click **"Login with Google"**
-4. Use your organizational Google account
-5. You'll be automatically matched with your candidate profile
+2. Click on the **"Candidate"** card
+3. Enter your **4-digit access code** in the input field
+4. Click **"Start Evaluation"**
+5. Your name and evaluation details will be displayed for confirmation
+6. Proceed to begin your evaluation
+
+**Troubleshooting Access:**
+- If your code doesn't work, contact your evaluator for a new code
+- Codes are case-insensitive (if alphanumeric)
+- Ensure you're entering the code exactly as provided
 
 ### Evaluation Process
 
