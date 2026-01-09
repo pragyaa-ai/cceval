@@ -1,46 +1,88 @@
-# CCEval v2.0.0
+# AceEval v2.0.0
 
-**AI-Powered Call Center Candidate Evaluation Platform**
+**AI-Powered HR Services Candidate Evaluation Platform for Acengage**
 
-An intelligent evaluation system that conducts comprehensive voice-based assessments of call center candidates using advanced AI agents. CCEval transforms traditional hiring processes by providing consistent, unbiased, and data-driven candidate evaluations.
+An intelligent evaluation system that conducts comprehensive voice-based assessments of HR services candidates for Exit Interviews, New Hire Engagement (NHE), and Continuous Engagement (CE) roles. AceEval transforms traditional hiring processes by providing consistent, unbiased, and data-driven candidate evaluations.
 
-## 🎯 What is CCEval?
+## 🎯 What is AceEval?
 
-CCEval is an enterprise-grade platform designed to evaluate call center candidates through realistic simulations and voice analysis. The system conducts structured interviews, role-play scenarios, and comprehensive assessments while providing detailed performance metrics and scoring.
+AceEval is an enterprise-grade platform designed to evaluate HR services candidates through realistic simulations and voice analysis. The system conducts structured interviews, role-play scenarios, and comprehensive assessments while providing detailed performance metrics and scoring for Acengage's three core service lines.
 
 ### 🌟 Key Features
 
 - **🤖 AI-Powered Interviews**: Intelligent agents conduct structured evaluations with natural conversation flow
 - **🎤 Voice Analysis**: Real-time voice quality assessment (clarity, pace, tone, volume)
-- **📊 Multi-Dimensional Scoring**: 8 comprehensive evaluation parameters with AI-generated justifications
-- **🎭 Role-Play Scenarios**: Realistic customer interaction simulations including escalation handling
+- **📊 Use Case Specific Scoring**: Tailored evaluation metrics for Exits, NHE, and CE roles
+- **🎭 HR Role-Play Scenarios**: Realistic employee interaction simulations
 - **🔄 Manager & HR Workflow**: Complete hiring pipeline from evaluation to final decision
 - **🎯 AI Calibration System**: Learns from evaluator feedback to align with organizational standards
 - **📈 Comprehensive Dashboard**: Real-time monitoring, batch management, and detailed analytics
 - **🔐 Secure Authentication**: Role-based access control for evaluators and candidates
 
+## 📋 Use Case Coverage
+
+### Exit Interviews
+Candidates handling employee exits, retention opportunities, and gathering honest feedback.
+
+**Scoring Metrics (7):**
+- Enthusiasm
+- Listening
+- Language
+- Probing
+- Convincing
+- Start of Conversation
+- End of Conversation
+
+### New Hire Engagement (NHE)
+Candidates conducting onboarding check-ins and new employee integration support.
+
+**Scoring Metrics (7):**
+- Enthusiasm
+- Tone & Language
+- Listening
+- Start of Conversation
+- End of Conversation
+- Probing to Identify Dissatisfaction
+- Convincing Skills
+
+### Continuous Engagement (CE)
+Candidates managing ongoing employee engagement and retention activities.
+
+**Scoring Metrics (11):**
+- Opening
+- Selling Client Benefits
+- Objection Handling
+- Asking Questions/Probing
+- Taking Feedback
+- Solving Queries
+- Conversational Skills
+- Taking Ownership on the Call
+- Enthusiasm
+- Reference of Previous Call
+- Closing
+
 ## 🤖 Evaluation Features
 
-### Mahindra HCE Evaluation Agent
+### Acengage Evaluation Agent
 The **Eva 2.0** agent conducts comprehensive assessments through six structured phases:
 
 #### Evaluation Flow
 1. **Welcome & Candidate Information**: Professional greeting and candidate data collection
-2. **Personal Questions**: Background, motivation, and domain knowledge assessment
+2. **Personal Questions**: Background, motivation, and HR domain knowledge assessment
 3. **Reading Task**: Voice quality baseline with automated voice analysis
-4. **Call Scenario Simulation**: Product knowledge and customer service skills
+4. **Employee Scenario Simulation**: Use case specific role-play scenarios
 5. **Empathy & De-escalation**: High-pressure situation handling
 6. **Closure Task**: Professional call closure quality assessment
 
-#### Scoring Parameters (1-5 Scale)
-- **Clarity & Pace**: Speech quality, articulation, and flow
-- **Product Knowledge**: Industry and product awareness
-- **Empathy**: Emotional intelligence and customer understanding
-- **Customer Understanding**: Active listening and needs assessment
-- **Handling Pressure**: Composure under stress
-- **Confidence**: Tone stability and self-assurance
-- **Process Accuracy**: Lead capture and follow-up procedures
-- **Closure Quality**: Professional conversation ending
+### HR-Focused Reading Passages
+- **Exit Interviews**: Employee Retention, Constructive Feedback
+- **NHE**: Onboarding Experience, Team Integration
+- **CE**: Employee Satisfaction, Career Development
+
+### HR Call Scenarios
+- **Exit Scenarios**: Reluctant Exit, Frustrated Exit, Opportunity Exit
+- **NHE Scenarios**: Struggling New Hire, Disengaged New Hire, Positive Check-in
+- **CE Scenarios**: Employee with Concerns, High Attrition Risk, Routine Check-in
 
 ### Voice Analysis Engine
 Real-time audio processing provides:
@@ -54,6 +96,7 @@ Real-time audio processing provides:
 
 ### Evaluator Dashboard
 - **Batch Management**: Create and manage evaluation batches
+- **Use Case Selection**: Assign Exits, NHE, or CE use case per candidate
 - **Candidate Tracking**: Monitor evaluation progress and status
 - **Real-time Evaluation**: Live candidate assessment interface
 - **Score Review**: Detailed performance breakdowns with AI-generated reasons
@@ -79,178 +122,64 @@ Real-time audio processing provides:
 ### Quick Start
 ```bash
 # Clone the repository
-git clone https://github.com/pragyaa-ai/cceval.git
-cd cceval
+git clone https://github.com/pragyaa-ai/aceeval.git
+cd aceeval
 
 # Install dependencies
 npm install
 
 # Set up environment variables
-cp env.example .env
-# Edit .env with your configuration
+cp .env.example .env
+# Edit .env with your database and API credentials
 
-# Set up the database
-npx prisma migrate dev
+# Set up database
+npx prisma db push
 npx prisma generate
 
-# Start development server
-npm run dev
-```
-
-### Environment Configuration
-Create a `.env` file in the root directory:
-```env
-# OpenAI Configuration
-OPENAI_API_KEY=sk-your-openai-api-key-here
-
-# Database Configuration
-DATABASE_URL="postgresql://user:password@localhost:5432/cceval"
-
-# NextAuth Configuration
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-nextauth-secret-here
-```
-
-### Production Deployment
-```bash
 # Build for production
 npm run build
 
-# Start production server
-npm run start
+# Start the application
+npm start
 ```
 
-## 🚀 Using CCEval
+### Environment Variables
+```env
+DATABASE_URL="postgresql://user:password@localhost:5432/aceeval"
+NEXTAUTH_URL="https://aceeval.pragyaa.ai"
+NEXTAUTH_SECRET="your-secret-key"
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+OPENAI_API_KEY="sk-your-openai-key"
+```
 
-### For Evaluators
-1. **Login**: Access the evaluator dashboard at `/v2/login`
-2. **Create Batch**: Set up a new evaluation batch with candidate details
-3. **Share Codes**: Distribute unique evaluation codes to candidates
-4. **Monitor Progress**: Track evaluations in real-time
-5. **Review Scores**: Assess AI-generated scores and transcripts
-6. **Provide Feedback**: Add manager recommendations
-7. **Final Decision**: HR team makes final hiring decisions
+## 🏗️ Technical Architecture
 
-### For Candidates
-1. **Access Portal**: Visit the candidate portal at `/v2/candidate`
-2. **Enter Code**: Input your unique evaluation code
-3. **Start Evaluation**: Click "Connect" to begin voice conversation
-4. **Follow Agent**: Complete all evaluation phases
-5. **Await Results**: Evaluation automatically saved and submitted
+- **Frontend**: Next.js 14 with React 18, Tailwind CSS
+- **Backend**: Next.js API Routes with TypeScript
+- **Database**: PostgreSQL with Prisma ORM
+- **AI Engine**: OpenAI GPT-4o + Realtime API
+- **Authentication**: NextAuth.js with Google OAuth
+- **Voice Processing**: OpenAI Whisper + custom analysis
 
-## 🎨 User Interface
+## 📝 Version History
 
-### Evaluator Dashboard Components
-- **Left Panel**: Batch and candidate management
-- **Center Panel**: Active evaluation interface or candidate list
-- **Right Panel**: Evaluation details, scores, and feedback
-- **Audio Player**: Playback controls for evaluation recordings
-- **Transcript Viewer**: Q&A format conversation display
+### v2.0.0 (Current)
+- AceEval for Acengage with Exit, NHE, and CE use cases
+- Use case selection per candidate
+- HR-focused reading passages and scenarios
+- Use case specific scoring parameters
 
-### Candidate Interface
-- **Clean Design**: Distraction-free evaluation experience
-- **Voice Visualizer**: Real-time audio feedback
-- **Progress Indicator**: Current evaluation phase tracking
-- **Professional Branding**: Pragyaa.ai branded interface
+## 🗺️ Roadmap
 
-## 🔧 Technical Architecture
-
-### Tech Stack
-- **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes, Prisma ORM
-- **Database**: PostgreSQL
-- **Authentication**: NextAuth.js with Prisma adapter
-- **AI Engine**: OpenAI Realtime API, GPT-4 for calibration
-- **Audio Processing**: Web Audio API, MediaRecorder
-
-### Agent Configuration
-- **Instructions**: Comprehensive evaluation protocols and conversation flows
-- **Tools**: Data capture, phase management, voice analysis
-- **Context**: Real-time state management and calibration guidance
-- **Personas**: Dynamic role-playing for realistic scenarios
-
-### Data Management
-- **Candidate Records**: Complete profile and evaluation history
-- **Evaluation Sessions**: Detailed scoring with AI justifications
-- **Audio Storage**: Secure recording management
-- **Calibration Data**: Continuous learning from evaluator feedback
-- **Batch Operations**: Efficient multi-candidate processing
-
-### Integration Points
-- **OpenAI Realtime API**: Powers conversational voice interface
-- **Prisma ORM**: Type-safe database access
-- **Next.js Framework**: Full-stack application with API routes
-- **React Context**: Global state management
-
-## 📋 Version History
-
-### v2.0.0 (Current) - December 19, 2024
-- **Manager Feedback & HR Decision Workflow**: Complete hiring pipeline
-- **AI Calibration System**: Learning from evaluator feedback
-- **Reprocess API**: Regenerate scores from recordings
-- **Enhanced Data Collection**: Comprehensive candidate profiling
-- **Improved Evaluation Flow**: Smoother phase transitions
-- **Better Error Handling**: Graceful fallbacks and validation
-
-### v1.3.0 - December 17, 2025
-- **Voice Analysis**: Reliable sample collection with setInterval
-- **Audio Recording**: Full recording playback and download
-- **AI-Generated Reasons**: Detailed score justifications
-- **Transcript Display**: Q&A format conversations
-- **Voice Quality Metrics**: Clarity, volume, tone, pace analysis
-- **Candidate Demographics**: Age, gender, native language detection
-
-### v1.x.x - Previous Versions
-- Basic evaluation infrastructure
-- Core agent functionality
-- Simple UI interface
-- Initial voice integration
-
-## 🚀 Future Roadmap
-
-- **Advanced Analytics**: Comprehensive reporting and insights
-- **Multi-Language Support**: Evaluations in multiple languages
-- **Custom Scoring Templates**: Industry-specific evaluation criteria
-- **Video Integration**: Visual candidate assessment capabilities
-- **API Integrations**: Connect with ATS and HRMS systems
-- **Mobile Application**: Native mobile apps for candidates
-- **Bulk Upload**: CSV import for candidate batches
-- **White-Label Solution**: Customizable branding options
-
-## 🔒 Security & Privacy
-
-- **Data Encryption**: All sensitive data encrypted at rest and in transit
-- **Access Control**: Role-based permissions (Admin, Evaluator, HR, Candidate)
-- **Secure Authentication**: Industry-standard auth with NextAuth.js
-- **Audit Trails**: Complete logging of all evaluation activities
-- **GDPR Compliant**: Data retention and deletion policies
-
-## 🤝 Support & Contact
-
-### Getting Help
-- Review the installation instructions above
-- Check that your OpenAI API key has Realtime API access
-- Ensure Node.js 18+ and PostgreSQL are properly installed
-- Verify `.env` file configuration and database connection
-
-### Enterprise Support
-For enterprise licensing, custom features, or support:
-- Website: [https://pragyaa.ai](https://pragyaa.ai)
-- Email: support@pragyaa.ai
-
-### Technical Requirements
-- Modern web browser with WebRTC support
-- Microphone access for voice evaluations
-- Stable internet connection (minimum 1 Mbps)
-- PostgreSQL 12+ database server
+- [ ] Multi-language support (Hindi, regional languages)
+- [ ] Advanced analytics dashboard
+- [ ] Batch upload for candidates
+- [ ] Integration with Acengage CRM
+- [ ] Custom scenario builder
 
 ---
 
-**Transform your hiring process with AI-powered evaluations.** CCEval delivers consistent, unbiased, and comprehensive candidate assessments at scale. 🚀
+**Built with ❤️ by Pragyaa.ai for Acengage**
 
----
-
-© 2025 Pragyaa.ai - All Rights Reserved
-
-This software is proprietary and licensed for commercial use only by Pragyaa.ai.
-See LICENSE file for complete terms and conditions.
+© 2025 Pragyaa.ai. All rights reserved.

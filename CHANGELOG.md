@@ -5,161 +5,98 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.1.0] - 2024-12-28
+## [2.5.0] - 2025-01-09
 
 ### Added
-- **Scenario Templates**: Pre-built evaluation scenarios that can be cloned and customized
-  - Automotive Call Center template with 8 evaluation criteria
-  - Banking Call Center template with 6 evaluation criteria
-  - Browse templates from any organization
-  - Industry-grouped template browsing
 
-- **Clone Scenario Feature**: Create new scenarios from existing ones
-  - Clone scenarios with selective criteria inclusion
-  - Option to include/exclude reading passages and role-plays
-  - Customize name, industry, and role type during cloning
-  - Retain, drop, or add metrics when cloning
+- **VoiceAgent Evaluations Branding**: Rebranded as generic HR services evaluation platform
+- **Continuous Learner Portal**: Gamified learning experience for ongoing skill development
+  - Points and XP system for completed activities
+  - Level progression (Novice → Expert)
+  - Achievement badges and milestones
+  - Redeemable rewards system
+  - Practice sessions and skill challenges
+- **Scenarios Configuration UI**: Complete management interface for evaluation content
+  - Use Cases management (create, edit, delete)
+  - Reading Passages per use case
+  - Call Scenarios per use case
+  - Scoring Metrics per use case
+  - Voice Quality Metrics with tuning capabilities
+- **Enhanced Results Tab**: Aligned with Candidate Management view
+  - Use Case, Reading Passage, and Scenario columns
+- **Comprehensive User Guide**: Documentation for all user roles
 
-- **Template Browser**: Visual interface to discover and use templates
-  - Card-based template preview
-  - Criteria count and passage count display
-  - One-click template selection
+### Changed
 
-- **Seed Script for Sample Data**: Database seeding for templates
-  - `prisma/seed-scenarios.ts` for creating sample scenarios
-  - Pre-configured criteria with scoring guidance
-  - Sample reading passages (Safety/ADAS, EV Charging, Connected Car)
-  - Sample role-play scenarios (Beginner, Moderate, Experienced)
-
-### API Endpoints
-- `POST /api/v2/scenarios/{id}/clone` - Clone a scenario with criteria selection
-- `GET /api/v2/scenarios/templates` - List available scenario templates
+- Branding updated from "AceEval" to "VoiceAgent Evaluations"
+- Landing page reorganized with Evaluator, Candidate, and Continuous Learner cards
+- Removed "Powered by" branding for white-label positioning
 
 ---
 
-## [3.0.0] - 2024-12-26
+## [2.0.0] - 2024-12-29
 
 ### Added
-- **Multi-Tenant Architecture**: Support for multiple organizations with segregated data
-  - Organization model with branding (logo, colors)
-  - Users belong to organizations with role-based access
-  - Organization-specific calibration settings
-  - Data isolation between organizations based on login
 
-- **Custom Evaluation Scenarios**: Create and manage custom evaluation scenarios
-  - New "Scenarios" tab in Evaluator Dashboard
-  - Scenario builder with name, description, industry, and role type
-  - Support for draft, active, and archived scenario statuses
-  - Default scenario per organization
+- **AceEval for Acengage**: Specialized evaluation platform for HR services
+  - Exit Interview evaluations
+  - New Hire Engagement (NHE) evaluations
+  - Continuous Engagement (CE) evaluations
 
-- **AI-Powered Criteria Suggestions**: Intelligent evaluation criteria generation
-  - Paste sample call transcripts for AI analysis
-  - GPT-4 powered criteria extraction
-  - Suggested criteria with descriptions and scoring guidance
-  - One-click addition to scenario
+- **Use Case Selection per Candidate**: Each candidate can be assigned a specific use case
+  - Exits: Employee retention and exit interview assessments
+  - NHE: New hire onboarding and integration assessments
+  - CE: Continuous employee engagement assessments
 
-- **Custom Scoring Criteria**: Define organization-specific evaluation metrics
-  - Create custom criteria with parameter ID, label, and description
-  - Category-based organization (voice_quality, communication, domain_knowledge, etc.)
-  - Weighted scoring support
-  - Score examples for AI guidance
+- **HR-Focused Reading Passages**:
+  - Exit Interview passages (Employee Retention, Constructive Feedback)
+  - NHE passages (Onboarding Experience, Team Integration)
+  - CE passages (Employee Satisfaction, Career Development)
 
-- **Custom Reading Passages**: Domain-specific voice assessment content
-  - Create industry-relevant reading passages
-  - Difficulty levels (easy, medium, hard)
-  - Context descriptions for relevance
+- **HR-Specific Call Scenarios**:
+  - Exit scenarios (Reluctant Exit, Frustrated Exit, Opportunity Exit)
+  - NHE scenarios (Struggling New Hire, Disengaged New Hire, Positive Check-in)
+  - CE scenarios (Employee with Concerns, High Attrition Risk, Routine Check-in)
 
-- **Custom Role-Play Scenarios**: Define realistic customer interactions
-  - Multiple difficulty levels (beginner, moderate, experienced)
-  - Customer personas with mood and personality
-  - Opening lines and escalation triggers
-  - Expected behaviors for scoring
+- **Use Case Specific Scoring Parameters**:
+  - **Exits** (7 metrics): Enthusiasm, Listening, Language, Probing, Convincing, Start of Conversation, End of Conversation
+  - **NHE** (7 metrics): Enthusiasm, Tone & Language, Listening, Start of Conversation, End of Conversation, Probing to Identify Dissatisfaction, Convincing Skills
+  - **CE** (11 metrics): Opening, Selling Client Benefits, Objection Handling, Probing, Taking Feedback, Solving Queries, Conversational Skills, Taking Ownership, Enthusiasm, Reference of Previous Call, Closing
 
-- **Sample Recording Analysis**: AI analysis of sample calls
-  - Upload sample recordings for analysis
-  - Automatic transcript generation
-  - AI-suggested criteria based on real calls
-  - Quality labeling (good, average, poor)
-
-- **Batch Scenario Selection**: Link batches to custom scenarios
-  - Select evaluation scenario when creating batches
-  - Auto-populate default organization scenario
-  - Scenario criteria used for evaluations
+- **Acengage Evaluation Agent**: Specialized AI agent for HR services evaluations
+  - Employee role-play scenarios
+  - HR-focused personal questions
+  - Use case aware empathy challenges
 
 ### Changed
-- **Database Schema**: Major updates for multi-tenancy and scenarios
-  - Added Organization, EvaluationScenario, ScoringCriteria models
-  - Added ReadingPassage, RolePlayScenario, SampleRecording models
-  - Added OrganizationCalibration for org-level calibration
-  - Updated User, Batch models with organization relationships
 
-- **Authentication**: Enhanced session with organization context
-  - Session includes organizationId and organization details
-  - Organization-scoped API access
+- **Branding**: Complete rebranding from CCEval to AceEval
+  - Updated landing page with AceEval branding
+  - Orange/Amber color scheme
+  - Acengage-focused messaging
 
-- **API Routes**: New scenario management endpoints
-  - `/api/v2/organizations` - Organization management
-  - `/api/v2/scenarios` - Scenario CRUD operations
-  - `/api/v2/scenarios/[id]/criteria` - Criteria management
-  - `/api/v2/scenarios/[id]/analyze-recording` - AI analysis
-  - `/api/v2/scenarios/[id]/generate-instructions` - Agent prompt generation
+- **Evaluator Dashboard**: Enhanced with use case support
+  - Use Case column in candidates table
+  - Dynamic reading passage options based on use case
+  - Dynamic call scenario options based on use case
+
+- **V2EvaluationContext**: Major updates for use case support
+  - `UseCase` type (exits | nhe | ce)
+  - `SCORING_PARAMETERS_BY_USE_CASE` for use case specific metrics
+  - `getReadingPassages()` - Filter passages by use case
+  - `getCallScenarios()` - Filter scenarios by use case
+  - `getScoringParameters()` - Get metrics for use case
 
 ### Technical
-- Full TypeScript support for all new models
-- Prisma migrations for new schema
-- Organization-level data isolation
-- AI integration with GPT-4o for analysis
+
+- Based on CCEval v2.0 architecture
+- Full use case segregation at candidate level
+- Voice analysis integration retained
+- Calibration system adapted for HR metrics
 
 ---
 
-## [2.0.0] - 2024-12-19
+## Based on CCEval v2.0
 
-### Added
-- **17 Comprehensive Data Points**: Expanded data collection from 8 to 17 store verification points
-  - Store ID/Code, Address Line 1, Locality, Landmark, City, State, PIN Code
-  - Business Hours, Weekly Off
-  - Main Phone Number with STD, Store Manager's Number, Alternate Number  
-  - Store Email ID, Store Manager's Email ID, Designation of Person
-  - Parking Options, Payment Methods Accepted
-
-- **Mandatory Confirmation Protocol**: 3-step verification process
-  - Immediate data capture using `capture_store_data` tool
-  - Immediate read-back confirmation to customer
-  - Wait for explicit confirmation before proceeding
-
-- **Smart Escalation System**: Prevents infinite loops on difficult data points
-  - Maximum 2 attempts per data point
-  - Auto-escalation to human expert after 2 failed attempts
-  - Continues conversation flow instead of getting stuck
-
-- **Enhanced UI Components**:
-  - Updated AgentVisualizer with 17 data point display
-  - Appropriate icons for each data type
-  - Real-time progress tracking
-  - Updated demo buttons for testing
-
-### Changed
-- **DataCollectionContext**: Updated to handle 17 new data points
-- **Agent Tools**: Enhanced `capture_store_data` and `verify_captured_data` with new data types
-- **Agent Instructions**: Comprehensive confirmation and escalation protocols
-- **UI Layout**: Professional data collection center with progress indicators
-
-### Improved
-- **Data Accuracy**: Confirmation protocol ensures 100% accurate captures
-- **Conversation Flow**: Escalation system prevents agent from getting stuck
-- **User Experience**: Smooth flow with expert fallback for complex cases
-- **Business Value**: Complete store verification data for operations
-
-### Technical
-- Full TypeScript support for new data structure
-- Backward compatibility maintained
-- Enhanced error handling and validation
-- Optimized state management for 17 data points
-
-## [1.x.x] - Previous Versions
-
-### Features
-- Basic 8 data point collection system
-- Simple capture functionality  
-- Basic UI interface
-- Core agent infrastructure 
+This version is a specialized fork of CCEval for Acengage HR services.
+For original CCEval changelog, see the main branch.

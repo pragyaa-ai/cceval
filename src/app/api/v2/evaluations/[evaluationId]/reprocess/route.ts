@@ -10,17 +10,51 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Scoring parameters - must match V2EvaluationContext.tsx
-const SCORE_PARAMETERS = [
-  { id: "clarity_pace", label: "Clarity & Pace", description: "Smooth flow, no hesitation, clear articulation" },
-  { id: "product_knowledge", label: "Product Knowledge", description: "PV & EV awareness, accurate information" },
-  { id: "empathy", label: "Empathy", description: "Quality of reassurance lines, emotional intelligence" },
-  { id: "customer_understanding", label: "Customer Understanding", description: "Ability to probe needs, active listening" },
-  { id: "handling_pressure", label: "Handling Pressure", description: "Composure in tough scenarios, no fumbling" },
-  { id: "confidence", label: "Confidence", description: "Tone stability, self-assurance" },
-  { id: "process_accuracy", label: "Process Accuracy", description: "Lead capturing, summarizing, CTA" },
-  { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete" },
-];
+// Scoring parameters by use case - must match V2EvaluationContext.tsx
+const SCORE_PARAMETERS_BY_USE_CASE: Record<string, Array<{ id: string; label: string; description: string }>> = {
+  exits: [
+    { id: "enthusiasm", label: "Enthusiasm", description: "Energy and genuine interest in the conversation" },
+    { id: "listening", label: "Listening", description: "Active listening and understanding responses" },
+    { id: "language", label: "Language", description: "Professional and empathetic language use" },
+    { id: "probing", label: "Probing", description: "Effective questioning to uncover insights" },
+    { id: "convincing", label: "Convincing", description: "Ability to retain or gather honest feedback" },
+    { id: "start_conversation", label: "Start of Conversation", description: "Professional and warm opening" },
+    { id: "end_conversation", label: "End of Conversation", description: "Proper closure and next steps" }
+  ],
+  nhe: [
+    { id: "enthusiasm", label: "Enthusiasm", description: "Welcoming energy and genuine interest" },
+    { id: "tone_language", label: "Tone & Language", description: "Supportive and encouraging communication" },
+    { id: "listening", label: "Listening", description: "Active listening to new hire concerns" },
+    { id: "start_conversation", label: "Start of Conversation", description: "Warm and reassuring opening" },
+    { id: "end_conversation", label: "End of Conversation", description: "Clear next steps and support offered" },
+    { id: "probing_dissatisfaction", label: "Probing to Identify Dissatisfaction", description: "Skill in uncovering hidden concerns" },
+    { id: "convincing", label: "Convincing Skills", description: "Ability to reassure and build confidence" }
+  ],
+  ce: [
+    { id: "opening", label: "Opening", description: "Professional and engaging call opening" },
+    { id: "selling_benefits", label: "Selling Client Benefits", description: "Articulating value of engagement" },
+    { id: "objection_handling", label: "Objection Handling", description: "Addressing concerns effectively" },
+    { id: "probing", label: "Asking Questions/Probing", description: "Effective discovery questions" },
+    { id: "taking_feedback", label: "Taking Feedback", description: "Receptive to employee input" },
+    { id: "solving_queries", label: "Solving Queries", description: "Providing helpful responses" },
+    { id: "conversational_skills", label: "Conversational Skills", description: "Natural flow and rapport building" },
+    { id: "taking_ownership", label: "Taking Ownership on the Call", description: "Accountability and follow-through" },
+    { id: "enthusiasm", label: "Enthusiasm", description: "Energy and genuine engagement" },
+    { id: "reference_previous", label: "Reference of Previous Call", description: "Continuity and personalization" },
+    { id: "closing", label: "Closing", description: "Professional and complete call closure" }
+  ]
+};
+
+// Default to exits use case
+const SCORE_PARAMETERS = SCORE_PARAMETERS_BY_USE_CASE.exits;
+
+// Helper to get parameters based on use case
+const getScoreParameters = (useCase?: string) => {
+  if (useCase && SCORE_PARAMETERS_BY_USE_CASE[useCase]) {
+    return SCORE_PARAMETERS_BY_USE_CASE[useCase];
+  }
+  return SCORE_PARAMETERS;
+};
 
 // POST /api/v2/evaluations/[evaluationId]/reprocess - Reprocess evaluation from recording
 export async function POST(
@@ -130,9 +164,19 @@ export async function POST(
     // Use GPT-4 to analyze transcript and generate scores
     console.log(`[Reprocess] Analyzing transcript for scoring...`);
 
-    const scoringPrompt = `You are an expert evaluator for Mahindra Call Center candidate assessments.
+    // Get use case from candidate if available (stored in settings/metadata)
+    const candidateUseCase = (evaluation.candidate as any).useCase || 'exits';
+    const scoreParams = getScoreParameters(candidateUseCase);
+    
+    const useCaseLabels: Record<string, string> = {
+      exits: "Exit Interviews",
+      nhe: "New Hire Engagement (NHE)",
+      ce: "Continuous Engagement (CE)"
+    };
+    
+    const scoringPrompt = `You are an expert evaluator for Acengage HR services candidate assessments.
 
-Analyze the following transcript from a candidate evaluation session and provide scores for each parameter.
+Analyze the following transcript from a candidate evaluation session for the ${useCaseLabels[candidateUseCase] || "Exit Interviews"} role.
 
 CANDIDATE: ${evaluation.candidate.name}
 
@@ -151,13 +195,13 @@ For each parameter, provide:
 2. A brief reason (5-15 words)
 
 Parameters to score:
-${SCORE_PARAMETERS.map(p => `- ${p.id}: ${p.description}`).join("\n")}
+${scoreParams.map(p => `- ${p.id}: ${p.description}`).join("\n")}
 
 Respond in this exact JSON format:
 {
   "scores": [
-    {"parameterId": "clarity_pace", "score": 3, "reason": "Clear articulation but occasional hesitation on technical terms"},
-    {"parameterId": "product_knowledge", "score": 4, "reason": "Good awareness of Mahindra lineup, mentioned key features"},
+    {"parameterId": "enthusiasm", "score": 4, "reason": "Good energy and genuine interest throughout the conversation"},
+    {"parameterId": "listening", "score": 3, "reason": "Adequate listening but missed some key concerns"},
     ...
   ],
   "overallAssessment": "Brief 2-3 sentence assessment of the candidate"
@@ -190,7 +234,7 @@ Respond in this exact JSON format:
     for (const scoreItem of scoringResult.scores) {
       // Validate score
       if (scoreItem.score < 1 || scoreItem.score > 5) continue;
-      if (!SCORE_PARAMETERS.find(p => p.id === scoreItem.parameterId)) continue;
+      if (!scoreParams.find(p => p.id === scoreItem.parameterId)) continue;
 
       // Upsert score (update if exists, create if not)
       const savedScore = await prisma.score.upsert({
@@ -273,6 +317,7 @@ export async function GET(
     const hasRecording = evaluation.recordingUrl && evaluation.recordingUrl.length > 0;
     const hasTranscript = evaluation.transcriptItems.length > 0;
     const hasScores = evaluation.scores.length > 0;
+    // Use default parameters for checking - could be improved to use candidate's use case
     const missingScores = SCORE_PARAMETERS.filter(
       p => !evaluation.scores.find(s => s.parameterId === p.id)
     );

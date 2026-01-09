@@ -14,7 +14,7 @@ import { useVoiceQualityAnalysis } from "@/app/hooks/useVoiceAnalysis";
 import { useRealtimeSession } from "@/app/hooks/useRealtimeSession";
 import { useHandleSessionHistory } from "@/app/hooks/useHandleSessionHistory";
 import useAudioDownload from "@/app/hooks/useAudioDownload";
-import { mahindraEvaluationAgent } from "../agents/mahindraEvaluationAgent";
+import { acengageEvaluationAgent } from "../agents/acengageEvaluationAgent";
 import VoiceVisualizer from "@/app/components/VoiceVisualizer";
 
 // Candidate info from database
@@ -338,9 +338,17 @@ function CandidateAppContent() {
   }, []); // No dependencies - use ref
 
   // Score parameter IDs that should be saved to the database
+  // Includes all parameters across all use cases (Exits, NHE, CE)
   const SCORE_PARAMETERS = [
-    "clarity_pace", "product_knowledge", "empathy", "customer_understanding",
-    "handling_pressure", "confidence", "process_accuracy", "closure_quality"
+    // Exit Interview parameters
+    "enthusiasm", "listening", "language", "probing", "convincing",
+    "start_conversation", "end_conversation",
+    // NHE additional parameters
+    "tone_language", "probing_dissatisfaction",
+    // CE additional parameters
+    "opening", "selling_benefits", "objection_handling", "taking_feedback",
+    "solving_queries", "conversational_skills", "taking_ownership",
+    "reference_previous", "closing"
   ];
 
   // Capture evaluation data point (scores) and save to database
@@ -547,19 +555,19 @@ function CandidateAppContent() {
         return;
       }
 
-      // Get selected passage and scenario
+      // Get selected passage and scenario (default to exit use case)
       const passage = authenticatedCandidate.selectedPassage
         ? READING_PASSAGES[authenticatedCandidate.selectedPassage as keyof typeof READING_PASSAGES]
-        : READING_PASSAGES.safety_adas;
+        : READING_PASSAGES.exit_retention;
       const scenario = authenticatedCandidate.selectedScenario
         ? CALL_SCENARIOS[authenticatedCandidate.selectedScenario as keyof typeof CALL_SCENARIOS]
-        : CALL_SCENARIOS.beginner;
+        : CALL_SCENARIOS.exit_reluctant;
 
       console.log("[v2] 🚀 Connecting to agent with evaluation ID:", evaluationId);
 
       await connect({
         getEphemeralKey: async () => ephemeralKey,
-        initialAgents: [mahindraEvaluationAgent],
+        initialAgents: [acengageEvaluationAgent],
         audioElement: sdkAudioElement,
         extraContext: {
           addTranscriptBreadcrumb,
