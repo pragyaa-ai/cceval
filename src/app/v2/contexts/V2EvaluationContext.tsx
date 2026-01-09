@@ -215,7 +215,11 @@ export const SCORING_PARAMETERS = [
   { id: "handling_pressure", label: "Handling Pressure", description: "Composure in tough scenarios" },
   { id: "confidence", label: "Confidence", description: "Tone stability" },
   { id: "process_accuracy", label: "Process Accuracy", description: "Lead capturing, summarizing, CTA" },
-  { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete" }
+  { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete" },
+  // Typing test parameters
+  { id: "typing_speed", label: "Typing Speed", description: "Words per minute (WPM)" },
+  { id: "typing_accuracy", label: "Typing Accuracy", description: "Character accuracy percentage" },
+  { id: "summary_quality", label: "Summary Quality", description: "Completeness and clarity of call summary" },
 ];
 
 // Scoring parameters by use case
@@ -256,6 +260,58 @@ export const SCORING_PARAMETERS_BY_USE_CASE: Record<UseCase, Array<{ id: string;
 export const getScoringParameters = (useCase?: UseCase) => {
   if (!useCase) return SCORING_PARAMETERS;
   return SCORING_PARAMETERS_BY_USE_CASE[useCase] || SCORING_PARAMETERS;
+};
+
+// Typing test prompts for dictation practice
+export const TYPING_TEST_PROMPTS = {
+  pv_sales: [
+    {
+      id: "pv_intro",
+      title: "Vehicle Introduction",
+      text: "Thank you for your interest in Mahindra vehicles. I would be happy to assist you with information about our latest models. Could you please share what type of vehicle you are looking for and your primary requirements?",
+      wordCount: 40,
+    },
+    {
+      id: "pv_features",
+      title: "Feature Explanation",
+      text: "The Mahindra XUV700 comes with advanced safety features including six airbags, electronic stability control, and ADAS level two autonomous driving capabilities. The vehicle also offers a panoramic sunroof, ventilated seats, and a twelve-speaker sound system.",
+      wordCount: 45,
+    },
+  ],
+  ev_sales: [
+    {
+      id: "ev_range",
+      title: "EV Range Explanation",
+      text: "The XUV400 electric vehicle offers a certified range of four hundred fifty-six kilometers on a single charge. With our fast charging network, you can charge from zero to eighty percent in just fifty minutes. Home charging overnight will give you a full charge by morning.",
+      wordCount: 50,
+    },
+    {
+      id: "ev_benefits",
+      title: "EV Benefits",
+      text: "Switching to an electric vehicle provides significant cost savings on fuel and maintenance. The total cost of ownership over five years is approximately thirty percent lower compared to equivalent petrol vehicles. Additionally, you contribute to reducing carbon emissions.",
+      wordCount: 45,
+    },
+  ],
+  service: [
+    {
+      id: "service_booking",
+      title: "Service Appointment",
+      text: "I have scheduled your vehicle service appointment for tomorrow at ten AM. Please bring your vehicle registration documents and the service booklet. The estimated service time is three hours. We will provide you with a complimentary vehicle wash after the service.",
+      wordCount: 45,
+    },
+    {
+      id: "service_complaint",
+      title: "Complaint Acknowledgment",
+      text: "I sincerely apologize for the inconvenience you experienced with our service center. I have noted your concerns regarding the delayed delivery and the additional charges. I will escalate this matter to our service manager and ensure you receive a callback within twenty-four hours.",
+      wordCount: 50,
+    },
+  ],
+};
+
+// Helper to get typing prompts by use case
+export const getTypingPrompts = (useCase?: UseCase) => {
+  if (!useCase) return Object.values(TYPING_TEST_PROMPTS).flat();
+  return TYPING_TEST_PROMPTS[useCase] || [];
 };
 
 // Evaluation phases

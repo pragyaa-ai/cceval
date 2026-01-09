@@ -57,6 +57,10 @@ export default function ContinuousLearnerPage() {
   const [selectedUseCase, setSelectedUseCase] = useState<UseCase | null>(null);
   const [selectedModule, setSelectedModule] = useState<TrainingModule | null>(null);
   const [showPracticeMode, setShowPracticeMode] = useState(false);
+  const [showTypingPractice, setShowTypingPractice] = useState(false);
+  const [typingSummary, setTypingSummary] = useState("");
+  const [typingStartTime, setTypingStartTime] = useState<Date | null>(null);
+  const [typingTimeRemaining, setTypingTimeRemaining] = useState(TYPING_TEST_CONFIG.timeLimit);
   const [showRewardsModal, setShowRewardsModal] = useState(false);
   const [showAchievementsModal, setShowAchievementsModal] = useState(false);
   const [practiceHistory, setPracticeHistory] = useState<Array<{
@@ -125,6 +129,22 @@ export default function ContinuousLearnerPage() {
     { id: "service_summary", useCase: "service", title: "Service Ticket Documentation", description: "Practice writing clear service tickets and complaint summaries", difficulty: "beginner", duration: "10 mins", completedSessions: 2, totalSessions: 5, lastScore: 88, pointsPerSession: 60, type: "typing" },
   ];
 
+  // Typing timer effect
+  useEffect(() => {
+    if (showTypingPractice && typingStartTime) {
+      const interval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - typingStartTime.getTime()) / 1000);
+        const remaining = Math.max(0, TYPING_TEST_CONFIG.timeLimit - elapsed);
+        setTypingTimeRemaining(remaining);
+        
+        if (remaining === 0) {
+          handleTypingSubmit();
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [showTypingPractice, typingStartTime]);
+
   const handleLogin = () => {
     if (employeeId.trim() && learnerName.trim()) {
       setIsAuthenticated(true);
@@ -133,8 +153,59 @@ export default function ContinuousLearnerPage() {
         { date: "2025-01-08", module: "EV Fundamentals", score: 85, feedback: "Great explanation of charging options!", pointsEarned: 50 },
         { date: "2025-01-07", module: "Service Booking Basics", score: 92, feedback: "Excellent customer handling", pointsEarned: 50 },
         { date: "2025-01-06", module: "PV Sales Fundamentals", score: 78, feedback: "Good product knowledge, work on closing", pointsEarned: 50 },
+        { date: "2025-01-05", module: "Call Summary Writing", score: 80, feedback: "Good structure, include more details", pointsEarned: 60 },
       ]);
     }
+  };
+
+  const handleStartTypingPractice = () => {
+    setTypingStartTime(new Date());
+    setTypingSummary("");
+    setTypingTimeRemaining(TYPING_TEST_CONFIG.timeLimit);
+    setShowTypingPractice(true);
+  };
+
+  const handleTypingSubmit = () => {
+    const wordCount = typingSummary.split(/\s+/).filter(w => w).length;
+    const timeSpent = typingStartTime 
+      ? Math.floor((Date.now() - typingStartTime.getTime()) / 1000)
+      : 0;
+    
+    // Calculate a mock score based on word count and time
+    let score = 0;
+    if (wordCount >= TYPING_TEST_CONFIG.minWords && wordCount <= TYPING_TEST_CONFIG.maxWords) {
+      score = Math.min(100, 70 + Math.floor(Math.random() * 25)); // Random score between 70-95
+    } else if (wordCount > 0) {
+      score = Math.min(70, 40 + Math.floor((wordCount / TYPING_TEST_CONFIG.minWords) * 30));
+    }
+    
+    // Add to practice history
+    const newEntry = {
+      date: new Date().toISOString().split('T')[0],
+      module: selectedModule?.title || "Typing Practice",
+      score,
+      feedback: score >= 80 ? "Well-structured summary with good detail!" : 
+                score >= 60 ? "Good effort, try to include more specific details." :
+                "Keep practicing to improve your documentation skills.",
+      pointsEarned: selectedModule?.pointsPerSession || 60,
+    };
+    
+    setPracticeHistory(prev => [newEntry, ...prev]);
+    setTotalPoints(prev => prev + newEntry.pointsEarned);
+    
+    // Reset state
+    setShowTypingPractice(false);
+    setSelectedModule(null);
+    setTypingSummary("");
+    setTypingStartTime(null);
+    
+    alert(`🎉 Practice completed!\n\nScore: ${score}%\nPoints earned: +${newEntry.pointsEarned}`);
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleRedeemReward = (rewardId: string) => {
@@ -646,6 +717,150 @@ export default function ContinuousLearnerPage() {
         </div>
       )}
 
+      {/* Typing Practice Modal */}
+      {showTypingPractice && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-violet-50 to-purple-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-4xl">⌨️</span>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-800">Typing Practice</h2>
+                    <p className="text-slate-500 text-sm">Write a call summary based on the scenario</p>
+                  </div>
+                </div>
+                {typingStartTime && (
+                  <div className={`px-4 py-2 rounded-xl font-mono text-xl ${
+                    typingTimeRemaining < 60 ? "bg-red-100 text-red-600" : 
+                    typingTimeRemaining < 120 ? "bg-amber-100 text-amber-600" : 
+                    "bg-slate-100 text-slate-700"
+                  }`}>
+                    {Math.floor(typingTimeRemaining / 60)}:{(typingTimeRemaining % 60).toString().padStart(2, '0')}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {!typingStartTime ? (
+                // Instructions before starting
+                <div className="space-y-6">
+                  <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                    <h3 className="font-medium text-slate-800 mb-3">Instructions</h3>
+                    <p className="text-slate-600 mb-4">{TYPING_TEST_CONFIG.instructions}</p>
+                    <div className="grid grid-cols-3 gap-4 mt-4">
+                      <div className="text-center p-3 bg-white rounded-lg border border-slate-200">
+                        <div className="text-xl font-bold text-violet-600">{TYPING_TEST_CONFIG.minWords}+</div>
+                        <div className="text-xs text-slate-500">Min Words</div>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg border border-slate-200">
+                        <div className="text-xl font-bold text-amber-600">{Math.floor(TYPING_TEST_CONFIG.timeLimit / 60)} min</div>
+                        <div className="text-xs text-slate-500">Time Limit</div>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg border border-slate-200">
+                        <div className="text-xl font-bold text-emerald-600">60</div>
+                        <div className="text-xs text-slate-500">Points</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowTypingPractice(false)}
+                      className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-slate-600 font-medium hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleStartTypingPractice}
+                      className="flex-1 px-4 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl font-medium hover:from-violet-600 hover:to-purple-700 shadow-lg shadow-violet-500/20"
+                    >
+                      Start Typing
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Typing area
+                <div className="space-y-4">
+                  {/* Live stats */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 bg-slate-50 rounded-lg text-center">
+                      <div className="text-xl font-bold text-slate-800">{typingSummary.split(/\s+/).filter(w => w).length}</div>
+                      <div className="text-xs text-slate-500">Words</div>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-lg text-center">
+                      <div className="text-xl font-bold text-violet-600">
+                        {typingStartTime && typingSummary.split(/\s+/).filter(w => w).length > 0
+                          ? Math.round((typingSummary.split(/\s+/).filter(w => w).length / ((Date.now() - typingStartTime.getTime()) / 60000)) || 0)
+                          : 0}
+                      </div>
+                      <div className="text-xs text-slate-500">WPM</div>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-lg text-center">
+                      <div className="text-xl font-bold text-emerald-600">{typingSummary.length}</div>
+                      <div className="text-xs text-slate-500">Characters</div>
+                    </div>
+                  </div>
+
+                  {/* Textarea */}
+                  <textarea
+                    value={typingSummary}
+                    onChange={(e) => setTypingSummary(e.target.value)}
+                    placeholder="Start typing your call summary here... Include key discussion points, customer concerns, solutions offered, and next steps."
+                    className="w-full h-64 p-4 border border-slate-200 rounded-xl text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    autoFocus
+                  />
+
+                  {/* Progress bar */}
+                  <div>
+                    <div className="flex items-center justify-between text-sm text-slate-500 mb-1">
+                      <span>Word count progress</span>
+                      <span>{typingSummary.split(/\s+/).filter(w => w).length} / {TYPING_TEST_CONFIG.minWords} minimum</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${
+                          typingSummary.split(/\s+/).filter(w => w).length >= TYPING_TEST_CONFIG.minWords
+                            ? "bg-emerald-500"
+                            : "bg-violet-500"
+                        }`}
+                        style={{ width: `${Math.min((typingSummary.split(/\s+/).filter(w => w).length / TYPING_TEST_CONFIG.minWords) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Submit button */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowTypingPractice(false);
+                        setTypingStartTime(null);
+                        setTypingSummary("");
+                      }}
+                      className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleTypingSubmit}
+                      disabled={typingSummary.split(/\s+/).filter(w => w).length < TYPING_TEST_CONFIG.minWords}
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+                    >
+                      {typingSummary.split(/\s+/).filter(w => w).length < TYPING_TEST_CONFIG.minWords
+                        ? `Need ${TYPING_TEST_CONFIG.minWords - typingSummary.split(/\s+/).filter(w => w).length} more words`
+                        : "Submit Summary"
+                      }
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Module Detail Modal */}
       {selectedModule && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -656,32 +871,83 @@ export default function ContinuousLearnerPage() {
               "bg-gradient-to-r from-amber-50 to-orange-50"
             }`}>
               <div className="flex items-center justify-between mb-2">
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  selectedModule.difficulty === "beginner" ? "bg-green-100 text-green-700" :
-                  selectedModule.difficulty === "intermediate" ? "bg-yellow-100 text-yellow-700" :
-                  "bg-red-100 text-red-700"
-                }`}>
-                  {selectedModule.difficulty.charAt(0).toUpperCase() + selectedModule.difficulty.slice(1)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                    selectedModule.difficulty === "beginner" ? "bg-green-100 text-green-700" :
+                    selectedModule.difficulty === "intermediate" ? "bg-yellow-100 text-yellow-700" :
+                    "bg-red-100 text-red-700"
+                  }`}>
+                    {selectedModule.difficulty.charAt(0).toUpperCase() + selectedModule.difficulty.slice(1)}
+                  </span>
+                  {selectedModule.type === "typing" && (
+                    <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full flex items-center gap-1">
+                      ⌨️ Typing
+                    </span>
+                  )}
+                </div>
                 <span className="text-sm text-slate-500">{selectedModule.duration}</span>
               </div>
               <h2 className="text-xl font-bold text-slate-800">{selectedModule.title}</h2>
               <p className="text-slate-600 mt-2">{selectedModule.description}</p>
             </div>
             <div className="p-6">
-              <div className="mb-6">
-                <h3 className="font-medium text-slate-800 mb-3">What you'll practice:</h3>
-                <ul className="space-y-2">
-                  {SCORING_PARAMETERS_BY_USE_CASE[selectedModule.useCase].slice(0, 4).map((param) => (
-                    <li key={param.id} className="flex items-center gap-2 text-sm text-slate-600">
-                      <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                      {param.label}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {selectedModule.type === "typing" ? (
+                // Typing module details
+                <>
+                  <div className="mb-6">
+                    <h3 className="font-medium text-slate-800 mb-3">What you'll practice:</h3>
+                    <ul className="space-y-2">
+                      <li className="flex items-center gap-2 text-sm text-slate-600">
+                        <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Typing speed (WPM)
+                      </li>
+                      <li className="flex items-center gap-2 text-sm text-slate-600">
+                        <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Typing accuracy
+                      </li>
+                      <li className="flex items-center gap-2 text-sm text-slate-600">
+                        <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Content completeness
+                      </li>
+                      <li className="flex items-center gap-2 text-sm text-slate-600">
+                        <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Professional tone
+                      </li>
+                    </ul>
+                  </div>
+                  <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <h4 className="font-medium text-slate-700 mb-2">{TYPING_TEST_PROMPTS[selectedModule.useCase]?.title || "Call Summary"}</h4>
+                    <p className="text-sm text-slate-600">{TYPING_TEST_PROMPTS[selectedModule.useCase]?.prompt || "Type a summary of the call scenario."}</p>
+                    <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
+                      <span>⏱️ {TYPING_TEST_CONFIG.timeLimit / 60} min time limit</span>
+                      <span>📝 {TYPING_TEST_CONFIG.minWords}-{TYPING_TEST_CONFIG.maxWords} words</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                // Voice module details
+                <div className="mb-6">
+                  <h3 className="font-medium text-slate-800 mb-3">What you'll practice:</h3>
+                  <ul className="space-y-2">
+                    {SCORING_PARAMETERS_BY_USE_CASE[selectedModule.useCase].slice(0, 4).map((param) => (
+                      <li key={param.id} className="flex items-center gap-2 text-sm text-slate-600">
+                        <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        {param.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl mb-6">
                 <span className="text-slate-700">Points per session:</span>
                 <span className="font-bold text-amber-600">🪙 +{selectedModule.pointsPerSession}</span>
@@ -695,12 +961,16 @@ export default function ContinuousLearnerPage() {
                 </button>
                 <button
                   onClick={() => {
-                    alert("Practice mode would start here with voice interaction!");
+                    if (selectedModule.type === "typing") {
+                      setShowTypingPractice(true);
+                    } else {
+                      alert("Voice practice mode would start here!");
+                    }
                     setSelectedModule(null);
                   }}
                   className="flex-1 px-4 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl font-medium hover:from-violet-600 hover:to-purple-700 transition-all shadow-lg shadow-violet-500/20"
                 >
-                  Start Practice
+                  {selectedModule.type === "typing" ? "Start Typing Practice" : "Start Voice Practice"}
                 </button>
               </div>
             </div>
