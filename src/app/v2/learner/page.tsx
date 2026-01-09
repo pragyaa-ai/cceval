@@ -8,6 +8,8 @@ import {
   READING_PASSAGES, 
   CALL_SCENARIOS,
   SCORING_PARAMETERS_BY_USE_CASE,
+  TYPING_TEST_CONFIG,
+  TYPING_TEST_PROMPTS,
   UseCase 
 } from "../contexts/V2EvaluationContext";
 
@@ -18,6 +20,7 @@ interface TrainingModule {
   description: string;
   difficulty: "beginner" | "intermediate" | "advanced";
   duration: string;
+  type?: "voice" | "typing"; // default is voice
   completedSessions: number;
   totalSessions: number;
   lastScore?: number;
@@ -102,18 +105,24 @@ export default function ContinuousLearnerPage() {
 
   // Training modules for call center context
   const trainingModules: TrainingModule[] = [
-    // PV Sales Modules
-    { id: "pv_basics", useCase: "pv_sales", title: "PV Sales Fundamentals", description: "Learn the basics of PV model range and customer approach", difficulty: "beginner", duration: "15 mins", completedSessions: 3, totalSessions: 5, lastScore: 78, pointsPerSession: 50 },
-    { id: "pv_features", useCase: "pv_sales", title: "Feature Presentation", description: "Master presenting safety, comfort, and performance features", difficulty: "intermediate", duration: "20 mins", completedSessions: 2, totalSessions: 5, lastScore: 72, pointsPerSession: 75 },
-    { id: "pv_objections", useCase: "pv_sales", title: "Handling Price Objections", description: "Advanced techniques for price negotiation and competitor comparison", difficulty: "advanced", duration: "25 mins", completedSessions: 0, totalSessions: 5, isNew: true, pointsPerSession: 100 },
-    // EV Sales Modules
-    { id: "ev_basics", useCase: "ev_sales", title: "EV Fundamentals", description: "Understanding EV technology, range, and charging basics", difficulty: "beginner", duration: "15 mins", completedSessions: 4, totalSessions: 5, lastScore: 85, pointsPerSession: 50 },
-    { id: "ev_myths", useCase: "ev_sales", title: "EV Myth Busting", description: "Addressing common EV misconceptions and range anxiety", difficulty: "intermediate", duration: "20 mins", completedSessions: 1, totalSessions: 5, lastScore: 68, pointsPerSession: 75 },
-    { id: "ev_tco", useCase: "ev_sales", title: "TCO & Value Selling", description: "Explaining total cost of ownership and long-term EV benefits", difficulty: "advanced", duration: "25 mins", completedSessions: 0, totalSessions: 5, isNew: true, pointsPerSession: 100 },
-    // Service Support Modules
-    { id: "service_basics", useCase: "service", title: "Service Booking Basics", description: "Efficient appointment scheduling and customer data capture", difficulty: "beginner", duration: "15 mins", completedSessions: 5, totalSessions: 5, lastScore: 92, pointsPerSession: 50 },
-    { id: "service_complaints", useCase: "service", title: "Complaint Handling", description: "Managing dissatisfied customers and service issues", difficulty: "intermediate", duration: "20 mins", completedSessions: 3, totalSessions: 5, lastScore: 75, pointsPerSession: 75 },
-    { id: "service_escalation", useCase: "service", title: "Escalation Management", description: "Handling warranty disputes and angry customer de-escalation", difficulty: "advanced", duration: "25 mins", completedSessions: 1, totalSessions: 5, lastScore: 65, pointsPerSession: 100 },
+    // PV Sales Modules - Voice
+    { id: "pv_basics", useCase: "pv_sales", title: "PV Sales Fundamentals", description: "Learn the basics of PV model range and customer approach", difficulty: "beginner", duration: "15 mins", completedSessions: 3, totalSessions: 5, lastScore: 78, pointsPerSession: 50, type: "voice" },
+    { id: "pv_features", useCase: "pv_sales", title: "Feature Presentation", description: "Master presenting safety, comfort, and performance features", difficulty: "intermediate", duration: "20 mins", completedSessions: 2, totalSessions: 5, lastScore: 72, pointsPerSession: 75, type: "voice" },
+    { id: "pv_objections", useCase: "pv_sales", title: "Handling Price Objections", description: "Advanced techniques for price negotiation and competitor comparison", difficulty: "advanced", duration: "25 mins", completedSessions: 0, totalSessions: 5, isNew: true, pointsPerSession: 100, type: "voice" },
+    // PV Sales - Typing Test
+    { id: "pv_summary", useCase: "pv_sales", title: "Call Summary Writing", description: "Practice documenting PV sales calls accurately and professionally", difficulty: "intermediate", duration: "10 mins", completedSessions: 1, totalSessions: 5, lastScore: 80, pointsPerSession: 60, type: "typing" },
+    // EV Sales Modules - Voice
+    { id: "ev_basics", useCase: "ev_sales", title: "EV Fundamentals", description: "Understanding EV technology, range, and charging basics", difficulty: "beginner", duration: "15 mins", completedSessions: 4, totalSessions: 5, lastScore: 85, pointsPerSession: 50, type: "voice" },
+    { id: "ev_myths", useCase: "ev_sales", title: "EV Myth Busting", description: "Addressing common EV misconceptions and range anxiety", difficulty: "intermediate", duration: "20 mins", completedSessions: 1, totalSessions: 5, lastScore: 68, pointsPerSession: 75, type: "voice" },
+    { id: "ev_tco", useCase: "ev_sales", title: "TCO & Value Selling", description: "Explaining total cost of ownership and long-term EV benefits", difficulty: "advanced", duration: "25 mins", completedSessions: 0, totalSessions: 5, isNew: true, pointsPerSession: 100, type: "voice" },
+    // EV Sales - Typing Test
+    { id: "ev_summary", useCase: "ev_sales", title: "EV Inquiry Documentation", description: "Practice documenting EV inquiries with technical details", difficulty: "intermediate", duration: "10 mins", completedSessions: 0, totalSessions: 5, isNew: true, pointsPerSession: 60, type: "typing" },
+    // Service Support Modules - Voice
+    { id: "service_basics", useCase: "service", title: "Service Booking Basics", description: "Efficient appointment scheduling and customer data capture", difficulty: "beginner", duration: "15 mins", completedSessions: 5, totalSessions: 5, lastScore: 92, pointsPerSession: 50, type: "voice" },
+    { id: "service_complaints", useCase: "service", title: "Complaint Handling", description: "Managing dissatisfied customers and service issues", difficulty: "intermediate", duration: "20 mins", completedSessions: 3, totalSessions: 5, lastScore: 75, pointsPerSession: 75, type: "voice" },
+    { id: "service_escalation", useCase: "service", title: "Escalation Management", description: "Handling warranty disputes and angry customer de-escalation", difficulty: "advanced", duration: "25 mins", completedSessions: 1, totalSessions: 5, lastScore: 65, pointsPerSession: 100, type: "voice" },
+    // Service - Typing Test
+    { id: "service_summary", useCase: "service", title: "Service Ticket Documentation", description: "Practice writing clear service tickets and complaint summaries", difficulty: "beginner", duration: "10 mins", completedSessions: 2, totalSessions: 5, lastScore: 88, pointsPerSession: 60, type: "typing" },
   ];
 
   const handleLogin = () => {
@@ -396,13 +405,20 @@ export default function ContinuousLearnerPage() {
                 "bg-gradient-to-r from-amber-50 to-orange-50"
               }`}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    module.difficulty === "beginner" ? "bg-green-100 text-green-700" :
-                    module.difficulty === "intermediate" ? "bg-yellow-100 text-yellow-700" :
-                    "bg-red-100 text-red-700"
-                  }`}>
-                    {module.difficulty.charAt(0).toUpperCase() + module.difficulty.slice(1)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      module.difficulty === "beginner" ? "bg-green-100 text-green-700" :
+                      module.difficulty === "intermediate" ? "bg-yellow-100 text-yellow-700" :
+                      "bg-red-100 text-red-700"
+                    }`}>
+                      {module.difficulty.charAt(0).toUpperCase() + module.difficulty.slice(1)}
+                    </span>
+                    {module.type === "typing" && (
+                      <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full flex items-center gap-1">
+                        ⌨️ Typing
+                      </span>
+                    )}
+                  </div>
                   {module.isNew && (
                     <span className="px-2 py-1 bg-violet-100 text-violet-700 text-xs font-medium rounded-full">
                       NEW

@@ -265,8 +265,63 @@ export type EvaluationPhase =
   | "reading_task"
   | "call_scenario"
   | "empathy_scenario"
+  | "typing_test"
   | "closure_task"
   | "completed";
+
+// Typing Test Configuration
+export const TYPING_TEST_CONFIG = {
+  minWords: 50,
+  maxWords: 200,
+  timeLimit: 300, // 5 minutes in seconds
+  instructions: "Please type a summary of the call you just completed. Include key points discussed, customer concerns, and any follow-up actions needed.",
+};
+
+// Typing Test Prompts by Use Case
+export const TYPING_TEST_PROMPTS: Record<UseCase, { title: string; prompt: string; hints: string[] }> = {
+  pv_sales: {
+    title: "Call Summary - Sales Inquiry",
+    prompt: "Summarize the customer interaction you just completed. Include: customer name (if provided), vehicle of interest, key features discussed, objections raised, and next steps agreed upon.",
+    hints: [
+      "Customer's primary interest and budget range",
+      "Features that resonated with the customer",
+      "Concerns or objections raised",
+      "Competitor comparisons mentioned",
+      "Follow-up action items",
+    ],
+  },
+  ev_sales: {
+    title: "Call Summary - EV Inquiry",
+    prompt: "Summarize the EV inquiry call. Include: customer's EV awareness level, range/charging concerns addressed, benefits explained, and conversion potential assessment.",
+    hints: [
+      "Customer's current vehicle and EV familiarity",
+      "Range anxiety concerns and how addressed",
+      "Charging infrastructure questions",
+      "TCO benefits explained",
+      "Test drive or follow-up scheduled",
+    ],
+  },
+  service: {
+    title: "Call Summary - Service Request",
+    prompt: "Document the service call details. Include: issue reported, troubleshooting steps taken, resolution provided or escalation needed, and customer satisfaction level.",
+    hints: [
+      "Nature of complaint or request",
+      "Vehicle details and service history",
+      "Resolution provided or escalation path",
+      "Customer sentiment at call end",
+      "Any compensation or goodwill offered",
+    ],
+  },
+};
+
+// Typing Test Scoring Parameters
+export const TYPING_TEST_SCORING = [
+  { id: "content_accuracy", label: "Content Accuracy", description: "Key points from the call captured correctly", weight: 0.25 },
+  { id: "completeness", label: "Completeness", description: "All required information included", weight: 0.25 },
+  { id: "clarity", label: "Clarity & Structure", description: "Well-organized and easy to understand", weight: 0.20 },
+  { id: "grammar", label: "Grammar & Spelling", description: "Proper grammar and minimal typos", weight: 0.15 },
+  { id: "professionalism", label: "Professional Tone", description: "Appropriate business language used", weight: 0.15 },
+];
 
 export type CandidateStatus = "pending" | "in_progress" | "completed" | "cancelled";
 
@@ -307,6 +362,15 @@ export interface TranscriptEntry {
   phase: EvaluationPhase;
 }
 
+export interface TypingTestResult {
+  summary: string;
+  wordCount: number;
+  timeSpent: number; // in seconds
+  startedAt: string;
+  completedAt: string;
+  scores?: Array<{ parameterId: string; score: number; feedback?: string }>;
+}
+
 export interface CandidateEvaluation {
   candidateId: string;
   sessionId: string;
@@ -318,6 +382,7 @@ export interface CandidateEvaluation {
   transcript: TranscriptEntry[];
   recordingUrl: string | null;
   recordingDuration: number;
+  typingTestResult?: TypingTestResult;
 }
 
 export interface V2EvaluationState {

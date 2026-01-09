@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Typing Test Phase**: New evaluation phase for call summary documentation
+  - Candidates type a summary of the call they just completed
+  - 5-minute time limit with live countdown
+  - Word count validation (50-200 words)
+  - Use case-specific prompts and hints for PV Sales, EV Sales, and Service
+  - Scoring parameters: Content Accuracy, Completeness, Clarity, Grammar, Professionalism
+
 - **Continuous Learner Portal**: Gamified training platform for call center agents
   - Practice mock sessions with AI-powered feedback
   - Points and XP system for completed activities

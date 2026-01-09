@@ -3,8 +3,16 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { READING_PASSAGES, CALL_SCENARIOS, PERSONAL_QUESTIONS } from "../contexts/V2EvaluationContext";
-import type { EvaluationPhase } from "../contexts/V2EvaluationContext";
+import { 
+  READING_PASSAGES, 
+  CALL_SCENARIOS, 
+  PERSONAL_QUESTIONS,
+  TYPING_TEST_CONFIG,
+  TYPING_TEST_PROMPTS,
+  TYPING_TEST_SCORING,
+  UseCase,
+} from "../contexts/V2EvaluationContext";
+import type { EvaluationPhase, TypingTestResult } from "../contexts/V2EvaluationContext";
 
 // Import contexts and hooks from v1 for voice agent integration
 import { useTranscript, TranscriptProvider } from "@/app/contexts/TranscriptContext";
@@ -70,6 +78,12 @@ function CandidateAppContent() {
   const [currentPhase, setCurrentPhase] = useState<EvaluationPhase>("not_started");
   const [sessionStatus, setSessionStatus] = useState<"DISCONNECTED" | "CONNECTING" | "CONNECTED">("DISCONNECTED");
   const [calibrationGuidance, setCalibrationGuidance] = useState<Record<string, CalibrationGuidance>>({});
+  
+  // Typing Test State
+  const [typingTestSummary, setTypingTestSummary] = useState("");
+  const [typingTestStartTime, setTypingTestStartTime] = useState<Date | null>(null);
+  const [typingTestTimeRemaining, setTypingTestTimeRemaining] = useState(TYPING_TEST_CONFIG.timeLimit);
+  const [isTypingTestSubmitting, setIsTypingTestSubmitting] = useState(false);
 
   // Contexts
   const { transcriptItems, addTranscriptBreadcrumb } = useTranscript();
@@ -685,6 +699,74 @@ function CandidateAppContent() {
     );
   }
 
+  // Typing Test Timer Effect
+  useEffect(() => {
+    if (currentPhase === "typing_test" && typingTestStartTime) {
+      const timer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - typingTestStartTime.getTime()) / 1000);
+        const remaining = Math.max(0, TYPING_TEST_CONFIG.timeLimit - elapsed);
+        setTypingTestTimeRemaining(remaining);
+        
+        // Auto-submit when time runs out
+        if (remaining === 0) {
+          handleTypingTestSubmit();
+        }
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [currentPhase, typingTestStartTime]);
+
+  // Start Typing Test
+  const handleStartTypingTest = () => {
+    setTypingTestStartTime(new Date());
+    setTypingTestSummary("");
+    setTypingTestTimeRemaining(TYPING_TEST_CONFIG.timeLimit);
+  };
+
+  // Submit Typing Test
+  const handleTypingTestSubmit = async () => {
+    if (isTypingTestSubmitting) return;
+    setIsTypingTestSubmitting(true);
+    
+    const evalId = evaluationIdRef.current;
+    const timeSpent = typingTestStartTime 
+      ? Math.floor((Date.now() - typingTestStartTime.getTime()) / 1000)
+      : 0;
+    
+    const typingResult: TypingTestResult = {
+      summary: typingTestSummary,
+      wordCount: typingTestSummary.split(/\s+/).filter(w => w).length,
+      timeSpent,
+      startedAt: typingTestStartTime?.toISOString() || new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    };
+    
+    // Save to database
+    if (evalId) {
+      try {
+        await fetch(`/api/v2/evaluations/${evalId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ typingTestResult: JSON.stringify(typingResult) }),
+        });
+        console.log("[v2] ✅ Typing test saved successfully");
+      } catch (error) {
+        console.error("[v2] ❌ Failed to save typing test:", error);
+      }
+    }
+    
+    // Move to next phase
+    setCurrentPhase("closure_task");
+    setIsTypingTestSubmitting(false);
+    
+    // Resume voice session for closure task if needed
+    // The agent will handle the closure task
+  };
+
+  // Get use case for typing test prompts
+  const candidateUseCase = (authenticatedCandidate as CandidateInfo & { useCase?: UseCase })?.useCase || "pv_sales";
+  const typingPrompt = TYPING_TEST_PROMPTS[candidateUseCase] || TYPING_TEST_PROMPTS.pv_sales;
+
   // Main evaluation interface
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
@@ -747,6 +829,19 @@ function CandidateAppContent() {
           />
         ) : sessionStatus === "DISCONNECTED" && currentPhase === "completed" ? (
           <CompletedScreen candidateName={authenticatedCandidate.name} />
+        ) : currentPhase === "typing_test" ? (
+          <TypingTestScreen
+            prompt={typingPrompt}
+            summary={typingTestSummary}
+            onSummaryChange={setTypingTestSummary}
+            timeRemaining={typingTestTimeRemaining}
+            onStart={handleStartTypingTest}
+            onSubmit={handleTypingTestSubmit}
+            isStarted={!!typingTestStartTime}
+            isSubmitting={isTypingTestSubmitting}
+            minWords={TYPING_TEST_CONFIG.minWords}
+            maxWords={TYPING_TEST_CONFIG.maxWords}
+          />
         ) : (
           <EvaluationInterface
             candidate={authenticatedCandidate}
@@ -1053,6 +1148,7 @@ function EvaluationInterface({
                 {currentPhase === "reading_task" && "📖"}
                 {currentPhase === "call_scenario" && "📞"}
                 {currentPhase === "empathy_scenario" && "🤝"}
+                {currentPhase === "typing_test" && "⌨️"}
                 {currentPhase === "closure_task" && "✅"}
                 {currentPhase === "not_started" && "⏳"}
                 {currentPhase === "completed" && "🎉"}
@@ -1068,6 +1164,7 @@ function EvaluationInterface({
                   {currentPhase === "reading_task" && "Read the paragraph aloud for voice analysis"}
                   {currentPhase === "call_scenario" && "Handle a simulated customer call"}
                   {currentPhase === "empathy_scenario" && "Handle an upset customer scenario"}
+                  {currentPhase === "typing_test" && "Type a summary of the call"}
                   {currentPhase === "closure_task" && "Deliver a professional call closing"}
                   {currentPhase === "not_started" && "Waiting to begin..."}
                   {currentPhase === "completed" && "Your evaluation is complete!"}
@@ -1104,6 +1201,195 @@ function EvaluationInterface({
   );
 }
 
+// Typing Test Screen Component
+function TypingTestScreen({
+  prompt,
+  summary,
+  onSummaryChange,
+  timeRemaining,
+  onStart,
+  onSubmit,
+  isStarted,
+  isSubmitting,
+  minWords,
+  maxWords,
+}: {
+  prompt: { title: string; prompt: string; hints: string[] };
+  summary: string;
+  onSummaryChange: (value: string) => void;
+  timeRemaining: number;
+  onStart: () => void;
+  onSubmit: () => void;
+  isStarted: boolean;
+  isSubmitting: boolean;
+  minWords: number;
+  maxWords: number;
+}) {
+  const wordCount = summary.split(/\s+/).filter(w => w).length;
+  const isValidLength = wordCount >= minWords && wordCount <= maxWords;
+  
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl overflow-hidden">
+        {/* Header */}
+        <div className="p-6 border-b border-slate-700 bg-gradient-to-r from-violet-900/50 to-purple-900/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-4xl">⌨️</span>
+              <div>
+                <h2 className="text-xl font-bold text-white">{prompt.title}</h2>
+                <p className="text-slate-400 text-sm mt-1">Type a summary of the call you just completed</p>
+              </div>
+            </div>
+            {isStarted && (
+              <div className={`px-4 py-2 rounded-xl font-mono text-xl ${
+                timeRemaining < 60 ? "bg-red-900/50 text-red-400" : 
+                timeRemaining < 120 ? "bg-amber-900/50 text-amber-400" : 
+                "bg-slate-700 text-white"
+              }`}>
+                {formatTime(timeRemaining)}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {!isStarted ? (
+            // Instructions before starting
+            <div className="space-y-6">
+              <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-700">
+                <h3 className="font-medium text-white mb-3">Instructions</h3>
+                <p className="text-slate-300 mb-4">{prompt.prompt}</p>
+                <div className="space-y-2">
+                  <p className="text-sm text-slate-400 font-medium">Include the following in your summary:</p>
+                  <ul className="space-y-2">
+                    {prompt.hints.map((hint, idx) => (
+                      <li key={idx} className="flex items-center gap-2 text-sm text-slate-300">
+                        <svg className="w-4 h-4 text-violet-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        {hint}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="bg-amber-900/20 rounded-xl p-4 border border-amber-700/50">
+                <p className="text-amber-400 text-sm flex items-start gap-2">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <span>
+                    <strong>Time Limit:</strong> You will have 5 minutes to complete this task. 
+                    Your summary should be between {minWords}-{maxWords} words.
+                  </span>
+                </p>
+              </div>
+
+              <button
+                onClick={onStart}
+                className="w-full py-4 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-semibold rounded-xl hover:from-violet-600 hover:to-purple-700 transition-all shadow-lg shadow-violet-500/20 flex items-center justify-center gap-2"
+              >
+                <span>Start Typing Test</span>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            // Typing area
+            <div className="space-y-4">
+              <div className="relative">
+                <textarea
+                  value={summary}
+                  onChange={(e) => onSummaryChange(e.target.value)}
+                  placeholder="Start typing your call summary here..."
+                  rows={12}
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                  autoFocus
+                />
+                <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                  <span className={`text-sm ${
+                    wordCount < minWords ? "text-amber-400" :
+                    wordCount > maxWords ? "text-red-400" :
+                    "text-emerald-400"
+                  }`}>
+                    {wordCount} words
+                  </span>
+                  <span className="text-slate-500 text-sm">
+                    ({minWords}-{maxWords} required)
+                  </span>
+                </div>
+              </div>
+
+              {/* Word count feedback */}
+              {wordCount > 0 && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  wordCount < minWords ? "bg-amber-900/30 text-amber-400 border border-amber-700/50" :
+                  wordCount > maxWords ? "bg-red-900/30 text-red-400 border border-red-700/50" :
+                  "bg-emerald-900/30 text-emerald-400 border border-emerald-700/50"
+                }`}>
+                  {wordCount < minWords && `Please write at least ${minWords - wordCount} more words.`}
+                  {wordCount > maxWords && `Please reduce your summary by ${wordCount - maxWords} words.`}
+                  {isValidLength && "✓ Word count is within the required range."}
+                </div>
+              )}
+
+              {/* Hints reminder */}
+              <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
+                <p className="text-xs text-slate-400 font-medium mb-2">Remember to include:</p>
+                <div className="flex flex-wrap gap-2">
+                  {prompt.hints.map((hint, idx) => (
+                    <span key={idx} className="px-2 py-1 bg-slate-800 text-slate-300 text-xs rounded-full">
+                      {hint}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Submit button */}
+              <button
+                onClick={onSubmit}
+                disabled={!isValidLength || isSubmitting}
+                className={`w-full py-4 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                  isValidLength && !isSubmitting
+                    ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/20"
+                    : "bg-slate-700 text-slate-400 cursor-not-allowed"
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Submit Summary</span>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Phase Progress Indicator Component
 function PhaseProgressIndicator({ currentPhase }: { currentPhase: EvaluationPhase }) {
   const phases = [
@@ -1111,10 +1397,11 @@ function PhaseProgressIndicator({ currentPhase }: { currentPhase: EvaluationPhas
     { id: "reading_task", label: "Reading", icon: "📖", description: "Paragraph reading" },
     { id: "call_scenario", label: "Call Scenario", icon: "📞", description: "Customer simulation" },
     { id: "empathy_scenario", label: "Empathy", icon: "🤝", description: "Difficult customer" },
+    { id: "typing_test", label: "Call Summary", icon: "⌨️", description: "Type call summary" },
     { id: "closure_task", label: "Closure", icon: "🎯", description: "Professional closing" },
   ];
 
-  const phaseOrder = ["not_started", "personal_questions", "reading_task", "call_scenario", "empathy_scenario", "closure_task", "completed"];
+  const phaseOrder = ["not_started", "personal_questions", "reading_task", "call_scenario", "empathy_scenario", "typing_test", "closure_task", "completed"];
   const currentIndex = phaseOrder.indexOf(currentPhase);
 
   const getPhaseStatus = (phaseId: string): "completed" | "current" | "pending" => {
