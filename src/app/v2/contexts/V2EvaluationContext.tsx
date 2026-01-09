@@ -2,34 +2,153 @@
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
 
-// Reading passage options
+// Use Case types for different call scenarios
+export type UseCase = "pv_sales" | "ev_sales" | "service";
+
+export const USE_CASE_LABELS: Record<UseCase, string> = {
+  pv_sales: "PV Sales",
+  ev_sales: "EV Sales",
+  service: "Service Support",
+};
+
+// Reading passage options - now organized by use case
 export const READING_PASSAGES = {
+  // PV Sales Passages
   safety_adas: {
     id: "safety_adas",
-    title: "Safety & ADAS",
+    title: "Safety & ADAS Features",
+    useCase: "pv_sales" as UseCase,
     wordCount: 63,
     text: "Safety has become a top priority in the Indian automobile market. Features like six airbags, advanced driver assistance systems, electronic stability control, and hill hold assist help drivers manage difficult road and traffic conditions. As customers compare multiple brands, explaining these safety features in simple, relatable terms plays an important role in building trust and supporting informed decision-making."
   },
+  suv_performance: {
+    id: "suv_performance",
+    title: "SUV Performance & Capability",
+    useCase: "pv_sales" as UseCase,
+    wordCount: 65,
+    text: "Indian customers increasingly prefer SUVs for their commanding road presence, spacious interiors, and superior ground clearance. Features like 4x4 capability, terrain response modes, and powerful diesel engines make them suitable for both city commutes and off-road adventures. Understanding these preferences helps in recommending the right variant that matches customer lifestyle and usage patterns."
+  },
+  // EV Sales Passages
   ev_fast_charging: {
     id: "ev_fast_charging",
     title: "EV Fast Charging",
+    useCase: "ev_sales" as UseCase,
     wordCount: 58,
     text: "Electric vehicle customers in India look for fast-charging capability, practical daily range, and battery longevity. With growing public charging infrastructure, modern EVs offer quick charge options that significantly reduce waiting time. Communicating these benefits clearly helps customers understand the convenience of adopting an electric vehicle for long commutes and everyday usage."
   },
+  ev_battery_tech: {
+    id: "ev_battery_tech",
+    title: "EV Battery Technology",
+    useCase: "ev_sales" as UseCase,
+    wordCount: 62,
+    text: "Battery technology is the heart of every electric vehicle. Modern lithium-ion batteries offer excellent energy density, longer life cycles, and are backed by comprehensive warranties. Customers often have concerns about battery degradation and replacement costs. Addressing these concerns with accurate information about battery management systems and warranty coverage builds confidence in the EV purchase decision."
+  },
+  // Service Support Passages
   connected_car: {
     id: "connected_car",
     title: "Connected Car Technology",
+    useCase: "service" as UseCase,
     wordCount: 61,
     text: "Connected car technology is becoming essential in India, with drivers expecting features like remote lock–unlock, live vehicle tracking, geo-fencing, emergency alerts, and over-the-air updates. These features not only enhance safety but also improve convenience. When speaking to customers, it is important to describe how these technologies add value to their daily driving experience."
-  }
+  },
+  service_packages: {
+    id: "service_packages",
+    title: "Service & Maintenance Packages",
+    useCase: "service" as UseCase,
+    wordCount: 64,
+    text: "Regular maintenance is crucial for vehicle longevity and safety. Our service packages include periodic maintenance, roadside assistance, and extended warranty options. Customers benefit from transparent pricing, genuine parts, and certified technicians. When explaining service schedules, emphasize the importance of timely maintenance and how our packages provide peace of mind and cost savings over the vehicle ownership period."
+  },
 };
 
-// Call scenario levels
+// Helper to get passages by use case
+export const getReadingPassages = (useCase?: UseCase) => {
+  if (!useCase) return Object.values(READING_PASSAGES);
+  return Object.values(READING_PASSAGES).filter(p => p.useCase === useCase);
+};
+
+// Call scenario levels - organized by use case
 export const CALL_SCENARIOS = {
+  // PV Sales Scenarios
+  pv_basic_inquiry: {
+    id: "pv_basic_inquiry",
+    level: "Beginner",
+    title: "Basic Inquiry - Mahindra Bolero Neo",
+    useCase: "pv_sales" as UseCase,
+    wordCount: 109,
+    description: "Customer inquires about basic price and features of Bolero Neo"
+  },
+  pv_comparison: {
+    id: "pv_comparison",
+    level: "Moderate",
+    title: "Comparison Scenario - Mahindra XUV700",
+    useCase: "pv_sales" as UseCase,
+    wordCount: 142,
+    description: "Customer compares XUV700 with competitor, needs convincing"
+  },
+  pv_negotiation: {
+    id: "pv_negotiation",
+    level: "Experienced",
+    title: "Price Negotiation - Mahindra Thar",
+    useCase: "pv_sales" as UseCase,
+    wordCount: 156,
+    description: "Customer is interested but negotiating hard on price and accessories"
+  },
+  // EV Sales Scenarios
+  ev_curious: {
+    id: "ev_curious",
+    level: "Beginner",
+    title: "First-time EV Inquiry - XUV400",
+    useCase: "ev_sales" as UseCase,
+    wordCount: 120,
+    description: "Customer new to EVs, curious about basics of XUV400"
+  },
+  ev_range_anxiety: {
+    id: "ev_range_anxiety",
+    level: "Moderate",
+    title: "Range Anxiety - XUV400 EV",
+    useCase: "ev_sales" as UseCase,
+    wordCount: 145,
+    description: "Customer concerned about EV range and charging infrastructure"
+  },
+  ev_frustrated: {
+    id: "ev_frustrated",
+    level: "Experienced",
+    title: "Tough EV Scenario - XUV400 EV",
+    useCase: "ev_sales" as UseCase,
+    wordCount: 167,
+    description: "Frustrated customer with EV concerns about charging and range"
+  },
+  // Service Support Scenarios
+  service_booking: {
+    id: "service_booking",
+    level: "Beginner",
+    title: "Service Appointment Booking",
+    useCase: "service" as UseCase,
+    wordCount: 95,
+    description: "Customer wants to book a routine service appointment"
+  },
+  service_complaint: {
+    id: "service_complaint",
+    level: "Moderate",
+    title: "Service Quality Complaint",
+    useCase: "service" as UseCase,
+    wordCount: 138,
+    description: "Customer unhappy with previous service experience"
+  },
+  service_escalation: {
+    id: "service_escalation",
+    level: "Experienced",
+    title: "Warranty Dispute Escalation",
+    useCase: "service" as UseCase,
+    wordCount: 175,
+    description: "Angry customer escalating a warranty claim rejection"
+  },
+  // Legacy scenarios for backward compatibility
   beginner: {
     id: "beginner",
     level: "Beginner",
     title: "Basic Inquiry - Mahindra Bolero Neo (PV)",
+    useCase: "pv_sales" as UseCase,
     wordCount: 109,
     description: "Customer inquires about basic price and features of Bolero Neo"
   },
@@ -37,6 +156,7 @@ export const CALL_SCENARIOS = {
     id: "moderate",
     level: "Moderate",
     title: "Comparison Scenario - Mahindra XUV700 (PV)",
+    useCase: "pv_sales" as UseCase,
     wordCount: 142,
     description: "Customer compares XUV700 with competitor, needs convincing"
   },
@@ -44,9 +164,16 @@ export const CALL_SCENARIOS = {
     id: "experienced",
     level: "Experienced",
     title: "Tough EV Scenario - Mahindra XUV400 EV",
+    useCase: "ev_sales" as UseCase,
     wordCount: 167,
     description: "Frustrated customer with EV concerns about charging and range"
-  }
+  },
+};
+
+// Helper to get scenarios by use case
+export const getCallScenarios = (useCase?: UseCase) => {
+  if (!useCase) return Object.values(CALL_SCENARIOS);
+  return Object.values(CALL_SCENARIOS).filter(s => s.useCase === useCase);
 };
 
 // Personal questions
@@ -79,7 +206,7 @@ export const PERSONAL_QUESTIONS = [
   }
 ];
 
-// Scoring parameters
+// Scoring parameters - generic list (backward compatible)
 export const SCORING_PARAMETERS = [
   { id: "clarity_pace", label: "Clarity & Pace", description: "Smooth flow, no hesitation" },
   { id: "product_knowledge", label: "Product Knowledge", description: "PV & EV awareness" },
@@ -90,6 +217,46 @@ export const SCORING_PARAMETERS = [
   { id: "process_accuracy", label: "Process Accuracy", description: "Lead capturing, summarizing, CTA" },
   { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete" }
 ];
+
+// Scoring parameters by use case
+export const SCORING_PARAMETERS_BY_USE_CASE: Record<UseCase, Array<{ id: string; label: string; description: string }>> = {
+  pv_sales: [
+    { id: "clarity_pace", label: "Clarity & Pace", description: "Smooth flow, no hesitation" },
+    { id: "product_knowledge", label: "Product Knowledge", description: "PV model & feature awareness" },
+    { id: "customer_understanding", label: "Customer Understanding", description: "Ability to probe needs and preferences" },
+    { id: "comparison_handling", label: "Comparison Handling", description: "Addressing competitor comparisons effectively" },
+    { id: "objection_handling", label: "Objection Handling", description: "Responding to price/feature objections" },
+    { id: "confidence", label: "Confidence", description: "Tone stability and conviction" },
+    { id: "lead_capture", label: "Lead Capture", description: "Collecting customer details and follow-up" },
+    { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete call ending" }
+  ],
+  ev_sales: [
+    { id: "clarity_pace", label: "Clarity & Pace", description: "Smooth flow, no hesitation" },
+    { id: "ev_knowledge", label: "EV Knowledge", description: "Battery, charging, range awareness" },
+    { id: "customer_understanding", label: "Customer Understanding", description: "Understanding EV adoption concerns" },
+    { id: "myth_busting", label: "Myth Busting", description: "Addressing EV misconceptions effectively" },
+    { id: "range_confidence", label: "Range Confidence", description: "Explaining range and charging solutions" },
+    { id: "empathy", label: "Empathy", description: "Understanding customer anxiety about EV transition" },
+    { id: "tco_explanation", label: "TCO Explanation", description: "Explaining total cost of ownership benefits" },
+    { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete call ending" }
+  ],
+  service: [
+    { id: "clarity_pace", label: "Clarity & Pace", description: "Smooth flow, no hesitation" },
+    { id: "service_knowledge", label: "Service Knowledge", description: "Service packages and warranty awareness" },
+    { id: "empathy", label: "Empathy", description: "Understanding customer frustration" },
+    { id: "problem_resolution", label: "Problem Resolution", description: "Offering effective solutions" },
+    { id: "handling_pressure", label: "Handling Pressure", description: "Composure with angry customers" },
+    { id: "process_accuracy", label: "Process Accuracy", description: "Booking, escalation, follow-up process" },
+    { id: "de_escalation", label: "De-escalation", description: "Calming upset customers effectively" },
+    { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete call ending" }
+  ],
+};
+
+// Helper to get scoring parameters by use case
+export const getScoringParameters = (useCase?: UseCase) => {
+  if (!useCase) return SCORING_PARAMETERS;
+  return SCORING_PARAMETERS_BY_USE_CASE[useCase] || SCORING_PARAMETERS;
+};
 
 // Evaluation phases
 export type EvaluationPhase = 
@@ -112,6 +279,7 @@ export interface CandidateInfo {
   status: CandidateStatus;
   createdAt: string;
   // Evaluation settings per candidate
+  useCase: UseCase;
   selectedPassage: keyof typeof READING_PASSAGES | null;
   selectedScenario: keyof typeof CALL_SCENARIOS | null;
 }
@@ -284,12 +452,14 @@ export const V2EvaluationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const addCandidate = useCallback((candidate: Omit<CandidateInfo, "id" | "accessCode" | "status" | "createdAt">): string => {
     const id = generateCandidateId();
+    const useCase = candidate.useCase || "pv_sales";
     const newCandidate: CandidateInfo = {
       ...candidate,
       id,
       accessCode: generateAccessCode(),
       status: "pending",
       createdAt: new Date().toISOString(),
+      useCase,
       selectedPassage: candidate.selectedPassage || "safety_adas",
       selectedScenario: candidate.selectedScenario || "beginner",
     };
@@ -302,7 +472,7 @@ export const V2EvaluationProvider: React.FC<{ children: ReactNode }> = ({ childr
     return id;
   }, []);
 
-  const addMultipleCandidates = useCallback((candidates: Array<{ name: string; email?: string; phone?: string }>): string[] => {
+  const addMultipleCandidates = useCallback((candidates: Array<{ name: string; email?: string; phone?: string; useCase?: UseCase }>): string[] => {
     const newCandidates: CandidateInfo[] = candidates.map(c => ({
       id: generateCandidateId(),
       name: c.name,
@@ -311,6 +481,7 @@ export const V2EvaluationProvider: React.FC<{ children: ReactNode }> = ({ childr
       accessCode: generateAccessCode(),
       status: "pending" as CandidateStatus,
       createdAt: new Date().toISOString(),
+      useCase: c.useCase || "pv_sales" as UseCase,
       selectedPassage: "safety_adas" as keyof typeof READING_PASSAGES,
       selectedScenario: "beginner" as keyof typeof CALL_SCENARIOS,
     }));

@@ -5,7 +5,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { SCORING_PARAMETERS, READING_PASSAGES, CALL_SCENARIOS } from "../contexts/V2EvaluationContext";
+import { 
+  SCORING_PARAMETERS, 
+  SCORING_PARAMETERS_BY_USE_CASE,
+  READING_PASSAGES, 
+  CALL_SCENARIOS,
+  USE_CASE_LABELS,
+  UseCase,
+  getReadingPassages,
+  getCallScenarios,
+  getScoringParameters,
+} from "../contexts/V2EvaluationContext";
 import {
   useBatches,
   useBatch,
@@ -32,7 +42,7 @@ import {
   CalibrationHistoryItem,
 } from "../hooks/useApi";
 
-type TabType = "batches" | "candidates" | "evaluation" | "results" | "settings";
+type TabType = "batches" | "candidates" | "evaluation" | "results" | "scenarios" | "settings";
 
 export default function EvaluatorDashboard() {
   const { data: session, status } = useSession();
@@ -152,6 +162,7 @@ export default function EvaluatorDashboard() {
             { id: "candidates" as TabType, label: "Candidates", icon: "👥", disabled: !activeBatch },
             { id: "evaluation" as TabType, label: "Live Evaluation", icon: "🎙️", disabled: !activeBatch },
             { id: "results" as TabType, label: "Results", icon: "📊", disabled: !activeBatch },
+            { id: "scenarios" as TabType, label: "Scenarios", icon: "🎯" },
             { id: "settings" as TabType, label: "Settings", icon: "⚙️", disabled: !activeBatch },
           ].map((tab) => (
             <button
@@ -197,6 +208,9 @@ export default function EvaluatorDashboard() {
         )}
         {activeTab === "results" && activeBatch && (
           <ResultsTab batch={activeBatch} onRefresh={loadBatch} />
+        )}
+        {activeTab === "scenarios" && (
+          <ScenariosTab />
         )}
         {activeTab === "settings" && activeBatch && (
           <SettingsTab
@@ -1839,7 +1853,8 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
         "Candidate Name",
         "Email",
         "Phone",
-        "Passage",
+        "Use Case",
+        "Reading Passage",
         "Scenario",
         "Overall Score",
         "Clarity & Pace",
@@ -1868,8 +1883,9 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
         c.name,
         c.email || "",
         c.phone || "",
+        USE_CASE_LABELS[(c as CandidateData & { useCase?: UseCase }).useCase || "pv_sales"] || "PV Sales",
         READING_PASSAGES[c.selectedPassage as keyof typeof READING_PASSAGES]?.title || c.selectedPassage,
-        CALL_SCENARIOS[c.selectedScenario as keyof typeof CALL_SCENARIOS]?.level || c.selectedScenario,
+        CALL_SCENARIOS[c.selectedScenario as keyof typeof CALL_SCENARIOS]?.title || c.selectedScenario,
         getOverallScore(c) || "",
         getScoreForParam(c, "clarity_pace"),
         getScoreForParam(c, "product_knowledge"),
@@ -1970,10 +1986,12 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Candidate</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Configuration</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Use Case</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Reading Passage</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-slate-600">Scenario</th>
                 <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Overall Score</th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Manager Feedback</th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">HR Decision</th>
+                <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">Manager</th>
+                <th className="text-center px-4 py-3 text-sm font-medium text-slate-600">HR</th>
                 <th className="text-right px-4 py-3 text-sm font-medium text-slate-600">Actions</th>
               </tr>
             </thead>
@@ -2002,6 +2020,8 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
                   );
                 };
 
+                const candidateUseCase = (candidate as CandidateData & { useCase?: UseCase }).useCase || "pv_sales";
+                
                 return (
                   <tr key={candidate.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3">
@@ -2009,19 +2029,34 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
                       <p className="text-sm text-slate-500">{candidate.email || "No email"}</p>
                     </td>
                     <td className="px-4 py-3">
+                      <span className="px-2 py-1 bg-violet-100 text-violet-700 text-xs font-medium rounded-full">
+                        {USE_CASE_LABELS[candidateUseCase] || "PV Sales"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
                       <p className="text-sm text-slate-600">
                         {READING_PASSAGES[candidate.selectedPassage as keyof typeof READING_PASSAGES]?.title ||
-                          candidate.selectedPassage}
+                          candidate.selectedPassage || "—"}
                       </p>
-                      <p className="text-sm text-slate-500">
-                        {CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.level ||
-                          candidate.selectedScenario}{" "}
-                        Level
-                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="text-sm text-slate-600">
+                          {CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.title ||
+                            candidate.selectedScenario || "—"}
+                        </p>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.level === "Beginner" ? "bg-green-100 text-green-700" :
+                          CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.level === "Moderate" ? "bg-yellow-100 text-yellow-700" :
+                          "bg-red-100 text-red-700"
+                        }`}>
+                          {CALL_SCENARIOS[candidate.selectedScenario as keyof typeof CALL_SCENARIOS]?.level || "—"}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span
-                        className={`text-2xl font-bold ${
+                        className={`text-xl font-bold ${
                           overallScore >= 4
                             ? "text-emerald-600"
                             : overallScore >= 3
@@ -2031,7 +2066,7 @@ function ResultsTab({ batch, onRefresh }: { batch: BatchDetail; onRefresh: () =>
                       >
                         {overallScore || "—"}
                       </span>
-                      <span className="text-slate-400">/5</span>
+                      <span className="text-slate-400 text-sm">/5</span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       {getDecisionBadge(managerDec, "manager")}
@@ -3766,6 +3801,960 @@ function SettingsTab({
           {batch.status === "archived" ? "Already Archived" : "Archive Batch"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// Scenarios Tab - Configuration for use cases, passages, scenarios, and metrics
+type ScenariosSubTab = "overview" | "use_cases" | "passages" | "scenarios" | "metrics" | "voice_metrics";
+
+function ScenariosTab() {
+  const [activeSubTab, setActiveSubTab] = useState<ScenariosSubTab>("overview");
+  
+  // Use Cases management state
+  const [useCases, setUseCases] = useState<Array<{ id: string; label: string; description: string; isActive: boolean }>>([
+    { id: "pv_sales", label: "PV Sales", description: "Passenger vehicle sales inquiries and conversions", isActive: true },
+    { id: "ev_sales", label: "EV Sales", description: "Electric vehicle sales and customer education", isActive: true },
+    { id: "service", label: "Service Support", description: "Service booking, complaints, and warranty support", isActive: true },
+  ]);
+  const [showAddUseCase, setShowAddUseCase] = useState(false);
+  const [editingUseCase, setEditingUseCase] = useState<string | null>(null);
+  const [newUseCase, setNewUseCase] = useState({ id: "", label: "", description: "" });
+
+  // Reading Passages management state
+  const [passages, setPassages] = useState(Object.values(READING_PASSAGES));
+  const [showAddPassage, setShowAddPassage] = useState(false);
+  const [editingPassage, setEditingPassage] = useState<string | null>(null);
+  const [newPassage, setNewPassage] = useState({ id: "", title: "", text: "", useCase: "pv_sales" as UseCase, wordCount: 0 });
+  const [selectedPassageUseCase, setSelectedPassageUseCase] = useState<UseCase | "all">("all");
+
+  // Call Scenarios management state
+  const [callScenarios, setCallScenarios] = useState(Object.values(CALL_SCENARIOS).filter((s, i, arr) => 
+    arr.findIndex(x => x.title === s.title) === i // Remove duplicates by title
+  ));
+  const [showAddCallScenario, setShowAddCallScenario] = useState(false);
+  const [editingCallScenario, setEditingCallScenario] = useState<string | null>(null);
+  const [newCallScenario, setNewCallScenario] = useState({ id: "", title: "", level: "Beginner", description: "", useCase: "pv_sales" as UseCase, wordCount: 0 });
+  const [selectedCallScenarioUseCase, setSelectedCallScenarioUseCase] = useState<UseCase | "all">("all");
+
+  // Scoring Metrics management state
+  const [scoringMetrics, setScoringMetrics] = useState<Record<UseCase, Array<{ id: string; label: string; description: string }>>>(SCORING_PARAMETERS_BY_USE_CASE);
+  const [showAddMetric, setShowAddMetric] = useState(false);
+  const [editingMetric, setEditingMetric] = useState<{ useCase: UseCase; id: string } | null>(null);
+  const [newMetric, setNewMetric] = useState({ id: "", label: "", description: "", useCase: "pv_sales" as UseCase });
+  const [selectedMetricUseCase, setSelectedMetricUseCase] = useState<UseCase>("pv_sales");
+
+  // Voice Metrics management state
+  const [voiceMetrics, setVoiceMetrics] = useState([
+    { 
+      id: "clarity", 
+      label: "Clarity", 
+      weight: 0.35,
+      description: "How clearly the candidate articulates words",
+      calculation: "Based on frequency distribution stability and harmonic content analysis",
+      thresholds: { excellent: 80, good: 60, needsImprovement: 40 }
+    },
+    { 
+      id: "volume", 
+      label: "Volume", 
+      weight: 0.25,
+      description: "Consistency and projection of voice volume",
+      calculation: "RMS amplitude analysis with noise gate filtering",
+      thresholds: { excellent: 60, good: 50, needsImprovement: 30 }
+    },
+    { 
+      id: "pace", 
+      label: "Pace", 
+      weight: 0.25,
+      description: "Speaking rate and rhythm consistency",
+      calculation: "Zero-crossing rate analysis to detect speech patterns",
+      thresholds: { excellent: 70, good: 40, needsImprovement: 20 }
+    },
+    { 
+      id: "tone", 
+      label: "Tone", 
+      weight: 0.15,
+      description: "Pitch variation and vocal quality",
+      calculation: "Autocorrelation pitch detection (60-400 Hz human voice range)",
+      thresholds: { excellent: 70, good: 50, needsImprovement: 30 }
+    },
+  ]);
+  const [showAddVoiceMetric, setShowAddVoiceMetric] = useState(false);
+  const [editingVoiceMetric, setEditingVoiceMetric] = useState<string | null>(null);
+  const [newVoiceMetric, setNewVoiceMetric] = useState({ 
+    id: "", 
+    label: "", 
+    weight: 0.1,
+    description: "", 
+    calculation: "",
+    thresholds: { excellent: 80, good: 60, needsImprovement: 40 }
+  });
+
+  // Sub-tab configuration
+  const subTabs: Array<{ id: ScenariosSubTab; label: string; icon: string }> = [
+    { id: "overview", label: "Overview", icon: "📋" },
+    { id: "use_cases", label: "Use Cases", icon: "🎯" },
+    { id: "passages", label: "Reading Passages", icon: "📖" },
+    { id: "scenarios", label: "Call Scenarios", icon: "📞" },
+    { id: "metrics", label: "Scoring Metrics", icon: "📊" },
+    { id: "voice_metrics", label: "Voice Quality", icon: "🎙️" },
+  ];
+
+  const filteredPassages = selectedPassageUseCase === "all" 
+    ? passages 
+    : passages.filter(p => p.useCase === selectedPassageUseCase);
+
+  const filteredCallScenarios = selectedCallScenarioUseCase === "all"
+    ? callScenarios
+    : callScenarios.filter(s => s.useCase === selectedCallScenarioUseCase);
+
+  return (
+    <div className="space-y-6">
+      {/* Sub-Tab Navigation */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-1">
+        <div className="flex flex-wrap gap-1">
+          {subTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveSubTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeSubTab === tab.id
+                  ? "bg-violet-500 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Overview Tab */}
+      {activeSubTab === "overview" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-2xl">🎯</span>
+              <h3 className="font-medium text-slate-800">Use Cases</h3>
+            </div>
+            <div className="text-3xl font-bold text-violet-600 mb-1">{useCases.filter(u => u.isActive).length}</div>
+            <p className="text-sm text-slate-500">Active use cases</p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-2xl">📖</span>
+              <h3 className="font-medium text-slate-800">Reading Passages</h3>
+            </div>
+            <div className="text-3xl font-bold text-emerald-600 mb-1">{passages.length}</div>
+            <p className="text-sm text-slate-500">Available passages</p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-2xl">📞</span>
+              <h3 className="font-medium text-slate-800">Call Scenarios</h3>
+            </div>
+            <div className="text-3xl font-bold text-amber-600 mb-1">{callScenarios.length}</div>
+            <p className="text-sm text-slate-500">Practice scenarios</p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-2xl">📊</span>
+              <h3 className="font-medium text-slate-800">Scoring Metrics</h3>
+            </div>
+            <div className="text-3xl font-bold text-blue-600 mb-1">
+              {Object.values(scoringMetrics).reduce((sum, m) => sum + m.length, 0)}
+            </div>
+            <p className="text-sm text-slate-500">Evaluation criteria</p>
+          </div>
+        </div>
+      )}
+
+      {/* Use Cases Tab */}
+      {activeSubTab === "use_cases" && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Use Cases</h2>
+              <p className="text-slate-500 text-sm mt-1">Define evaluation contexts for different call types</p>
+            </div>
+            <button
+              onClick={() => { setShowAddUseCase(true); setNewUseCase({ id: "", label: "", description: "" }); }}
+              className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Use Case
+            </button>
+          </div>
+
+          {/* Add/Edit Use Case Form */}
+          {(showAddUseCase || editingUseCase) && (
+            <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <h3 className="font-medium text-slate-800 mb-4">{editingUseCase ? "Edit Use Case" : "Add New Use Case"}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">ID (snake_case)</label>
+                  <input
+                    type="text"
+                    value={newUseCase.id}
+                    onChange={(e) => setNewUseCase({ ...newUseCase, id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                    placeholder="e.g., commercial_vehicles"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    disabled={!!editingUseCase}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Label</label>
+                  <input
+                    type="text"
+                    value={newUseCase.label}
+                    onChange={(e) => setNewUseCase({ ...newUseCase, label: e.target.value })}
+                    placeholder="e.g., Commercial Vehicles"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                  <input
+                    type="text"
+                    value={newUseCase.description}
+                    onChange={(e) => setNewUseCase({ ...newUseCase, description: e.target.value })}
+                    placeholder="Brief description"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (editingUseCase) {
+                      setUseCases(prev => prev.map(u => u.id === editingUseCase ? { ...u, ...newUseCase } : u));
+                      setEditingUseCase(null);
+                    } else if (newUseCase.id && newUseCase.label) {
+                      setUseCases(prev => [...prev, { ...newUseCase, isActive: true }]);
+                    }
+                    setShowAddUseCase(false);
+                    setNewUseCase({ id: "", label: "", description: "" });
+                  }}
+                  className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600"
+                >
+                  {editingUseCase ? "Save Changes" : "Add Use Case"}
+                </button>
+                <button
+                  onClick={() => { setShowAddUseCase(false); setEditingUseCase(null); setNewUseCase({ id: "", label: "", description: "" }); }}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Use Cases List */}
+          <div className="space-y-3">
+            {useCases.map((useCase) => (
+              <div key={useCase.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-4">
+                  <div className={`w-3 h-3 rounded-full ${useCase.isActive ? "bg-emerald-500" : "bg-slate-300"}`} />
+                  <div>
+                    <div className="font-medium text-slate-800">{useCase.label}</div>
+                    <div className="text-sm text-slate-500">{useCase.description}</div>
+                    <div className="text-xs text-slate-400 mt-1">ID: {useCase.id}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setUseCases(prev => prev.map(u => u.id === useCase.id ? { ...u, isActive: !u.isActive } : u))}
+                    className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                      useCase.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {useCase.isActive ? "Active" : "Inactive"}
+                  </button>
+                  <button
+                    onClick={() => { setEditingUseCase(useCase.id); setNewUseCase(useCase); }}
+                    className="p-2 text-slate-400 hover:text-violet-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Reading Passages Tab */}
+      {activeSubTab === "passages" && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Reading Passages</h2>
+              <p className="text-slate-500 text-sm mt-1">Configure reading comprehension texts for each use case</p>
+            </div>
+            <button
+              onClick={() => { setShowAddPassage(true); setNewPassage({ id: "", title: "", text: "", useCase: "pv_sales", wordCount: 0 }); }}
+              className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Passage
+            </button>
+          </div>
+
+          {/* Use Case Filter */}
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={() => setSelectedPassageUseCase("all")}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                selectedPassageUseCase === "all" ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              All
+            </button>
+            {useCases.filter(u => u.isActive).map(uc => (
+              <button
+                key={uc.id}
+                onClick={() => setSelectedPassageUseCase(uc.id as UseCase)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  selectedPassageUseCase === uc.id ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {uc.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Add/Edit Passage Form */}
+          {(showAddPassage || editingPassage) && (
+            <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <h3 className="font-medium text-slate-800 mb-4">{editingPassage ? "Edit Passage" : "Add New Passage"}</h3>
+              <div className="space-y-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">ID (snake_case)</label>
+                    <input
+                      type="text"
+                      value={newPassage.id}
+                      onChange={(e) => setNewPassage({ ...newPassage, id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                      placeholder="e.g., ev_battery_warranty"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                      disabled={!!editingPassage}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                    <input
+                      type="text"
+                      value={newPassage.title}
+                      onChange={(e) => setNewPassage({ ...newPassage, title: e.target.value })}
+                      placeholder="e.g., EV Battery Warranty"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Use Case</label>
+                    <select
+                      value={newPassage.useCase}
+                      onChange={(e) => setNewPassage({ ...newPassage, useCase: e.target.value as UseCase })}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    >
+                      {useCases.filter(u => u.isActive).map(uc => (
+                        <option key={uc.id} value={uc.id}>{uc.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Passage Text <span className="text-slate-400">({newPassage.text.split(/\s+/).filter(w => w).length} words)</span>
+                  </label>
+                  <textarea
+                    value={newPassage.text}
+                    onChange={(e) => setNewPassage({ ...newPassage, text: e.target.value, wordCount: e.target.value.split(/\s+/).filter(w => w).length })}
+                    placeholder="Enter the reading passage text..."
+                    rows={4}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (editingPassage) {
+                      setPassages(prev => prev.map(p => p.id === editingPassage ? { ...newPassage } : p));
+                      setEditingPassage(null);
+                    } else if (newPassage.id && newPassage.title && newPassage.text) {
+                      setPassages(prev => [...prev, { ...newPassage }]);
+                    }
+                    setShowAddPassage(false);
+                    setNewPassage({ id: "", title: "", text: "", useCase: "pv_sales", wordCount: 0 });
+                  }}
+                  className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600"
+                >
+                  {editingPassage ? "Save Changes" : "Add Passage"}
+                </button>
+                <button
+                  onClick={() => { setShowAddPassage(false); setEditingPassage(null); }}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Passages List */}
+          <div className="space-y-3">
+            {filteredPassages.map((passage) => (
+              <div key={passage.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <div className="font-medium text-slate-800">{passage.title}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-medium rounded-full">
+                        {USE_CASE_LABELS[passage.useCase] || passage.useCase}
+                      </span>
+                      <span className="text-xs text-slate-400">{passage.wordCount} words</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setEditingPassage(passage.id); setNewPassage(passage); }}
+                    className="p-2 text-slate-400 hover:text-violet-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                </div>
+                <p className="text-sm text-slate-600 line-clamp-2">{passage.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Call Scenarios Tab */}
+      {activeSubTab === "scenarios" && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Call Scenarios</h2>
+              <p className="text-slate-500 text-sm mt-1">Configure role-play scenarios for customer simulations</p>
+            </div>
+            <button
+              onClick={() => { setShowAddCallScenario(true); setNewCallScenario({ id: "", title: "", level: "Beginner", description: "", useCase: "pv_sales", wordCount: 0 }); }}
+              className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Scenario
+            </button>
+          </div>
+
+          {/* Use Case Filter */}
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={() => setSelectedCallScenarioUseCase("all")}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                selectedCallScenarioUseCase === "all" ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              All
+            </button>
+            {useCases.filter(u => u.isActive).map(uc => (
+              <button
+                key={uc.id}
+                onClick={() => setSelectedCallScenarioUseCase(uc.id as UseCase)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  selectedCallScenarioUseCase === uc.id ? "bg-violet-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {uc.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Add/Edit Scenario Form */}
+          {(showAddCallScenario || editingCallScenario) && (
+            <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <h3 className="font-medium text-slate-800 mb-4">{editingCallScenario ? "Edit Scenario" : "Add New Scenario"}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">ID</label>
+                  <input
+                    type="text"
+                    value={newCallScenario.id}
+                    onChange={(e) => setNewCallScenario({ ...newCallScenario, id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                    placeholder="e.g., ev_range_concern"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    disabled={!!editingCallScenario}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={newCallScenario.title}
+                    onChange={(e) => setNewCallScenario({ ...newCallScenario, title: e.target.value })}
+                    placeholder="e.g., Range Anxiety Concern"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Level</label>
+                  <select
+                    value={newCallScenario.level}
+                    onChange={(e) => setNewCallScenario({ ...newCallScenario, level: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  >
+                    <option value="Beginner">Beginner</option>
+                    <option value="Moderate">Moderate</option>
+                    <option value="Experienced">Experienced</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Use Case</label>
+                  <select
+                    value={newCallScenario.useCase}
+                    onChange={(e) => setNewCallScenario({ ...newCallScenario, useCase: e.target.value as UseCase })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  >
+                    {useCases.filter(u => u.isActive).map(uc => (
+                      <option key={uc.id} value={uc.id}>{uc.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea
+                  value={newCallScenario.description}
+                  onChange={(e) => setNewCallScenario({ ...newCallScenario, description: e.target.value })}
+                  placeholder="Describe the scenario context and customer behavior..."
+                  rows={2}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (editingCallScenario) {
+                      setCallScenarios(prev => prev.map(s => s.id === editingCallScenario ? { ...newCallScenario } : s));
+                      setEditingCallScenario(null);
+                    } else if (newCallScenario.id && newCallScenario.title) {
+                      setCallScenarios(prev => [...prev, { ...newCallScenario }]);
+                    }
+                    setShowAddCallScenario(false);
+                    setNewCallScenario({ id: "", title: "", level: "Beginner", description: "", useCase: "pv_sales", wordCount: 0 });
+                  }}
+                  className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600"
+                >
+                  {editingCallScenario ? "Save Changes" : "Add Scenario"}
+                </button>
+                <button
+                  onClick={() => { setShowAddCallScenario(false); setEditingCallScenario(null); }}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Scenarios List */}
+          <div className="space-y-3">
+            {filteredCallScenarios.map((scenario) => (
+              <div key={scenario.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <div className="font-medium text-slate-800">{scenario.title}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                      scenario.level === "Beginner" ? "bg-green-100 text-green-700" :
+                      scenario.level === "Moderate" ? "bg-yellow-100 text-yellow-700" :
+                      "bg-red-100 text-red-700"
+                    }`}>
+                      {scenario.level}
+                    </span>
+                    <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-medium rounded-full">
+                      {USE_CASE_LABELS[scenario.useCase] || scenario.useCase}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-500 mt-1">{scenario.description}</p>
+                </div>
+                <button
+                  onClick={() => { setEditingCallScenario(scenario.id); setNewCallScenario(scenario); }}
+                  className="p-2 text-slate-400 hover:text-violet-600 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Scoring Metrics Tab */}
+      {activeSubTab === "metrics" && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Scoring Metrics</h2>
+              <p className="text-slate-500 text-sm mt-1">Configure evaluation criteria for each use case</p>
+            </div>
+            <button
+              onClick={() => { setShowAddMetric(true); setNewMetric({ id: "", label: "", description: "", useCase: selectedMetricUseCase }); }}
+              className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Metric
+            </button>
+          </div>
+
+          {/* Use Case Tabs */}
+          <div className="flex gap-2 mb-6 border-b border-slate-200 pb-4">
+            {useCases.filter(u => u.isActive).map(uc => (
+              <button
+                key={uc.id}
+                onClick={() => setSelectedMetricUseCase(uc.id as UseCase)}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                  selectedMetricUseCase === uc.id
+                    ? "bg-violet-500 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {uc.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Add/Edit Metric Form */}
+          {(showAddMetric || editingMetric) && (
+            <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <h3 className="font-medium text-slate-800 mb-4">{editingMetric ? "Edit Metric" : "Add New Metric"}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">ID</label>
+                  <input
+                    type="text"
+                    value={newMetric.id}
+                    onChange={(e) => setNewMetric({ ...newMetric, id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                    placeholder="e.g., objection_handling"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    disabled={!!editingMetric}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Label</label>
+                  <input
+                    type="text"
+                    value={newMetric.label}
+                    onChange={(e) => setNewMetric({ ...newMetric, label: e.target.value })}
+                    placeholder="e.g., Objection Handling"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                  <input
+                    type="text"
+                    value={newMetric.description}
+                    onChange={(e) => setNewMetric({ ...newMetric, description: e.target.value })}
+                    placeholder="What this metric evaluates"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (editingMetric) {
+                      setScoringMetrics(prev => ({
+                        ...prev,
+                        [editingMetric.useCase]: prev[editingMetric.useCase].map(m => 
+                          m.id === editingMetric.id ? { ...newMetric } : m
+                        )
+                      }));
+                      setEditingMetric(null);
+                    } else if (newMetric.id && newMetric.label) {
+                      setScoringMetrics(prev => ({
+                        ...prev,
+                        [selectedMetricUseCase]: [...(prev[selectedMetricUseCase] || []), { ...newMetric }]
+                      }));
+                    }
+                    setShowAddMetric(false);
+                    setNewMetric({ id: "", label: "", description: "", useCase: selectedMetricUseCase });
+                  }}
+                  className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600"
+                >
+                  {editingMetric ? "Save Changes" : "Add Metric"}
+                </button>
+                <button
+                  onClick={() => { setShowAddMetric(false); setEditingMetric(null); }}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Metrics List */}
+          <div className="space-y-2">
+            {(scoringMetrics[selectedMetricUseCase] || []).map((metric, index) => (
+              <div key={metric.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-violet-100 text-violet-600 text-xs font-medium flex items-center justify-center">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <div className="font-medium text-slate-800 text-sm">{metric.label}</div>
+                    <div className="text-xs text-slate-500">{metric.description}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setEditingMetric({ useCase: selectedMetricUseCase, id: metric.id }); setNewMetric({ ...metric, useCase: selectedMetricUseCase }); }}
+                  className="p-2 text-slate-400 hover:text-violet-600 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Voice Quality Metrics Tab */}
+      {activeSubTab === "voice_metrics" && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Voice Quality Metrics</h2>
+              <p className="text-slate-500 text-sm mt-1">Configure voice analysis parameters and thresholds</p>
+            </div>
+            <button
+              onClick={() => { 
+                setShowAddVoiceMetric(true); 
+                setNewVoiceMetric({ id: "", label: "", weight: 0.1, description: "", calculation: "", thresholds: { excellent: 80, good: 60, needsImprovement: 40 } }); 
+              }}
+              className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Voice Metric
+            </button>
+          </div>
+
+          {/* Add/Edit Voice Metric Form */}
+          {(showAddVoiceMetric || editingVoiceMetric) && (
+            <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <h3 className="font-medium text-slate-800 mb-4">{editingVoiceMetric ? "Edit Voice Metric" : "Add New Voice Metric"}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">ID</label>
+                  <input
+                    type="text"
+                    value={newVoiceMetric.id}
+                    onChange={(e) => setNewVoiceMetric({ ...newVoiceMetric, id: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                    placeholder="e.g., articulation"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    disabled={!!editingVoiceMetric}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Label</label>
+                  <input
+                    type="text"
+                    value={newVoiceMetric.label}
+                    onChange={(e) => setNewVoiceMetric({ ...newVoiceMetric, label: e.target.value })}
+                    placeholder="e.g., Articulation"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Weight (0-1)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={newVoiceMetric.weight}
+                    onChange={(e) => setNewVoiceMetric({ ...newVoiceMetric, weight: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Total Weight</label>
+                  <div className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                    voiceMetrics.reduce((sum, m) => sum + m.weight, 0) + (editingVoiceMetric ? 0 : newVoiceMetric.weight) > 1
+                      ? "bg-red-100 text-red-700"
+                      : "bg-emerald-100 text-emerald-700"
+                  }`}>
+                    {(voiceMetrics.reduce((sum, m) => m.id === editingVoiceMetric ? sum : sum + m.weight, 0) + newVoiceMetric.weight).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                  <input
+                    type="text"
+                    value={newVoiceMetric.description}
+                    onChange={(e) => setNewVoiceMetric({ ...newVoiceMetric, description: e.target.value })}
+                    placeholder="What this metric measures"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Calculation Method</label>
+                  <input
+                    type="text"
+                    value={newVoiceMetric.calculation}
+                    onChange={(e) => setNewVoiceMetric({ ...newVoiceMetric, calculation: e.target.value })}
+                    placeholder="How is this metric calculated?"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Excellent Threshold</label>
+                  <input
+                    type="number"
+                    value={newVoiceMetric.thresholds.excellent}
+                    onChange={(e) => setNewVoiceMetric({ ...newVoiceMetric, thresholds: { ...newVoiceMetric.thresholds, excellent: parseInt(e.target.value) || 0 } })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Good Threshold</label>
+                  <input
+                    type="number"
+                    value={newVoiceMetric.thresholds.good}
+                    onChange={(e) => setNewVoiceMetric({ ...newVoiceMetric, thresholds: { ...newVoiceMetric.thresholds, good: parseInt(e.target.value) || 0 } })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Needs Improvement</label>
+                  <input
+                    type="number"
+                    value={newVoiceMetric.thresholds.needsImprovement}
+                    onChange={(e) => setNewVoiceMetric({ ...newVoiceMetric, thresholds: { ...newVoiceMetric.thresholds, needsImprovement: parseInt(e.target.value) || 0 } })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (editingVoiceMetric) {
+                      setVoiceMetrics(prev => prev.map(m => m.id === editingVoiceMetric ? { ...newVoiceMetric } : m));
+                      setEditingVoiceMetric(null);
+                    } else if (newVoiceMetric.id && newVoiceMetric.label) {
+                      setVoiceMetrics(prev => [...prev, { ...newVoiceMetric }]);
+                    }
+                    setShowAddVoiceMetric(false);
+                    setNewVoiceMetric({ id: "", label: "", weight: 0.1, description: "", calculation: "", thresholds: { excellent: 80, good: 60, needsImprovement: 40 } });
+                  }}
+                  className="px-4 py-2 bg-violet-500 text-white rounded-lg text-sm font-medium hover:bg-violet-600"
+                >
+                  {editingVoiceMetric ? "Save Changes" : "Add Metric"}
+                </button>
+                <button
+                  onClick={() => { setShowAddVoiceMetric(false); setEditingVoiceMetric(null); }}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Voice Metrics List */}
+          <div className="space-y-4">
+            {voiceMetrics.map((metric) => (
+              <div key={metric.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-slate-800">{metric.label}</span>
+                      <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-medium rounded-full">
+                        Weight: {(metric.weight * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-500 mt-1">{metric.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setEditingVoiceMetric(metric.id); setNewVoiceMetric(metric); }}
+                      className="p-2 text-slate-400 hover:text-violet-600 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setVoiceMetrics(prev => prev.filter(m => m.id !== metric.id))}
+                      className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs font-medium text-slate-500 mb-1">Calculation Method</div>
+                    <div className="text-sm text-slate-600 bg-white p-2 rounded-lg border border-slate-200">{metric.calculation}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-slate-500 mb-1">Thresholds</div>
+                    <div className="flex gap-2">
+                      <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded">Excellent: ≥{metric.thresholds.excellent}</span>
+                      <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded">Good: ≥{metric.thresholds.good}</span>
+                      <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">Needs Work: &lt;{metric.thresholds.needsImprovement}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Total Weight Display */}
+          <div className="mt-6 p-4 bg-slate-100 rounded-xl">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-slate-700">Total Weight</span>
+              <span className={`text-lg font-bold ${
+                voiceMetrics.reduce((sum, m) => sum + m.weight, 0) === 1
+                  ? "text-emerald-600"
+                  : "text-amber-600"
+              }`}>
+                {(voiceMetrics.reduce((sum, m) => sum + m.weight, 0) * 100).toFixed(0)}%
+              </span>
+            </div>
+            {voiceMetrics.reduce((sum, m) => sum + m.weight, 0) !== 1 && (
+              <p className="text-xs text-amber-600 mt-1">
+                ⚠️ Total weight should equal 100% for accurate scoring
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
