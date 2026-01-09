@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2025-01-09
+
+### Added
+
+- **VoiceAgent Evaluations Branding**: Rebranded as generic HR services evaluation platform
+- **Continuous Learner Portal**: Gamified learning experience for ongoing skill development
+  - Points and XP system for completed activities
+  - Level progression (Novice → Expert)
+  - Achievement badges and milestones
+  - Redeemable rewards system
+  - Practice sessions and skill challenges
+- **Scenarios Configuration UI**: Complete management interface for evaluation content
+  - Use Cases management (create, edit, delete)
+  - Reading Passages per use case
+  - Call Scenarios per use case
+  - Scoring Metrics per use case
+  - Voice Quality Metrics with tuning capabilities
+- **Enhanced Results Tab**: Aligned with Candidate Management view
+  - Use Case, Reading Passage, and Scenario columns
+- **Comprehensive User Guide**: Documentation for all user roles
+
+### Changed
+
+- Branding updated from "AceEval" to "VoiceAgent Evaluations"
+- Landing page reorganized with Evaluator, Candidate, and Continuous Learner cards
+- Removed "Powered by" branding for white-label positioning
+
+---
+
 ## [2.0.0] - 2024-12-29
 
 ### Added
