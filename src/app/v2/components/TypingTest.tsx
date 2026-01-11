@@ -75,6 +75,31 @@ export default function TypingTest({
     return Math.round(wordCount / minutes);
   }, [wordCount, elapsedTime]);
 
+  // Complete the test - defined before useEffects that use it
+  const handleComplete = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
+    setIsCompleted(true);
+    
+    const accuracy = calculateAccuracy();
+    const wpm = calculateWPM();
+    
+    const result: TypingTestResult = {
+      wpm,
+      accuracy,
+      totalCharacters: mode === "dictation" && prompt ? prompt.length : characterCount,
+      correctCharacters: mode === "dictation" && prompt ? Math.round((accuracy / 100) * prompt.length) : characterCount,
+      errorCount,
+      timeSpentSeconds: elapsedTime,
+      typedText,
+      promptText: prompt,
+    };
+    
+    onComplete(result);
+  }, [calculateAccuracy, calculateWPM, characterCount, elapsedTime, errorCount, mode, onComplete, prompt, typedText]);
+
   // Timer effect
   useEffect(() => {
     if (!isStarted || isCompleted) {
@@ -82,14 +107,7 @@ export default function TypingTest({
     }
     
     timerRef.current = setInterval(() => {
-      setElapsedTime(prev => {
-        const newTime = prev + 1;
-        if (maxTime > 0 && newTime >= maxTime) {
-          // Don't call handleComplete here to avoid state update during render
-          // Instead, let the completion be triggered by maxTime check below
-        }
-        return newTime;
-      });
+      setElapsedTime(prev => prev + 1);
     }, 1000);
 
     return () => {
@@ -97,7 +115,7 @@ export default function TypingTest({
         clearInterval(timerRef.current);
       }
     };
-  }, [isStarted, isCompleted, maxTime]);
+  }, [isStarted, isCompleted]);
 
   // Auto-complete when time runs out (separate effect to avoid issues)
   useEffect(() => {
@@ -130,31 +148,6 @@ export default function TypingTest({
     
     setTypedText(newText);
   };
-
-  // Complete the test
-  const handleComplete = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    
-    setIsCompleted(true);
-    
-    const accuracy = calculateAccuracy();
-    const wpm = calculateWPM();
-    
-    const result: TypingTestResult = {
-      wpm,
-      accuracy,
-      totalCharacters: mode === "dictation" && prompt ? prompt.length : characterCount,
-      correctCharacters: mode === "dictation" && prompt ? Math.round((accuracy / 100) * prompt.length) : characterCount,
-      errorCount,
-      timeSpentSeconds: elapsedTime,
-      typedText,
-      promptText: prompt,
-    };
-    
-    onComplete(result);
-  }, [calculateAccuracy, calculateWPM, characterCount, elapsedTime, errorCount, mode, onComplete, prompt, typedText]);
 
   // Format time
   const formatTime = (seconds: number) => {
