@@ -63,9 +63,9 @@ export async function POST(request: NextRequest) {
               currentPhase: "personal_questions",
               startTime: new Date(),
               endTime: null,
-              overallScore: null,
-              overallFeedback: null,
-              rawData: null,
+              voiceAnalysisData: null,
+              recordingUrl: null,
+              recordingDuration: 0,
             },
           }),
           prisma.candidate.update({
