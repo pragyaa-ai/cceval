@@ -699,23 +699,6 @@ function CandidateAppContent() {
     );
   }
 
-  // Typing Test Timer Effect
-  useEffect(() => {
-    if (currentPhase === "typing_test" && typingTestStartTime) {
-      const timer = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - typingTestStartTime.getTime()) / 1000);
-        const remaining = Math.max(0, TYPING_TEST_CONFIG.timeLimit - elapsed);
-        setTypingTestTimeRemaining(remaining);
-        
-        // Auto-submit when time runs out
-        if (remaining === 0) {
-          handleTypingTestSubmit();
-        }
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [currentPhase, typingTestStartTime]);
-
   // Start Typing Test
   const handleStartTypingTest = () => {
     setTypingTestStartTime(new Date());
@@ -723,8 +706,8 @@ function CandidateAppContent() {
     setTypingTestTimeRemaining(TYPING_TEST_CONFIG.timeLimit);
   };
 
-  // Submit Typing Test
-  const handleTypingTestSubmit = async () => {
+  // Submit Typing Test - wrapped in useCallback for proper dependency handling
+  const handleTypingTestSubmit = useCallback(async () => {
     if (isTypingTestSubmitting) return;
     setIsTypingTestSubmitting(true);
     
@@ -761,7 +744,28 @@ function CandidateAppContent() {
     
     // Resume voice session for closure task if needed
     // The agent will handle the closure task
-  };
+  }, [typingTestSummary, typingTestStartTime, isTypingTestSubmitting]);
+
+  // Typing Test Timer Effect
+  useEffect(() => {
+    if (currentPhase !== "typing_test" || !typingTestStartTime) {
+      return;
+    }
+    
+    const timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - typingTestStartTime.getTime()) / 1000);
+      const remaining = Math.max(0, TYPING_TEST_CONFIG.timeLimit - elapsed);
+      setTypingTestTimeRemaining(remaining);
+      
+      // Auto-submit when time runs out
+      if (remaining === 0) {
+        handleTypingTestSubmit();
+        clearInterval(timer);
+      }
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [currentPhase, typingTestStartTime, handleTypingTestSubmit]);
 
   // Get use case for typing test prompts
   const candidateUseCase = (authenticatedCandidate as CandidateInfo & { useCase?: UseCase })?.useCase || "pv_sales";

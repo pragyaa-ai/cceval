@@ -77,17 +77,20 @@ export default function TypingTest({
 
   // Timer effect
   useEffect(() => {
-    if (isStarted && !isCompleted) {
-      timerRef.current = setInterval(() => {
-        setElapsedTime(prev => {
-          const newTime = prev + 1;
-          if (maxTime > 0 && newTime >= maxTime) {
-            handleComplete();
-          }
-          return newTime;
-        });
-      }, 1000);
+    if (!isStarted || isCompleted) {
+      return;
     }
+    
+    timerRef.current = setInterval(() => {
+      setElapsedTime(prev => {
+        const newTime = prev + 1;
+        if (maxTime > 0 && newTime >= maxTime) {
+          // Don't call handleComplete here to avoid state update during render
+          // Instead, let the completion be triggered by maxTime check below
+        }
+        return newTime;
+      });
+    }, 1000);
 
     return () => {
       if (timerRef.current) {
@@ -95,6 +98,13 @@ export default function TypingTest({
       }
     };
   }, [isStarted, isCompleted, maxTime]);
+
+  // Auto-complete when time runs out (separate effect to avoid issues)
+  useEffect(() => {
+    if (isStarted && !isCompleted && maxTime > 0 && elapsedTime >= maxTime) {
+      handleComplete();
+    }
+  }, [isStarted, isCompleted, maxTime, elapsedTime, handleComplete]);
 
   // Start typing
   const handleStart = () => {

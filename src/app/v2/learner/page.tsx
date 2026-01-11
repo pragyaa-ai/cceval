@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { 
@@ -70,6 +70,7 @@ export default function ContinuousLearnerPage() {
     feedback: string;
     pointsEarned: number;
   }>>([]);
+  const isSubmittingRef = useRef(false);
 
   // Gamification State
   const [totalPoints, setTotalPoints] = useState(2450);
@@ -129,22 +130,6 @@ export default function ContinuousLearnerPage() {
     { id: "service_summary", useCase: "service", title: "Service Ticket Documentation", description: "Practice writing clear service tickets and complaint summaries", difficulty: "beginner", duration: "10 mins", completedSessions: 2, totalSessions: 5, lastScore: 88, pointsPerSession: 60, type: "typing" },
   ];
 
-  // Typing timer effect
-  useEffect(() => {
-    if (showTypingPractice && typingStartTime) {
-      const interval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - typingStartTime.getTime()) / 1000);
-        const remaining = Math.max(0, TYPING_TEST_CONFIG.timeLimit - elapsed);
-        setTypingTimeRemaining(remaining);
-        
-        if (remaining === 0) {
-          handleTypingSubmit();
-        }
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [showTypingPractice, typingStartTime]);
-
   const handleLogin = () => {
     if (employeeId.trim() && learnerName.trim()) {
       setIsAuthenticated(true);
@@ -159,13 +144,18 @@ export default function ContinuousLearnerPage() {
   };
 
   const handleStartTypingPractice = () => {
+    isSubmittingRef.current = false;
     setTypingStartTime(new Date());
     setTypingSummary("");
     setTypingTimeRemaining(TYPING_TEST_CONFIG.timeLimit);
     setShowTypingPractice(true);
   };
 
-  const handleTypingSubmit = () => {
+  const handleTypingSubmit = useCallback(() => {
+    // Prevent double submission
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    
     const wordCount = typingSummary.split(/\s+/).filter(w => w).length;
     const timeSpent = typingStartTime 
       ? Math.floor((Date.now() - typingStartTime.getTime()) / 1000)
@@ -200,7 +190,27 @@ export default function ContinuousLearnerPage() {
     setTypingStartTime(null);
     
     alert(`🎉 Practice completed!\n\nScore: ${score}%\nPoints earned: +${newEntry.pointsEarned}`);
-  };
+  }, [typingSummary, typingStartTime, selectedModule]);
+
+  // Typing timer effect
+  useEffect(() => {
+    if (!showTypingPractice || !typingStartTime) {
+      return;
+    }
+    
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - typingStartTime.getTime()) / 1000);
+      const remaining = Math.max(0, TYPING_TEST_CONFIG.timeLimit - elapsed);
+      setTypingTimeRemaining(remaining);
+      
+      if (remaining === 0) {
+        handleTypingSubmit();
+        clearInterval(interval);
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [showTypingPractice, typingStartTime, handleTypingSubmit]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
