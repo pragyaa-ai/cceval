@@ -8,11 +8,11 @@ function generateSessionId(): string {
   return `MHCE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-// POST /api/v2/evaluations - Start a new evaluation session
+// POST /api/v2/evaluations - Start a new evaluation session or resume existing
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { candidateId } = body;
+    const { candidateId, forceNew = false } = body;
 
     if (!candidateId) {
       return NextResponse.json({ error: "Candidate ID is required" }, { status: 400 });
@@ -21,13 +21,83 @@ export async function POST(request: NextRequest) {
     // Check if evaluation already exists
     const existing = await prisma.evaluation.findUnique({
       where: { candidateId },
+      include: {
+        scores: true,
+        transcriptItems: true,
+      },
     });
 
     if (existing) {
-      return NextResponse.json({ error: "Evaluation already exists for this candidate" }, { status: 400 });
+      const isCompleted = existing.currentPhase === "completed" || existing.endTime;
+      
+      // If not completed, allow resuming the existing evaluation
+      if (!isCompleted) {
+        console.log(`[Evaluations API] Resuming existing evaluation ${existing.id} for candidate ${candidateId}`);
+        
+        // Update candidate status to in_progress (in case it was changed)
+        await prisma.candidate.update({
+          where: { id: candidateId },
+          data: { status: "in_progress" },
+        });
+        
+        return NextResponse.json({
+          ...existing,
+          resumed: true,
+          message: "Resuming existing evaluation session"
+        }, { status: 200 });
+      }
+      
+      // If completed and forceNew is requested, reset the evaluation
+      if (isCompleted && forceNew) {
+        console.log(`[Evaluations API] Resetting completed evaluation ${existing.id} for candidate ${candidateId}`);
+        
+        // Delete existing scores, transcript items, and phase results
+        await prisma.$transaction([
+          prisma.score.deleteMany({ where: { evaluationId: existing.id } }),
+          prisma.transcriptItem.deleteMany({ where: { evaluationId: existing.id } }),
+          prisma.phaseResult.deleteMany({ where: { evaluationId: existing.id } }),
+          prisma.evaluation.update({
+            where: { id: existing.id },
+            data: {
+              sessionId: generateSessionId(),
+              currentPhase: "personal_questions",
+              startTime: new Date(),
+              endTime: null,
+              overallScore: null,
+              overallFeedback: null,
+              rawData: null,
+            },
+          }),
+          prisma.candidate.update({
+            where: { id: candidateId },
+            data: { status: "in_progress" },
+          }),
+        ]);
+        
+        // Fetch the updated evaluation
+        const resetEvaluation = await prisma.evaluation.findUnique({
+          where: { id: existing.id },
+        });
+        
+        return NextResponse.json({
+          ...resetEvaluation,
+          reset: true,
+          message: "Evaluation has been reset for a new attempt"
+        }, { status: 200 });
+      }
+      
+      // If completed and no forceNew, return error with option to retry
+      if (isCompleted) {
+        return NextResponse.json({ 
+          error: "Evaluation already completed for this candidate",
+          evaluationId: existing.id,
+          canRetry: true,
+          message: "Pass forceNew: true to start a fresh evaluation"
+        }, { status: 400 });
+      }
     }
 
-    // Create evaluation and update candidate status
+    // Create new evaluation and update candidate status
     const [evaluation] = await prisma.$transaction([
       prisma.evaluation.create({
         data: {

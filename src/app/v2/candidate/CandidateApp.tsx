@@ -520,23 +520,35 @@ function CandidateAppContent() {
     setCalibrationGuidance(calibration);
 
     // Create evaluation in database FIRST and get the evaluation object
+    // This will either create a new evaluation or resume an existing incomplete one
     let evaluationId: string | undefined;
     try {
-      console.log("[v2] 🔨 Creating evaluation for candidate:", authenticatedCandidate.id);
+      console.log("[v2] 🔨 Creating/resuming evaluation for candidate:", authenticatedCandidate.id);
       const evalResponse = await fetch("/api/v2/evaluations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ candidateId: authenticatedCandidate.id }),
       });
 
+      const evaluation = await evalResponse.json();
+
       if (evalResponse.ok) {
-        const evaluation = await evalResponse.json();
         evaluationId = evaluation.id;
 
         // Store in ref for immediate access (no waiting for state update)
         evaluationIdRef.current = evaluationId;
 
-        console.log("[v2] ✅ Evaluation created with ID:", evaluationId);
+        if (evaluation.resumed) {
+          console.log("[v2] 🔄 Resuming existing evaluation with ID:", evaluationId);
+          // Set the current phase from the resumed evaluation
+          if (evaluation.currentPhase && evaluation.currentPhase !== "completed") {
+            setCurrentPhase(evaluation.currentPhase);
+          }
+        } else if (evaluation.reset) {
+          console.log("[v2] 🔄 Evaluation reset for new attempt, ID:", evaluationId);
+        } else {
+          console.log("[v2] ✅ New evaluation created with ID:", evaluationId);
+        }
         console.log("[v2] ✅ Evaluation ID stored in ref for handlers");
 
         // Update state with evaluation
@@ -546,7 +558,13 @@ function CandidateAppContent() {
         };
         setAuthenticatedCandidate(updatedCandidate);
       } else {
-        console.error("[v2] ❌ Failed to create evaluation:", await evalResponse.text());
+        // Handle error responses
+        console.error("[v2] ❌ Failed to create evaluation:", JSON.stringify(evaluation));
+        
+        // If evaluation is completed, we could show a message to the user
+        if (evaluation.canRetry && evaluation.evaluationId) {
+          console.log("[v2] ℹ️ Evaluation was previously completed. Use forceNew to retry.");
+        }
       }
     } catch (error) {
       console.error("[v2] ❌ Error creating evaluation:", error);
