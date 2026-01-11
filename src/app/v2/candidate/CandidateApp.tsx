@@ -1068,6 +1068,63 @@ function WelcomeScreen({ candidate, onStart }: { candidate: CandidateInfo; onSta
   );
 }
 
+// Reading Task Panel - Displays the passage for candidate to read aloud
+function ReadingTaskPanel({ 
+  passage 
+}: { 
+  passage: { id: string; title: string; useCase: string; wordCount: number; text: string } | null 
+}) {
+  if (!passage) return null;
+
+  return (
+    <div className="bg-gradient-to-br from-violet-900/50 to-purple-900/50 rounded-2xl border border-violet-500/30 shadow-xl p-6 mb-6">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center">
+          <span className="text-2xl">📖</span>
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-lg">Reading Task</h3>
+          <p className="text-violet-300 text-sm">{passage.title}</p>
+        </div>
+      </div>
+
+      {/* Instruction */}
+      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-2 mb-4">
+        <p className="text-amber-300 text-sm flex items-center gap-2">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+          </svg>
+          <span><strong>Please read the following paragraph aloud</strong> when prompted by Eva</span>
+        </p>
+      </div>
+
+      {/* Passage Text */}
+      <div className="bg-slate-900/50 rounded-xl border border-slate-600/50 p-5">
+        <p className="text-white text-lg leading-relaxed font-medium">
+          {passage.text}
+        </p>
+      </div>
+
+      {/* Word Count */}
+      <div className="mt-4 flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2 text-slate-400">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>{passage.wordCount} words</span>
+        </div>
+        <div className="flex items-center gap-2 text-emerald-400">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Read clearly & naturally</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Evaluation Interface - Shows transcript and voice visualizer
 function EvaluationInterface({
   candidate,
@@ -1086,6 +1143,10 @@ function EvaluationInterface({
   getMicStream: () => MediaStream | null;
   onReportReady: (getReport: () => any) => void;
 }) {
+  // Get the reading passage for this candidate
+  const selectedPassage = candidate.selectedPassage
+    ? READING_PASSAGES[candidate.selectedPassage as keyof typeof READING_PASSAGES]
+    : READING_PASSAGES.safety_adas;
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Voice Quality Analysis - Hidden from candidate view but still functional */}
@@ -1187,6 +1248,11 @@ function EvaluationInterface({
 
         {/* Right side - Phase Progress and Controls */}
         <div className="col-span-5 space-y-6">
+          {/* Reading Task Panel - Shows passage text when in reading phase */}
+          {currentPhase === "reading_task" && (
+            <ReadingTaskPanel passage={selectedPassage} />
+          )}
+
           {/* Evaluation Progress */}
           <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
             <h3 className="font-medium text-white mb-4 flex items-center gap-2">
@@ -1198,39 +1264,39 @@ function EvaluationInterface({
             <PhaseProgressIndicator currentPhase={currentPhase} />
           </div>
 
-          {/* Current Phase Info */}
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
-            <h3 className="font-medium text-white mb-4">Current Task</h3>
-            <div className="flex items-center gap-4">
-              <span className="text-4xl">
-                {currentPhase === "personal_questions" && "💬"}
-                {currentPhase === "reading_task" && "📖"}
-                {currentPhase === "call_scenario" && "📞"}
-                {currentPhase === "empathy_scenario" && "🤝"}
-                {currentPhase === "typing_test" && "⌨️"}
-                {currentPhase === "closure_task" && "✅"}
-                {currentPhase === "not_started" && "⏳"}
-                {currentPhase === "completed" && "🎉"}
-              </span>
-              <div>
-                <p className="font-medium text-white text-lg capitalize">
-                  {currentPhase === "not_started" ? "Getting Ready" : 
-                   currentPhase === "completed" ? "Completed" :
-                   currentPhase.replace(/_/g, " ")}
-                </p>
-                <p className="text-sm text-slate-400 mt-1">
-                  {currentPhase === "personal_questions" && "Answer questions about yourself and experience"}
-                  {currentPhase === "reading_task" && "Read the paragraph aloud for voice analysis"}
-                  {currentPhase === "call_scenario" && "Handle a simulated customer call"}
-                  {currentPhase === "empathy_scenario" && "Handle an upset customer scenario"}
-                  {currentPhase === "typing_test" && "Type a summary of the call"}
-                  {currentPhase === "closure_task" && "Deliver a professional call closing"}
-                  {currentPhase === "not_started" && "Waiting to begin..."}
-                  {currentPhase === "completed" && "Your evaluation is complete!"}
-                </p>
+          {/* Current Phase Info - Hide during reading task since we show the passage panel */}
+          {currentPhase !== "reading_task" && (
+            <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl p-6">
+              <h3 className="font-medium text-white mb-4">Current Task</h3>
+              <div className="flex items-center gap-4">
+                <span className="text-4xl">
+                  {currentPhase === "personal_questions" && "💬"}
+                  {currentPhase === "call_scenario" && "📞"}
+                  {currentPhase === "empathy_scenario" && "🤝"}
+                  {currentPhase === "typing_test" && "⌨️"}
+                  {currentPhase === "closure_task" && "✅"}
+                  {currentPhase === "not_started" && "⏳"}
+                  {currentPhase === "completed" && "🎉"}
+                </span>
+                <div>
+                  <p className="font-medium text-white text-lg capitalize">
+                    {currentPhase === "not_started" ? "Getting Ready" : 
+                     currentPhase === "completed" ? "Completed" :
+                     currentPhase.replace(/_/g, " ")}
+                  </p>
+                  <p className="text-sm text-slate-400 mt-1">
+                    {currentPhase === "personal_questions" && "Answer questions about yourself and experience"}
+                    {currentPhase === "call_scenario" && "Handle a simulated customer call"}
+                    {currentPhase === "empathy_scenario" && "Handle an upset customer scenario"}
+                    {currentPhase === "typing_test" && "Type a summary of the call"}
+                    {currentPhase === "closure_task" && "Deliver a professional call closing"}
+                    {currentPhase === "not_started" && "Waiting to begin..."}
+                    {currentPhase === "completed" && "Your evaluation is complete!"}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Tips */}
           <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-4">
