@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { 
@@ -71,6 +71,11 @@ export default function ContinuousLearnerPage() {
     pointsEarned: number;
   }>>([]);
   const isSubmittingRef = useRef(false);
+  
+  // Refs to hold latest values for timer callback
+  const typingSummaryRef = useRef("");
+  const typingStartTimeRef = useRef<Date | null>(null);
+  const selectedModuleRef = useRef<TrainingModule | null>(null);
 
   // Gamification State
   const [totalPoints, setTotalPoints] = useState(2450);
@@ -143,22 +148,42 @@ export default function ContinuousLearnerPage() {
     }
   };
 
+  // Keep refs in sync with state
+  useEffect(() => {
+    typingSummaryRef.current = typingSummary;
+  }, [typingSummary]);
+
+  useEffect(() => {
+    typingStartTimeRef.current = typingStartTime;
+  }, [typingStartTime]);
+
+  useEffect(() => {
+    selectedModuleRef.current = selectedModule;
+  }, [selectedModule]);
+
   const handleStartTypingPractice = () => {
     isSubmittingRef.current = false;
-    setTypingStartTime(new Date());
+    const startTime = new Date();
+    setTypingStartTime(startTime);
+    typingStartTimeRef.current = startTime;
     setTypingSummary("");
+    typingSummaryRef.current = "";
     setTypingTimeRemaining(TYPING_TEST_CONFIG.timeLimit);
     setShowTypingPractice(true);
   };
 
-  const handleTypingSubmit = useCallback(() => {
+  const handleTypingSubmit = () => {
     // Prevent double submission
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
     
-    const wordCount = typingSummary.split(/\s+/).filter(w => w).length;
-    const timeSpent = typingStartTime 
-      ? Math.floor((Date.now() - typingStartTime.getTime()) / 1000)
+    const summary = typingSummaryRef.current;
+    const startTime = typingStartTimeRef.current;
+    const module = selectedModuleRef.current;
+    
+    const wordCount = summary.split(/\s+/).filter(w => w).length;
+    const timeSpent = startTime 
+      ? Math.floor((Date.now() - startTime.getTime()) / 1000)
       : 0;
     
     // Calculate a mock score based on word count and time
@@ -172,12 +197,12 @@ export default function ContinuousLearnerPage() {
     // Add to practice history
     const newEntry = {
       date: new Date().toISOString().split('T')[0],
-      module: selectedModule?.title || "Typing Practice",
+      module: module?.title || "Typing Practice",
       score,
       feedback: score >= 80 ? "Well-structured summary with good detail!" : 
                 score >= 60 ? "Good effort, try to include more specific details." :
                 "Keep practicing to improve your documentation skills.",
-      pointsEarned: selectedModule?.pointsPerSession || 60,
+      pointsEarned: module?.pointsPerSession || 60,
     };
     
     setPracticeHistory(prev => [newEntry, ...prev]);
@@ -190,7 +215,7 @@ export default function ContinuousLearnerPage() {
     setTypingStartTime(null);
     
     alert(`🎉 Practice completed!\n\nScore: ${score}%\nPoints earned: +${newEntry.pointsEarned}`);
-  }, [typingSummary, typingStartTime, selectedModule]);
+  };
 
   // Typing timer effect
   useEffect(() => {
@@ -199,7 +224,10 @@ export default function ContinuousLearnerPage() {
     }
     
     const interval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - typingStartTime.getTime()) / 1000);
+      const startTime = typingStartTimeRef.current;
+      if (!startTime) return;
+      
+      const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000);
       const remaining = Math.max(0, TYPING_TEST_CONFIG.timeLimit - elapsed);
       setTypingTimeRemaining(remaining);
       
@@ -210,7 +238,7 @@ export default function ContinuousLearnerPage() {
     }, 1000);
     
     return () => clearInterval(interval);
-  }, [showTypingPractice, typingStartTime, handleTypingSubmit]);
+  }, [showTypingPractice, typingStartTime]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

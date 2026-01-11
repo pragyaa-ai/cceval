@@ -84,6 +84,11 @@ function CandidateAppContent() {
   const [typingTestStartTime, setTypingTestStartTime] = useState<Date | null>(null);
   const [typingTestTimeRemaining, setTypingTestTimeRemaining] = useState(TYPING_TEST_CONFIG.timeLimit);
   const [isTypingTestSubmitting, setIsTypingTestSubmitting] = useState(false);
+  
+  // Refs for typing test to avoid stale closures in timer
+  const typingTestSummaryRef = useRef("");
+  const typingTestStartTimeRef = useRef<Date | null>(null);
+  const isTypingTestSubmittingRef = useRef(false);
 
   // Contexts
   const { transcriptItems, addTranscriptBreadcrumb } = useTranscript();
@@ -699,28 +704,47 @@ function CandidateAppContent() {
     );
   }
 
+  // Keep typing test refs in sync with state
+  useEffect(() => {
+    typingTestSummaryRef.current = typingTestSummary;
+  }, [typingTestSummary]);
+
+  useEffect(() => {
+    typingTestStartTimeRef.current = typingTestStartTime;
+  }, [typingTestStartTime]);
+
+  useEffect(() => {
+    isTypingTestSubmittingRef.current = isTypingTestSubmitting;
+  }, [isTypingTestSubmitting]);
+
   // Start Typing Test
   const handleStartTypingTest = () => {
-    setTypingTestStartTime(new Date());
+    const startTime = new Date();
+    setTypingTestStartTime(startTime);
+    typingTestStartTimeRef.current = startTime;
     setTypingTestSummary("");
+    typingTestSummaryRef.current = "";
     setTypingTestTimeRemaining(TYPING_TEST_CONFIG.timeLimit);
   };
 
-  // Submit Typing Test - wrapped in useCallback for proper dependency handling
-  const handleTypingTestSubmit = useCallback(async () => {
-    if (isTypingTestSubmitting) return;
+  // Submit Typing Test
+  const handleTypingTestSubmit = async () => {
+    if (isTypingTestSubmittingRef.current) return;
+    isTypingTestSubmittingRef.current = true;
     setIsTypingTestSubmitting(true);
     
+    const summary = typingTestSummaryRef.current;
+    const startTime = typingTestStartTimeRef.current;
     const evalId = evaluationIdRef.current;
-    const timeSpent = typingTestStartTime 
-      ? Math.floor((Date.now() - typingTestStartTime.getTime()) / 1000)
+    const timeSpent = startTime 
+      ? Math.floor((Date.now() - startTime.getTime()) / 1000)
       : 0;
     
     const typingResult: TypingTestResult = {
-      summary: typingTestSummary,
-      wordCount: typingTestSummary.split(/\s+/).filter(w => w).length,
+      summary,
+      wordCount: summary.split(/\s+/).filter(w => w).length,
       timeSpent,
-      startedAt: typingTestStartTime?.toISOString() || new Date().toISOString(),
+      startedAt: startTime?.toISOString() || new Date().toISOString(),
       completedAt: new Date().toISOString(),
     };
     
@@ -741,10 +765,11 @@ function CandidateAppContent() {
     // Move to next phase
     setCurrentPhase("closure_task");
     setIsTypingTestSubmitting(false);
+    isTypingTestSubmittingRef.current = false;
     
     // Resume voice session for closure task if needed
     // The agent will handle the closure task
-  }, [typingTestSummary, typingTestStartTime, isTypingTestSubmitting]);
+  };
 
   // Typing Test Timer Effect
   useEffect(() => {
@@ -753,7 +778,10 @@ function CandidateAppContent() {
     }
     
     const timer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - typingTestStartTime.getTime()) / 1000);
+      const startTime = typingTestStartTimeRef.current;
+      if (!startTime) return;
+      
+      const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000);
       const remaining = Math.max(0, TYPING_TEST_CONFIG.timeLimit - elapsed);
       setTypingTestTimeRemaining(remaining);
       
@@ -765,7 +793,7 @@ function CandidateAppContent() {
     }, 1000);
     
     return () => clearInterval(timer);
-  }, [currentPhase, typingTestStartTime, handleTypingTestSubmit]);
+  }, [currentPhase, typingTestStartTime]);
 
   // Get use case for typing test prompts
   const candidateUseCase = (authenticatedCandidate as CandidateInfo & { useCase?: UseCase })?.useCase || "pv_sales";
