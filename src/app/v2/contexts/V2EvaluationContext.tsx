@@ -262,8 +262,8 @@ export const getScoringParameters = (useCase?: UseCase) => {
   return SCORING_PARAMETERS_BY_USE_CASE[useCase] || SCORING_PARAMETERS;
 };
 
-// Typing test prompts for dictation practice
-export const TYPING_TEST_PROMPTS = {
+// Typing dictation prompts for practice (used in Continuous Learner portal)
+export const TYPING_DICTATION_PROMPTS = {
   pv_sales: [
     {
       id: "pv_intro",
@@ -308,10 +308,10 @@ export const TYPING_TEST_PROMPTS = {
   ],
 };
 
-// Helper to get typing prompts by use case
-export const getTypingPrompts = (useCase?: UseCase) => {
-  if (!useCase) return Object.values(TYPING_TEST_PROMPTS).flat();
-  return TYPING_TEST_PROMPTS[useCase] || [];
+// Helper to get typing dictation prompts by use case
+export const getTypingDictationPrompts = (useCase?: UseCase) => {
+  if (!useCase) return Object.values(TYPING_DICTATION_PROMPTS).flat();
+  return TYPING_DICTATION_PROMPTS[useCase] || [];
 };
 
 // Evaluation phases
