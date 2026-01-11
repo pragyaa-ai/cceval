@@ -148,18 +148,12 @@ export default function ContinuousLearnerPage() {
     }
   };
 
-  // Keep refs in sync with state
+  // Keep refs in sync with state (using single effect to maintain hook count)
   useEffect(() => {
     typingSummaryRef.current = typingSummary;
-  }, [typingSummary]);
-
-  useEffect(() => {
     typingStartTimeRef.current = typingStartTime;
-  }, [typingStartTime]);
-
-  useEffect(() => {
     selectedModuleRef.current = selectedModule;
-  }, [selectedModule]);
+  }, [typingSummary, typingStartTime, selectedModule]);
 
   const handleStartTypingPractice = () => {
     isSubmittingRef.current = false;

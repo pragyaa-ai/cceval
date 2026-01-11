@@ -691,6 +691,73 @@ function CandidateAppContent() {
     }
   };
 
+  // Keep typing test refs in sync with state (MUST be before any early returns)
+  useEffect(() => {
+    typingTestSummaryRef.current = typingTestSummary;
+    typingTestStartTimeRef.current = typingTestStartTime;
+    isTypingTestSubmittingRef.current = isTypingTestSubmitting;
+  }, [typingTestSummary, typingTestStartTime, isTypingTestSubmitting]);
+
+  // Typing Test Timer Effect (MUST be before any early returns)
+  useEffect(() => {
+    if (currentPhase !== "typing_test" || !typingTestStartTime) {
+      return;
+    }
+    
+    const timer = setInterval(() => {
+      const startTime = typingTestStartTimeRef.current;
+      if (!startTime) return;
+      
+      const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000);
+      const remaining = Math.max(0, TYPING_TEST_CONFIG.timeLimit - elapsed);
+      setTypingTestTimeRemaining(remaining);
+      
+      // Auto-submit when time runs out
+      if (remaining === 0) {
+        // Use ref values to avoid stale closures
+        if (isTypingTestSubmittingRef.current) return;
+        isTypingTestSubmittingRef.current = true;
+        setIsTypingTestSubmitting(true);
+        
+        const summary = typingTestSummaryRef.current;
+        const evalId = evaluationIdRef.current;
+        const timeSpent = startTime 
+          ? Math.floor((Date.now() - startTime.getTime()) / 1000)
+          : 0;
+        
+        const typingResult: TypingTestResult = {
+          summary,
+          wordCount: summary.split(/\s+/).filter(w => w).length,
+          timeSpent,
+          startedAt: startTime?.toISOString() || new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+        };
+        
+        // Save to database
+        if (evalId) {
+          fetch(`/api/v2/evaluations/${evalId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ typingTestResult: JSON.stringify(typingResult) }),
+          }).then(() => {
+            console.log("[v2] ✅ Typing test saved successfully");
+          }).catch((error) => {
+            console.error("[v2] ❌ Failed to save typing test:", error);
+          });
+        }
+        
+        // Move to next phase
+        setCurrentPhase("closure_task");
+        setIsTypingTestSubmitting(false);
+        isTypingTestSubmittingRef.current = false;
+        
+        clearInterval(timer);
+      }
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [currentPhase, typingTestStartTime]);
+
   // If not authenticated, show access code screen
   if (!authenticatedCandidate) {
     return (
@@ -704,19 +771,6 @@ function CandidateAppContent() {
     );
   }
 
-  // Keep typing test refs in sync with state
-  useEffect(() => {
-    typingTestSummaryRef.current = typingTestSummary;
-  }, [typingTestSummary]);
-
-  useEffect(() => {
-    typingTestStartTimeRef.current = typingTestStartTime;
-  }, [typingTestStartTime]);
-
-  useEffect(() => {
-    isTypingTestSubmittingRef.current = isTypingTestSubmitting;
-  }, [isTypingTestSubmitting]);
-
   // Start Typing Test
   const handleStartTypingTest = () => {
     const startTime = new Date();
@@ -727,7 +781,7 @@ function CandidateAppContent() {
     setTypingTestTimeRemaining(TYPING_TEST_CONFIG.timeLimit);
   };
 
-  // Submit Typing Test
+  // Submit Typing Test (manual submission)
   const handleTypingTestSubmit = async () => {
     if (isTypingTestSubmittingRef.current) return;
     isTypingTestSubmittingRef.current = true;
@@ -766,34 +820,7 @@ function CandidateAppContent() {
     setCurrentPhase("closure_task");
     setIsTypingTestSubmitting(false);
     isTypingTestSubmittingRef.current = false;
-    
-    // Resume voice session for closure task if needed
-    // The agent will handle the closure task
   };
-
-  // Typing Test Timer Effect
-  useEffect(() => {
-    if (currentPhase !== "typing_test" || !typingTestStartTime) {
-      return;
-    }
-    
-    const timer = setInterval(() => {
-      const startTime = typingTestStartTimeRef.current;
-      if (!startTime) return;
-      
-      const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000);
-      const remaining = Math.max(0, TYPING_TEST_CONFIG.timeLimit - elapsed);
-      setTypingTestTimeRemaining(remaining);
-      
-      // Auto-submit when time runs out
-      if (remaining === 0) {
-        handleTypingTestSubmit();
-        clearInterval(timer);
-      }
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, [currentPhase, typingTestStartTime]);
 
   // Get use case for typing test prompts
   const candidateUseCase = (authenticatedCandidate as CandidateInfo & { useCase?: UseCase })?.useCase || "pv_sales";
