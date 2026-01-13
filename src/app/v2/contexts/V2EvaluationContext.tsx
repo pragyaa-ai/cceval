@@ -232,7 +232,11 @@ export const SCORING_PARAMETERS_BY_USE_CASE: Record<UseCase, Array<{ id: string;
     { id: "objection_handling", label: "Objection Handling", description: "Responding to price/feature objections" },
     { id: "confidence", label: "Confidence", description: "Tone stability and conviction" },
     { id: "lead_capture", label: "Lead Capture", description: "Collecting customer details and follow-up" },
-    { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete call ending" }
+    { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete call ending" },
+    // Typing test metrics
+    { id: "typing_speed", label: "Typing Speed", description: "Words per minute (WPM)" },
+    { id: "typing_accuracy", label: "Typing Accuracy", description: "Character accuracy percentage" },
+    { id: "summary_quality", label: "Summary Quality", description: "Completeness and clarity of call summary" },
   ],
   ev_sales: [
     { id: "clarity_pace", label: "Clarity & Pace", description: "Smooth flow, no hesitation" },
@@ -242,7 +246,11 @@ export const SCORING_PARAMETERS_BY_USE_CASE: Record<UseCase, Array<{ id: string;
     { id: "range_confidence", label: "Range Confidence", description: "Explaining range and charging solutions" },
     { id: "empathy", label: "Empathy", description: "Understanding customer anxiety about EV transition" },
     { id: "tco_explanation", label: "TCO Explanation", description: "Explaining total cost of ownership benefits" },
-    { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete call ending" }
+    { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete call ending" },
+    // Typing test metrics
+    { id: "typing_speed", label: "Typing Speed", description: "Words per minute (WPM)" },
+    { id: "typing_accuracy", label: "Typing Accuracy", description: "Character accuracy percentage" },
+    { id: "summary_quality", label: "Summary Quality", description: "Completeness and clarity of call summary" },
   ],
   service: [
     { id: "clarity_pace", label: "Clarity & Pace", description: "Smooth flow, no hesitation" },
@@ -252,7 +260,11 @@ export const SCORING_PARAMETERS_BY_USE_CASE: Record<UseCase, Array<{ id: string;
     { id: "handling_pressure", label: "Handling Pressure", description: "Composure with angry customers" },
     { id: "process_accuracy", label: "Process Accuracy", description: "Booking, escalation, follow-up process" },
     { id: "de_escalation", label: "De-escalation", description: "Calming upset customers effectively" },
-    { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete call ending" }
+    { id: "closure_quality", label: "Closure Quality", description: "Professional, crisp, complete call ending" },
+    // Typing test metrics
+    { id: "typing_speed", label: "Typing Speed", description: "Words per minute (WPM)" },
+    { id: "typing_accuracy", label: "Typing Accuracy", description: "Character accuracy percentage" },
+    { id: "summary_quality", label: "Summary Quality", description: "Completeness and clarity of call summary" },
   ],
 };
 
