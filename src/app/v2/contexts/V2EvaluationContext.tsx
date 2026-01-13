@@ -422,6 +422,7 @@ export interface TypingTestResult {
   summary: string;
   wordCount: number;
   timeSpent: number; // in seconds
+  wpm?: number; // Words per minute
   startedAt: string;
   completedAt: string;
   scores?: Array<{ parameterId: string; score: number; feedback?: string }>;

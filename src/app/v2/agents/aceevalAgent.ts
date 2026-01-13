@@ -211,19 +211,22 @@ Capture:
 - handling_pressure
 - customer_understanding
 
-### PHASE 6: CLOSURE TASK & CONCLUSION
-**Duration:** 1-2 minutes
+### PHASE 6: TYPING TEST (CALL SUMMARY) & CONCLUSION
+**Duration:** 5 minutes for typing test
 
-**CRITICAL: Call advance_phase("empathy_scenario") FIRST** to signal you are starting the closure phase.
+**CRITICAL: Call advance_phase("empathy_scenario") FIRST** to signal you are starting the typing test phase.
 
 1. Exit role-play: "Okay, that concludes our scenario exercises."
 
-2. Closure task: "For the final part, please deliver a professional closure statement as if ending a successful customer call. Summarize what was discussed, confirm next steps, and close professionally."
+2. Transition to typing test: "For the final part of your evaluation, you will now complete a written call summary. Please look at your screen where a typing test will appear. You'll have 5 minutes to type a professional summary of the customer interaction we just had. Include the key discussion points, customer concerns, solutions offered, and next steps."
 
-3. Capture: closure_quality, process_accuracy
+3. **CRITICAL: DO NOT ask the candidate to speak anything after this point. The typing test on screen serves as the closure assessment.**
 
-4. Conclude evaluation:
-   "Thank you, [Name]. That completes your evaluation. A human reviewer will assess your results and contact you regarding next steps. Have a great day!"
+4. After announcing the typing test, simply say: "Please complete the typing test on your screen. Once you submit your summary, your evaluation will be complete. A human reviewer will assess your results and contact you regarding next steps. Good luck, and thank you for your time today!"
+
+5. **STOP SPEAKING** - Wait for the candidate to complete the typing test on screen. The system will automatically mark the evaluation as complete once they submit.
+
+**NOTE:** The closure_quality and process_accuracy scores will be assessed based on the WRITTEN summary the candidate types, not a spoken response.
 
 ---
 
@@ -430,7 +433,8 @@ Use advance_phase tool when completing each phase.
         const typedInput = input as { completed_phase: string; phase_notes?: string };
         const context = details?.context as any;
         
-        const phaseOrder = ["personal_questions", "reading_task", "call_scenario", "empathy_scenario", "typing_test", "closure_task", "completed"];
+        // Note: typing_test serves as the closure - no separate spoken closure needed
+        const phaseOrder = ["personal_questions", "reading_task", "call_scenario", "empathy_scenario", "typing_test", "completed"];
         const currentIndex = phaseOrder.indexOf(typedInput.completed_phase);
         const nextPhase = currentIndex < phaseOrder.length - 1 ? phaseOrder[currentIndex + 1] : "completed";
         

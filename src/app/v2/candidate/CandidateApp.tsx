@@ -743,31 +743,73 @@ function CandidateAppContent() {
           ? Math.floor((Date.now() - startTime.getTime()) / 1000)
           : 0;
         
+        const wordCount = summary.split(/\s+/).filter(w => w).length;
+        const charCount = summary.length;
+        const minutesSpent = timeSpent / 60;
+        const wpm = minutesSpent > 0 ? Math.round(wordCount / minutesSpent) : 0;
+        
+        // Calculate typing scores (1-5 scale)
+        let typingSpeedScore = 1;
+        if (wpm >= 40) typingSpeedScore = 5;
+        else if (wpm >= 30) typingSpeedScore = 4;
+        else if (wpm >= 20) typingSpeedScore = 3;
+        else if (wpm >= 10) typingSpeedScore = 2;
+        
+        let summaryQualityScore = 1;
+        if (wordCount >= 150) summaryQualityScore = 5;
+        else if (wordCount >= 100) summaryQualityScore = 4;
+        else if (wordCount >= 50) summaryQualityScore = 3;
+        else if (wordCount >= 30) summaryQualityScore = 2;
+        
+        const typingAccuracyScore = wordCount >= 50 ? 4 : 3;
+        const closureQualityScore = summaryQualityScore;
+        
         const typingResult: TypingTestResult = {
           summary,
-          wordCount: summary.split(/\s+/).filter(w => w).length,
+          wordCount,
           timeSpent,
+          wpm,
           startedAt: startTime?.toISOString() || new Date().toISOString(),
           completedAt: new Date().toISOString(),
         };
         
-        // Save to database
+        // Save typing test result and scores to database
         if (evalId) {
+          // Save typing result
           fetch(`/api/v2/evaluations/${evalId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ typingTestResult: JSON.stringify(typingResult) }),
           }).then(() => {
-            console.log("[v2] ✅ Typing test saved successfully");
+            console.log("[v2] ✅ Typing test saved successfully (auto-submit)");
           }).catch((error) => {
             console.error("[v2] ❌ Failed to save typing test:", error);
           });
+          
+          // Save typing scores
+          const typingScores = [
+            { parameterId: "typing_speed", score: typingSpeedScore, notes: `${wpm} WPM (auto-submit)` },
+            { parameterId: "typing_accuracy", score: typingAccuracyScore, notes: `${charCount} characters typed` },
+            { parameterId: "summary_quality", score: summaryQualityScore, notes: `${wordCount} words in summary` },
+            { parameterId: "closure_quality", score: closureQualityScore, notes: `Written closure: ${wordCount} words` },
+          ];
+          
+          typingScores.forEach(scoreData => {
+            fetch(`/api/v2/evaluations/${evalId}/scores`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(scoreData),
+            }).catch(err => console.error(`[v2] ❌ Failed to save score ${scoreData.parameterId}:`, err));
+          });
         }
         
-        // Move to next phase
-        setCurrentPhase("closure_task");
         setIsTypingTestSubmitting(false);
         isTypingTestSubmittingRef.current = false;
+        
+        // Disconnect and complete evaluation
+        disconnect();
+        stopAnalysis();
+        setCurrentPhase("completed");
         
         clearInterval(timer);
       }
@@ -799,7 +841,7 @@ function CandidateAppContent() {
     setTypingTestTimeRemaining(TYPING_TEST_CONFIG.timeLimit);
   };
 
-  // Submit Typing Test (manual submission)
+  // Submit Typing Test (manual submission) - This serves as the closure task
   const handleTypingTestSubmit = async () => {
     if (isTypingTestSubmittingRef.current) return;
     isTypingTestSubmittingRef.current = true;
@@ -812,32 +854,86 @@ function CandidateAppContent() {
       ? Math.floor((Date.now() - startTime.getTime()) / 1000)
       : 0;
     
+    const wordCount = summary.split(/\s+/).filter(w => w).length;
+    const charCount = summary.length;
+    
+    // Calculate typing metrics
+    const minutesSpent = timeSpent / 60;
+    const wpm = minutesSpent > 0 ? Math.round(wordCount / minutesSpent) : 0;
+    
+    // Calculate typing scores (1-5 scale)
+    // Typing Speed: Based on WPM (20-30 = 3, 30-40 = 4, 40+ = 5)
+    let typingSpeedScore = 1;
+    if (wpm >= 40) typingSpeedScore = 5;
+    else if (wpm >= 30) typingSpeedScore = 4;
+    else if (wpm >= 20) typingSpeedScore = 3;
+    else if (wpm >= 10) typingSpeedScore = 2;
+    
+    // Summary Quality: Based on word count and content (50-100 words = 3, 100-150 = 4, 150+ = 5)
+    let summaryQualityScore = 1;
+    if (wordCount >= 150) summaryQualityScore = 5;
+    else if (wordCount >= 100) summaryQualityScore = 4;
+    else if (wordCount >= 50) summaryQualityScore = 3;
+    else if (wordCount >= 30) summaryQualityScore = 2;
+    
+    // Typing Accuracy: We can't measure actual accuracy without reference text
+    // Use word count consistency and summary quality as proxy (default to 3-4)
+    const typingAccuracyScore = wordCount >= 50 ? 4 : 3;
+    
+    // Closure Quality: Based on summary completeness (same as summary quality for now)
+    const closureQualityScore = summaryQualityScore;
+    
     const typingResult: TypingTestResult = {
       summary,
-      wordCount: summary.split(/\s+/).filter(w => w).length,
+      wordCount,
       timeSpent,
+      wpm,
       startedAt: startTime?.toISOString() || new Date().toISOString(),
       completedAt: new Date().toISOString(),
     };
     
-    // Save to database
+    // Save typing test result and scores to database
     if (evalId) {
       try {
+        // Save the typing test result
         await fetch(`/api/v2/evaluations/${evalId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ typingTestResult: JSON.stringify(typingResult) }),
         });
-        console.log("[v2] ✅ Typing test saved successfully");
+        console.log("[v2] ✅ Typing test result saved successfully");
+        
+        // Save typing scores
+        const typingScores = [
+          { parameterId: "typing_speed", score: typingSpeedScore, notes: `${wpm} WPM` },
+          { parameterId: "typing_accuracy", score: typingAccuracyScore, notes: `${charCount} characters typed` },
+          { parameterId: "summary_quality", score: summaryQualityScore, notes: `${wordCount} words in summary` },
+          { parameterId: "closure_quality", score: closureQualityScore, notes: `Written closure: ${wordCount} words` },
+        ];
+        
+        for (const scoreData of typingScores) {
+          try {
+            await fetch(`/api/v2/evaluations/${evalId}/scores`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(scoreData),
+            });
+            console.log(`[v2] ✅ Score saved: ${scoreData.parameterId} = ${scoreData.score}`);
+          } catch (scoreError) {
+            console.error(`[v2] ❌ Failed to save score ${scoreData.parameterId}:`, scoreError);
+          }
+        }
       } catch (error) {
         console.error("[v2] ❌ Failed to save typing test:", error);
       }
     }
     
-    // Move to next phase
-    setCurrentPhase("closure_task");
+    // Typing test serves as closure - go directly to completed and disconnect
     setIsTypingTestSubmitting(false);
     isTypingTestSubmittingRef.current = false;
+    
+    // Disconnect the voice session and complete evaluation
+    handleDisconnect();
   };
 
   // Get use case for typing test prompts
@@ -1535,16 +1631,16 @@ function TypingTestScreen({
 
 // Phase Progress Indicator Component
 function PhaseProgressIndicator({ currentPhase }: { currentPhase: EvaluationPhase }) {
+  // Note: typing_test serves as the closure - no separate spoken closure phase
   const phases = [
     { id: "personal_questions", label: "Introduction", icon: "💬", description: "Personal questions" },
     { id: "reading_task", label: "Reading", icon: "📖", description: "Paragraph reading" },
     { id: "call_scenario", label: "Call Scenario", icon: "📞", description: "Customer simulation" },
     { id: "empathy_scenario", label: "Empathy", icon: "🤝", description: "Difficult customer" },
-    { id: "typing_test", label: "Call Summary", icon: "⌨️", description: "Type call summary" },
-    { id: "closure_task", label: "Closure", icon: "🎯", description: "Professional closing" },
+    { id: "typing_test", label: "Call Summary & Closure", icon: "⌨️", description: "Type professional summary" },
   ];
 
-  const phaseOrder = ["not_started", "personal_questions", "reading_task", "call_scenario", "empathy_scenario", "typing_test", "closure_task", "completed"];
+  const phaseOrder = ["not_started", "personal_questions", "reading_task", "call_scenario", "empathy_scenario", "typing_test", "completed"];
   const currentIndex = phaseOrder.indexOf(currentPhase);
 
   const getPhaseStatus = (phaseId: string): "completed" | "current" | "pending" => {
