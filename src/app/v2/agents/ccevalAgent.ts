@@ -1,6 +1,6 @@
 import { RealtimeAgent, tool } from '@openai/agents/realtime';
 
-// Reading passage options
+// Reading passage options for CCEval
 const READING_PASSAGES = {
   safety_adas: `Safety has become a top priority in the Indian automobile market. Features like six airbags, advanced driver assistance systems, electronic stability control, and hill hold assist help drivers manage difficult road and traffic conditions. As customers compare multiple brands, explaining these safety features in simple, relatable terms plays an important role in building trust and supporting informed decision-making.`,
   
@@ -9,7 +9,7 @@ const READING_PASSAGES = {
   connected_car: `Connected car technology is becoming essential in India, with drivers expecting features like remote lock–unlock, live vehicle tracking, geo-fencing, emergency alerts, and over-the-air updates. These features not only enhance safety but also improve convenience. When speaking to customers, it is important to describe how these technologies add value to their daily driving experience.`
 };
 
-// Call scenarios
+// Call scenarios for CCEval
 const CALL_SCENARIOS = {
   beginner: {
     level: "Beginner",
@@ -45,7 +45,7 @@ const CALL_SCENARIOS = {
   }
 };
 
-// Empathy scenario
+// Empathy scenario for CCEval
 const EMPATHY_SCENARIO = {
   setup: `You are an angry customer whose service bill is unexpectedly high with no explanation.`,
   opening: `My service bill is too high! No one explained anything and I've been waiting forever.`
@@ -54,20 +54,20 @@ const EMPATHY_SCENARIO = {
 // Closure statement template
 const CLOSURE_TEMPLATE = `Based on our discussion, you're interested in the right model with strong safety and technology features. I have arranged a follow-up call/test drive and will share all details on message. If there's anything else you need, please let me know. Thank you for your time today.`;
 
-export const mahindraEvaluationAgent = new RealtimeAgent({
-  name: 'Mahindra Evaluation Agent',
+export const ccevalAgent = new RealtimeAgent({
+  name: 'CCEval v2.1.0 Agent',
   voice: 'coral',
   handoffDescription:
-    'Advanced AI interviewer for Mahindra Call Center candidate evaluations. Conducts comprehensive assessments including personal questions, reading tasks, call scenarios, and empathy challenges.',
+    'CCEval v2.1.0 - AI interviewer for Call Center candidate evaluations. Conducts comprehensive assessments including personal questions, reading tasks, call scenarios, and empathy challenges.',
 
   instructions: `
-# MAHINDRA HCE EVALUATION AGENT - VERSION 2.0
+# CCEVAL v2.1.0 EVALUATION AGENT
 
 ## HIGH-LEVEL GOAL
-You are an advanced AI interviewer and evaluator for Mahindra & Mahindra Call Center Operations candidates. You conduct a comprehensive voice-based evaluation covering personal questions, reading tasks, call simulations, empathy challenges, and closure quality assessment.
+You are an advanced AI interviewer and evaluator for Call Center Operations candidates. You conduct a comprehensive voice-based evaluation covering personal questions, reading tasks, call simulations, empathy challenges, and closure quality assessment.
 
 ## IDENTITY & PERSONA
-You are "Eva," VoiceAgent 2.0 - a sophisticated AI designed for:
+You are "Eva," VoiceAgent 2.1.0 - a sophisticated AI designed for:
 1. **Professional Interviewer:** Guide candidates through structured evaluation phases
 2. **Customer Role-Player:** Embody different customer personas for realistic simulations
 3. **Impartial Assessor:** Analyze performance against strict scoring parameters
@@ -85,7 +85,7 @@ Speak with a professional North Indian English accent:
 ### PHASE 1: WELCOME & CANDIDATE INFORMATION
 **Duration:** 1-2 minutes
 
-1. Greet warmly: "Namaste! I am Eva, your AI evaluation agent for Mahindra Call Center. Welcome to your assessment session."
+1. Greet warmly: "Namaste! I am Eva, your AI evaluation agent for Call Center Assessment. Welcome to your assessment session."
 2. Collect candidate name: "Before we begin, may I kindly know your good name please?"
 3. Capture name using capture_evaluation_data tool
 4. Explain evaluation structure:
@@ -118,7 +118,7 @@ Ask these questions in sequence, allowing time for thoughtful responses:
    - Capture: handling_pressure score
 
 4. **Domain Knowledge:**
-   "What do you know about Mahindra & Mahindra's PV or EV lineup?"
+   "What do you know about the company's product lineup?"
    - Purpose: Product awareness
    - Capture: product_knowledge score
 
@@ -250,7 +250,7 @@ Capture:
 4. Capture: closure_quality, process_accuracy
 
 5. Conclude evaluation:
-   "Thank you, [Name]. That completes your Mahindra Call Center evaluation. A human recruiter will review your assessment and contact you regarding next steps. Have a great day!"
+   "Thank you, [Name]. That completes your Call Center evaluation. A human recruiter will review your assessment and contact you regarding next steps. Have a great day!"
 
 ---
 
@@ -266,7 +266,7 @@ Score each parameter on 1-5 scale:
 ### Parameters to Score:
 
 1. **clarity_pace:** Smooth flow, no hesitation, clear articulation
-2. **product_knowledge:** PV & EV awareness, accurate information
+2. **product_knowledge:** Product awareness, accurate information
 3. **empathy:** Quality of reassurance lines, emotional intelligence
 4. **customer_understanding:** Ability to probe needs, active listening
 5. **handling_pressure:** Composure in tough scenarios, no fumbling
@@ -298,7 +298,7 @@ Use capture_evaluation_data tool throughout:
 
 Example calls with REQUIRED reasons:
 capture_evaluation_data("clarity_pace", "4", "Clear articulation, good pace but slight hesitation on technical terms")
-capture_evaluation_data("product_knowledge", "3", "Basic awareness of Mahindra lineup, unclear on EV specifications")
+capture_evaluation_data("product_knowledge", "3", "Basic awareness of product lineup, unclear on EV specifications")
 capture_evaluation_data("empathy", "5", "Excellent reassurance, acknowledged frustration, offered genuine solutions")
 capture_evaluation_data("handling_pressure", "2", "Showed nervousness, fumbled under escalation scenario")
 capture_evaluation_data("confidence", "4", "Steady tone throughout, self-assured responses")
@@ -373,13 +373,13 @@ Use advance_phase tool when completing each phase:
         // Check if calibration guidance exists for this parameter
         const calibration = context?.calibrationGuidance?.[typedInput.data_type];
         if (calibration && calibration.guidance) {
-          console.log(`[Mahindra Evaluation] 📊 Calibration active for ${typedInput.data_type}: adjustment=${calibration.adjustment}, guidance="${calibration.guidance.substring(0, 50)}..."`);
+          console.log(`[CCEval v2.1.0] 📊 Calibration active for ${typedInput.data_type}: adjustment=${calibration.adjustment}, guidance="${calibration.guidance.substring(0, 50)}..."`);
         }
         
         if (context?.captureDataPoint) {
           // Pass reason as the 4th parameter for storing with the score
           context.captureDataPoint(typedInput.data_type, typedInput.value, 'captured', typedInput.reason);
-          console.log(`[Mahindra Evaluation] ${typedInput.data_type}: ${typedInput.value} | Reason: ${typedInput.reason || 'No reason provided'}`);
+          console.log(`[CCEval v2.1.0] ${typedInput.data_type}: ${typedInput.value} | Reason: ${typedInput.reason || 'No reason provided'}`);
           return { 
             success: true, 
             message: `Captured ${typedInput.data_type}: ${typedInput.value}`,
@@ -390,7 +390,7 @@ Use advance_phase tool when completing each phase:
           };
         }
         
-        console.log(`[Mahindra Evaluation - No Context] ${typedInput.data_type}: ${typedInput.value}`);
+        console.log(`[CCEval v2.1.0 - No Context] ${typedInput.data_type}: ${typedInput.value}`);
         return { 
           success: true, 
           message: `Logged ${typedInput.data_type}: ${typedInput.value} (context not available)` 
@@ -489,7 +489,7 @@ Use advance_phase tool when completing each phase:
           context.setCurrentPhase(nextPhase);
         }
         
-        console.log(`[Phase Transition] ${typedInput.completed_phase} → ${nextPhase}`);
+        console.log(`[CCEval v2.1.0 Phase Transition] ${typedInput.completed_phase} → ${nextPhase}`);
         
         return {
           success: true,
@@ -512,33 +512,33 @@ Use advance_phase tool when completing each phase:
       execute: async (_input, details) => {
         const context = details?.context as any;
         
-        console.log('[Voice Analysis Tool] 🎬🎬🎬 start_voice_analysis TOOL CALLED');
-        console.log('[Voice Analysis Tool] 📋 Context available:', !!context);
-        console.log('[Voice Analysis Tool] 📋 Context keys:', context ? Object.keys(context) : 'N/A');
-        console.log('[Voice Analysis Tool] 📋 startVoiceAnalysis fn available:', typeof context?.startVoiceAnalysis);
-        console.log('[Voice Analysis Tool] 📋 setCurrentPhase fn available:', typeof context?.setCurrentPhase);
+        console.log('[CCEval v2.1.0 Voice Analysis] 🎬🎬🎬 start_voice_analysis TOOL CALLED');
+        console.log('[CCEval v2.1.0 Voice Analysis] 📋 Context available:', !!context);
+        console.log('[CCEval v2.1.0 Voice Analysis] 📋 Context keys:', context ? Object.keys(context) : 'N/A');
+        console.log('[CCEval v2.1.0 Voice Analysis] 📋 startVoiceAnalysis fn available:', typeof context?.startVoiceAnalysis);
+        console.log('[CCEval v2.1.0 Voice Analysis] 📋 setCurrentPhase fn available:', typeof context?.setCurrentPhase);
         
         // CRITICAL: Set the phase to reading_task FIRST (this persists to DB)
         if (context?.setCurrentPhase) {
           try {
             await context.setCurrentPhase('reading_task');
-            console.log('[Voice Analysis Tool] ✅ Phase set to reading_task (should be in DB now)');
+            console.log('[CCEval v2.1.0 Voice Analysis] ✅ Phase set to reading_task (should be in DB now)');
           } catch (error) {
-            console.error('[Voice Analysis Tool] ❌ Failed to set phase:', error);
+            console.error('[CCEval v2.1.0 Voice Analysis] ❌ Failed to set phase:', error);
           }
         } else {
-          console.error('[Voice Analysis Tool] ❌ setCurrentPhase not available in context!');
+          console.error('[CCEval v2.1.0 Voice Analysis] ❌ setCurrentPhase not available in context!');
         }
         
         // Then start voice analysis
         if (context?.startVoiceAnalysis) {
-          console.log('[Voice Analysis Tool] 🔥 About to call context.startVoiceAnalysis()...');
+          console.log('[CCEval v2.1.0 Voice Analysis] 🔥 About to call context.startVoiceAnalysis()...');
           context.startVoiceAnalysis();
-          console.log('[Voice Analysis Tool] ✅ context.startVoiceAnalysis() was called');
+          console.log('[CCEval v2.1.0 Voice Analysis] ✅ context.startVoiceAnalysis() was called');
           return { success: true, message: 'Voice analysis started - phase set to reading_task, metrics collection enabled' };
         }
         
-        console.error('[Voice Analysis Tool] ❌ startVoiceAnalysis not available in context');
+        console.error('[CCEval v2.1.0 Voice Analysis] ❌ startVoiceAnalysis not available in context');
         return { success: false, message: 'Voice analysis context not available' };
       },
     }),
@@ -557,11 +557,11 @@ Use advance_phase tool when completing each phase:
         
         if (context?.stopVoiceAnalysis) {
           context.stopVoiceAnalysis();
-          console.log('[Voice Analysis] Stopped collecting voice metrics');
+          console.log('[CCEval v2.1.0 Voice Analysis] Stopped collecting voice metrics');
           return { success: true, message: 'Voice analysis stopped - metrics collection complete' };
         }
         
-        console.warn('[Voice Analysis] stopVoiceAnalysis not available in context');
+        console.warn('[CCEval v2.1.0 Voice Analysis] stopVoiceAnalysis not available in context');
         return { success: false, message: 'Voice analysis context not available' };
       },
     }),
@@ -580,10 +580,10 @@ Use advance_phase tool when completing each phase:
         
         if (context?.getVoiceAnalysisReport) {
           const report = context.getVoiceAnalysisReport();
-          console.log('[Voice Analysis] Report retrieval attempted');
+          console.log('[CCEval v2.1.0 Voice Analysis] Report retrieval attempted');
           
           if (!report) {
-            console.error('[Voice Analysis] Report is null - not enough voice samples collected');
+            console.error('[CCEval v2.1.0 Voice Analysis] Report is null - not enough voice samples collected');
             return {
               success: false,
               message: 'Insufficient voice samples collected. Need at least 5 samples (1 second of speech).',
@@ -591,7 +591,7 @@ Use advance_phase tool when completing each phase:
             };
           }
           
-          console.log('[Voice Analysis] Report generated successfully:', {
+          console.log('[CCEval v2.1.0 Voice Analysis] Report generated successfully:', {
             overallScore: report.overallScore,
             sampleCount: report.sampleCount,
             duration: report.duration
@@ -601,9 +601,9 @@ Use advance_phase tool when completing each phase:
           if (context?.saveVoiceAnalysis) {
             try {
               await context.saveVoiceAnalysis(report);
-              console.log('[Voice Analysis] ✅ Report saved to database');
+              console.log('[CCEval v2.1.0 Voice Analysis] ✅ Report saved to database');
             } catch (error) {
-              console.error('[Voice Analysis] ❌ Failed to save report:', error);
+              console.error('[CCEval v2.1.0 Voice Analysis] ❌ Failed to save report:', error);
               return {
                 success: false,
                 message: `Failed to save report: ${error}`,
@@ -611,7 +611,7 @@ Use advance_phase tool when completing each phase:
               };
             }
           } else {
-            console.warn('[Voice Analysis] ⚠️ saveVoiceAnalysis function not available in context');
+            console.warn('[CCEval v2.1.0 Voice Analysis] ⚠️ saveVoiceAnalysis function not available in context');
           }
           
           return { 
@@ -621,7 +621,7 @@ Use advance_phase tool when completing each phase:
           };
         }
         
-        console.warn('[Voice Analysis] getVoiceAnalysisReport not available in context');
+        console.warn('[CCEval v2.1.0 Voice Analysis] getVoiceAnalysisReport not available in context');
         return { 
           success: false, 
           message: 'Voice analysis report function not available in context',
@@ -631,16 +631,7 @@ Use advance_phase tool when completing each phase:
     }),
   ],
 
-  handoffs: [], // Will be populated in index.ts if needed
+  handoffs: [], // Will be populated if needed
 });
 
-export default mahindraEvaluationAgent;
-
-
-
-
-
-
-
-
-
+export default ccevalAgent;

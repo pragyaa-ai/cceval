@@ -494,15 +494,27 @@ function CandidatesTab({
 }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [bulkInput, setBulkInput] = useState("");
-  const [newCandidate, setNewCandidate] = useState({ 
-    name: "", 
-    email: "", 
+  const [newCandidate, setNewCandidate] = useState({
+    name: "",
+    email: "",
     phone: "",
     age: "",
     gender: "",
     nativeLanguage: "Hindi"
   });
   const [adding, setAdding] = useState(false);
+  
+  // Edit candidate state
+  const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
+  const [editData, setEditData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    age: "",
+    gender: "",
+    nativeLanguage: ""
+  });
+  const [saving, setSaving] = useState(false);
 
   const handleAddSingle = async () => {
     if (!newCandidate.name.trim()) return;
@@ -581,6 +593,49 @@ function CandidatesTab({
       onRefresh();
     } catch (error) {
       console.error("Failed to regenerate code:", error);
+    }
+  };
+
+  // Start editing a candidate
+  const handleStartEdit = (candidate: CandidateData) => {
+    setEditingCandidateId(candidate.id);
+    setEditData({
+      name: candidate.name,
+      email: candidate.email || "",
+      phone: candidate.phone || "",
+      age: candidate.age?.toString() || "",
+      gender: candidate.gender || "",
+      nativeLanguage: candidate.nativeLanguage || "Hindi"
+    });
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setEditingCandidateId(null);
+    setEditData({ name: "", email: "", phone: "", age: "", gender: "", nativeLanguage: "" });
+  };
+
+  // Save edited candidate
+  const handleSaveEdit = async () => {
+    if (!editingCandidateId || !editData.name.trim()) return;
+    setSaving(true);
+    try {
+      await updateCandidate(editingCandidateId, {
+        name: editData.name,
+        email: editData.email || undefined,
+        phone: editData.phone || undefined,
+        age: editData.age ? parseInt(editData.age) : undefined,
+        gender: editData.gender || undefined,
+        nativeLanguage: editData.nativeLanguage || undefined
+      });
+      setEditingCandidateId(null);
+      setEditData({ name: "", email: "", phone: "", age: "", gender: "", nativeLanguage: "" });
+      onRefresh();
+    } catch (error) {
+      console.error("Failed to update candidate:", error);
+      alert("Failed to update candidate");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -773,102 +828,205 @@ function CandidatesTab({
               </tr>
             ) : (
               batch.candidates.map((candidate) => (
-                <tr key={candidate.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3">
-                    <div>
-                      <p className="font-medium text-slate-800">{candidate.name}</p>
-                      {candidate.email && <p className="text-sm text-slate-500">{candidate.email}</p>}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <code className="px-3 py-1 bg-violet-100 text-violet-700 rounded-lg font-mono text-lg font-bold">
-                        {candidate.accessCode}
-                      </code>
-                      <button
-                        onClick={() => handleRegenerateCode(candidate.id)}
-                        className="p-1 text-slate-400 hover:text-violet-600 transition-colors"
-                        title="Regenerate code"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                editingCandidateId === candidate.id ? (
+                  // Edit mode row
+                  <tr key={candidate.id} className="bg-violet-50">
+                    <td className="px-4 py-3" colSpan={6}>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-violet-600 font-medium">✏️ Editing Candidate</span>
+                        </div>
+                        <div className="grid grid-cols-6 gap-3">
+                          <input
+                            type="text"
+                            placeholder="Full Name *"
+                            value={editData.name}
+                            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                            className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
                           />
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={candidate.selectedPassage || "safety_adas"}
-                      onChange={(e) =>
-                        handleUpdateCandidate(candidate.id, { selectedPassage: e.target.value })
-                      }
-                      disabled={candidate.status !== "pending"}
-                      className="px-2 py-1 border border-slate-300 rounded text-sm text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {Object.entries(READING_PASSAGES).map(([key, passage]) => (
-                        <option key={key} value={key}>
-                          {passage.title}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={candidate.selectedScenario || "beginner"}
-                      onChange={(e) =>
-                        handleUpdateCandidate(candidate.id, { selectedScenario: e.target.value })
-                      }
-                      disabled={candidate.status !== "pending"}
-                      className="px-2 py-1 border border-slate-300 rounded text-sm text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {Object.entries(CALL_SCENARIOS).map(([key, scenario]) => (
-                        <option key={key} value={key}>
-                          {scenario.level}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3">{getStatusBadge(candidate.status)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => navigator.clipboard.writeText(candidate.accessCode)}
-                        className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
-                        title="Copy access code"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                          <input
+                            type="email"
+                            placeholder="Email"
+                            value={editData.email}
+                            onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                            className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
                           />
-                        </svg>
-                      </button>
-                      {candidate.status === "pending" && (
+                          <input
+                            type="tel"
+                            placeholder="Phone"
+                            value={editData.phone}
+                            onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                            className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          />
+                          <input
+                            type="number"
+                            placeholder="Age"
+                            min="18"
+                            max="70"
+                            value={editData.age}
+                            onChange={(e) => setEditData({ ...editData, age: e.target.value })}
+                            className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          />
+                          <select
+                            value={editData.gender}
+                            onChange={(e) => setEditData({ ...editData, gender: e.target.value })}
+                            className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          >
+                            <option value="">Gender</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                          </select>
+                          <select
+                            value={editData.nativeLanguage}
+                            onChange={(e) => setEditData({ ...editData, nativeLanguage: e.target.value })}
+                            className="px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                          >
+                            <option value="Hindi">Hindi</option>
+                            <option value="English">English</option>
+                            <option value="Marathi">Marathi</option>
+                            <option value="Tamil">Tamil</option>
+                            <option value="Telugu">Telugu</option>
+                            <option value="Kannada">Kannada</option>
+                            <option value="Bengali">Bengali</option>
+                            <option value="Gujarati">Gujarati</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={handleCancelEdit}
+                            className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSaveEdit}
+                            disabled={!editData.name.trim() || saving}
+                            className="px-4 py-2 bg-violet-500 text-white rounded-lg font-medium hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {saving ? "Saving..." : "Save Changes"}
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  // Normal display row
+                  <tr key={candidate.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="font-medium text-slate-800">{candidate.name}</p>
+                        {candidate.email && <p className="text-sm text-slate-500">{candidate.email}</p>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <code className="px-3 py-1 bg-violet-100 text-violet-700 rounded-lg font-mono text-lg font-bold">
+                          {candidate.accessCode}
+                        </code>
                         <button
-                          onClick={() => handleDeleteCandidate(candidate.id)}
-                          className="p-2 text-slate-400 hover:text-red-600 transition-colors"
-                          title="Remove candidate"
+                          onClick={() => handleRegenerateCode(candidate.id)}
+                          className="p-1 text-slate-400 hover:text-violet-600 transition-colors"
+                          title="Regenerate code"
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                             />
                           </svg>
                         </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={candidate.selectedPassage || "safety_adas"}
+                        onChange={(e) =>
+                          handleUpdateCandidate(candidate.id, { selectedPassage: e.target.value })
+                        }
+                        disabled={candidate.status !== "pending"}
+                        className="px-2 py-1 border border-slate-300 rounded text-sm text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {Object.entries(READING_PASSAGES).map(([key, passage]) => (
+                          <option key={key} value={key}>
+                            {passage.title}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={candidate.selectedScenario || "beginner"}
+                        onChange={(e) =>
+                          handleUpdateCandidate(candidate.id, { selectedScenario: e.target.value })
+                        }
+                        disabled={candidate.status !== "pending"}
+                        className="px-2 py-1 border border-slate-300 rounded text-sm text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {Object.entries(CALL_SCENARIOS).map(([key, scenario]) => (
+                          <option key={key} value={key}>
+                            {scenario.level}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-3">{getStatusBadge(candidate.status)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => navigator.clipboard.writeText(candidate.accessCode)}
+                          className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                          title="Copy access code"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </button>
+                        {/* Edit button - only for pending candidates */}
+                        {candidate.status === "pending" && (
+                          <button
+                            onClick={() => handleStartEdit(candidate)}
+                            className="p-2 text-slate-400 hover:text-violet-600 transition-colors"
+                            title="Edit candidate"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                          </button>
+                        )}
+                        {candidate.status === "pending" && (
+                          <button
+                            onClick={() => handleDeleteCandidate(candidate.id)}
+                            className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                            title="Remove candidate"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
               ))
             )}
           </tbody>
