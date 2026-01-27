@@ -178,12 +178,11 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
           },
           // Turn detection configuration to be more tolerant of filler words (Umm, ohh, etc.)
           // Higher threshold (0.8) filters out low-energy sounds like fillers
-          // Moderate silence duration (800ms) balances responsiveness with tolerance
           turnDetection: {
             type: 'server_vad',
             threshold: 0.8,           // Higher = filters filler sounds (Umm, ohh are low energy)
             prefix_padding_ms: 300,   // Capture context before speech
-            silence_duration_ms: 800, // Balanced: tolerant but responsive (default was 500ms)
+            silence_duration_ms: 700, // Responsive with slight tolerance (default was 500ms)
           },
         },
         outputGuardrails: outputGuardrails ?? [],
