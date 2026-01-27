@@ -183,25 +183,34 @@ Respond in JSON format:
     // Save scores to database
     for (const [parameterId, scoreData] of Object.entries(scores)) {
       try {
-        // Upsert: update if exists, create if not
-        await prisma.evaluationScore.upsert({
+        // Check if score exists
+        const existingScore = await prisma.score.findFirst({
           where: {
-            evaluationId_parameterId: {
-              evaluationId,
-              parameterId,
-            },
-          },
-          update: {
-            score: scoreData.score,
-            notes: scoreData.reason,
-          },
-          create: {
             evaluationId,
             parameterId,
-            score: scoreData.score,
-            notes: scoreData.reason,
           },
         });
+
+        if (existingScore) {
+          // Update existing score
+          await prisma.score.update({
+            where: { id: existingScore.id },
+            data: {
+              score: scoreData.score,
+              notes: scoreData.reason,
+            },
+          });
+        } else {
+          // Create new score
+          await prisma.score.create({
+            data: {
+              evaluationId,
+              parameterId,
+              score: scoreData.score,
+              notes: scoreData.reason,
+            },
+          });
+        }
         console.log(`[Evaluate Summary] Saved score: ${parameterId} = ${scoreData.score}`);
       } catch (scoreError) {
         console.error(`[Evaluate Summary] Failed to save score ${parameterId}:`, scoreError);
