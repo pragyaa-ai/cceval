@@ -3964,7 +3964,7 @@ function SettingsTab({
 }
 
 // Scenarios Tab - Configuration for use cases, passages, scenarios, and metrics
-type ScenariosSubTab = "overview" | "use_cases" | "passages" | "scenarios" | "metrics" | "voice_metrics";
+type ScenariosSubTab = "overview" | "use_cases" | "passages" | "scenarios" | "metrics" | "voice_metrics" | "typing_test";
 
 function ScenariosTab() {
   const [activeSubTab, setActiveSubTab] = useState<ScenariosSubTab>("overview");
@@ -4048,6 +4048,52 @@ function ScenariosTab() {
     thresholds: { excellent: 80, good: 60, needsImprovement: 40 }
   });
 
+  // Typing Test configuration state
+  const [typingTestConfig, setTypingTestConfig] = useState({
+    timeLimit: 300, // 5 minutes in seconds
+    minWords: 50,
+    maxWords: 200,
+    instructions: "Please type a summary of the call you just completed. Include key points discussed, customer concerns, and any follow-up actions needed.",
+    aiEvaluationEnabled: true, // Enable AI-based content evaluation
+  });
+  const [typingTestPrompts, setTypingTestPrompts] = useState<Record<UseCase, { title: string; prompt: string; hints: string[] }>>({
+    pv_sales: {
+      title: "Call Summary - Sales Inquiry",
+      prompt: "Summarize the customer interaction you just completed. Include: customer name (if provided), vehicle of interest, key features discussed, objections raised, and next steps agreed upon.",
+      hints: [
+        "Customer's primary interest and budget range",
+        "Features that resonated with the customer",
+        "Concerns or objections raised",
+        "Competitor comparisons mentioned",
+        "Follow-up action items",
+      ],
+    },
+    ev_sales: {
+      title: "Call Summary - EV Inquiry",
+      prompt: "Summarize the EV inquiry call. Include: customer's EV awareness level, range/charging concerns addressed, benefits explained, and conversion potential assessment.",
+      hints: [
+        "Customer's current vehicle and EV familiarity",
+        "Range anxiety concerns and how addressed",
+        "Charging infrastructure questions",
+        "TCO benefits explained",
+        "Test drive or follow-up scheduled",
+      ],
+    },
+    service: {
+      title: "Call Summary - Service Request",
+      prompt: "Document the service call details. Include: issue reported, troubleshooting steps taken, resolution provided or escalation needed, and customer satisfaction level.",
+      hints: [
+        "Nature of complaint or request",
+        "Vehicle details and service history",
+        "Resolution provided or escalation path",
+        "Customer sentiment at call end",
+        "Follow-up actions required",
+      ],
+    },
+  });
+  const [editingTypingPrompt, setEditingTypingPrompt] = useState<UseCase | null>(null);
+  const [selectedTypingUseCase, setSelectedTypingUseCase] = useState<UseCase>("pv_sales");
+
   // Sub-tab configuration
   const subTabs: Array<{ id: ScenariosSubTab; label: string; icon: string }> = [
     { id: "overview", label: "Overview", icon: "📋" },
@@ -4056,6 +4102,7 @@ function ScenariosTab() {
     { id: "scenarios", label: "Call Scenarios", icon: "📞" },
     { id: "metrics", label: "Scoring Metrics", icon: "📊" },
     { id: "voice_metrics", label: "Voice Quality", icon: "🎙️" },
+    { id: "typing_test", label: "Typing Test", icon: "⌨️" },
   ];
 
   const filteredPassages = selectedPassageUseCase === "all" 
@@ -4910,6 +4957,244 @@ function ScenariosTab() {
                 ⚠️ Total weight should equal 100% for accurate scoring
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Typing Test Configuration Tab */}
+      {activeSubTab === "typing_test" && (
+        <div className="space-y-6">
+          {/* General Settings */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Typing Test Settings</h2>
+            <p className="text-slate-500 text-sm mb-6">Configure typing test parameters and AI evaluation</p>
+            
+            <div className="grid grid-cols-2 gap-6">
+              {/* Time Limit */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Time Limit (seconds)</label>
+                <input
+                  type="number"
+                  value={typingTestConfig.timeLimit}
+                  onChange={(e) => setTypingTestConfig({ ...typingTestConfig, timeLimit: parseInt(e.target.value) || 300 })}
+                  min={60}
+                  max={900}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">Default: 300 seconds (5 minutes)</p>
+              </div>
+
+              {/* Min Words */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Minimum Words</label>
+                <input
+                  type="number"
+                  value={typingTestConfig.minWords}
+                  onChange={(e) => setTypingTestConfig({ ...typingTestConfig, minWords: parseInt(e.target.value) || 50 })}
+                  min={10}
+                  max={500}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">Minimum word count for valid submission</p>
+              </div>
+
+              {/* Max Words */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Maximum Words</label>
+                <input
+                  type="number"
+                  value={typingTestConfig.maxWords}
+                  onChange={(e) => setTypingTestConfig({ ...typingTestConfig, maxWords: parseInt(e.target.value) || 200 })}
+                  min={50}
+                  max={1000}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">Maximum word count for the summary</p>
+              </div>
+
+              {/* AI Evaluation Toggle */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">AI Content Evaluation</label>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setTypingTestConfig({ ...typingTestConfig, aiEvaluationEnabled: !typingTestConfig.aiEvaluationEnabled })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      typingTestConfig.aiEvaluationEnabled ? "bg-violet-500" : "bg-slate-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        typingTestConfig.aiEvaluationEnabled ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm text-slate-600">
+                    {typingTestConfig.aiEvaluationEnabled ? "Enabled" : "Disabled"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Evaluate summary against call transcript using AI</p>
+              </div>
+            </div>
+
+            {/* General Instructions */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-slate-700 mb-2">General Instructions</label>
+              <textarea
+                value={typingTestConfig.instructions}
+                onChange={(e) => setTypingTestConfig({ ...typingTestConfig, instructions: e.target.value })}
+                rows={3}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                placeholder="Enter instructions shown to candidates..."
+              />
+            </div>
+          </div>
+
+          {/* Prompts by Use Case */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <h3 className="font-medium text-slate-800 mb-4">Typing Test Prompts by Use Case</h3>
+            
+            {/* Use Case Selector */}
+            <div className="flex gap-2 mb-6">
+              {(["pv_sales", "ev_sales", "service"] as UseCase[]).map((useCase) => (
+                <button
+                  key={useCase}
+                  onClick={() => setSelectedTypingUseCase(useCase)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedTypingUseCase === useCase
+                      ? "bg-violet-500 text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  {USE_CASE_LABELS[useCase]}
+                </button>
+              ))}
+            </div>
+
+            {/* Selected Use Case Prompt */}
+            {typingTestPrompts[selectedTypingUseCase] && (
+              <div className="space-y-4">
+                {editingTypingPrompt === selectedTypingUseCase ? (
+                  // Edit Mode
+                  <div className="space-y-4 p-4 bg-violet-50 rounded-xl border-2 border-violet-200">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        value={typingTestPrompts[selectedTypingUseCase].title}
+                        onChange={(e) => setTypingTestPrompts({
+                          ...typingTestPrompts,
+                          [selectedTypingUseCase]: {
+                            ...typingTestPrompts[selectedTypingUseCase],
+                            title: e.target.value,
+                          },
+                        })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prompt</label>
+                      <textarea
+                        value={typingTestPrompts[selectedTypingUseCase].prompt}
+                        onChange={(e) => setTypingTestPrompts({
+                          ...typingTestPrompts,
+                          [selectedTypingUseCase]: {
+                            ...typingTestPrompts[selectedTypingUseCase],
+                            prompt: e.target.value,
+                          },
+                        })}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Hints (one per line)</label>
+                      <textarea
+                        value={typingTestPrompts[selectedTypingUseCase].hints.join("\n")}
+                        onChange={(e) => setTypingTestPrompts({
+                          ...typingTestPrompts,
+                          [selectedTypingUseCase]: {
+                            ...typingTestPrompts[selectedTypingUseCase],
+                            hints: e.target.value.split("\n").filter((h) => h.trim()),
+                          },
+                        })}
+                        rows={5}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
+                        placeholder="Enter hints, one per line..."
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setEditingTypingPrompt(null)}
+                        className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // View Mode
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium text-slate-800">{typingTestPrompts[selectedTypingUseCase].title}</h4>
+                        <p className="text-sm text-slate-600 mt-1">{typingTestPrompts[selectedTypingUseCase].prompt}</p>
+                      </div>
+                      <button
+                        onClick={() => setEditingTypingPrompt(selectedTypingUseCase)}
+                        className="p-2 text-slate-400 hover:text-violet-600 transition-colors"
+                        title="Edit prompt"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 mb-2">Required Elements:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {typingTestPrompts[selectedTypingUseCase].hints.map((hint, idx) => (
+                          <span key={idx} className="px-2 py-1 bg-white text-slate-700 text-xs rounded-full border border-slate-200">
+                            ✓ {hint}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Scoring Criteria Info */}
+          <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border border-violet-200 p-6">
+            <div className="flex items-start gap-4">
+              <span className="text-3xl">🤖</span>
+              <div>
+                <h3 className="font-medium text-slate-800 mb-2">AI-Powered Summary Evaluation</h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  When AI evaluation is enabled, the candidate's typed summary is compared against the actual call transcript. 
+                  The AI evaluates:
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white/80 p-3 rounded-lg">
+                    <p className="font-medium text-slate-700 text-sm">Content Accuracy</p>
+                    <p className="text-xs text-slate-500">How well the summary captures key points from the actual call</p>
+                  </div>
+                  <div className="bg-white/80 p-3 rounded-lg">
+                    <p className="font-medium text-slate-700 text-sm">Professional Language</p>
+                    <p className="text-xs text-slate-500">Quality of writing suitable for call documentation</p>
+                  </div>
+                  <div className="bg-white/80 p-3 rounded-lg">
+                    <p className="font-medium text-slate-700 text-sm">Completeness</p>
+                    <p className="text-xs text-slate-500">Inclusion of customer concerns, discussion points, and next steps</p>
+                  </div>
+                  <div className="bg-white/80 p-3 rounded-lg">
+                    <p className="font-medium text-slate-700 text-sm">Typing Speed</p>
+                    <p className="text-xs text-slate-500">Words per minute (WPM) typing speed</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

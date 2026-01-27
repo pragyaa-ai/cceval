@@ -176,6 +176,15 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
             // This helps the model avoid misinterpreting sounds as other languages
             language: 'en',
           },
+          // Turn detection configuration to be more tolerant of filler words (Umm, ohh, etc.)
+          // Higher threshold (0.8) means more speech energy needed to trigger turn end
+          // Longer silence duration (1200ms) gives more time for natural pauses and filler sounds
+          turnDetection: {
+            type: 'server_vad',
+            threshold: 0.8,           // Higher = less sensitive to quiet sounds/filler words
+            prefix_padding_ms: 500,   // Capture more context before speech
+            silence_duration_ms: 1200, // Wait longer before considering turn complete (was 500ms)
+          },
         },
         outputGuardrails: outputGuardrails ?? [],
         context: extraContext ?? {},

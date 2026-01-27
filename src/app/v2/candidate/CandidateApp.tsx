@@ -744,25 +744,8 @@ function CandidateAppContent() {
           : 0;
         
         const wordCount = summary.split(/\s+/).filter(w => w).length;
-        const charCount = summary.length;
         const minutesSpent = timeSpent / 60;
         const wpm = minutesSpent > 0 ? Math.round(wordCount / minutesSpent) : 0;
-        
-        // Calculate typing scores (1-5 scale)
-        let typingSpeedScore = 1;
-        if (wpm >= 40) typingSpeedScore = 5;
-        else if (wpm >= 30) typingSpeedScore = 4;
-        else if (wpm >= 20) typingSpeedScore = 3;
-        else if (wpm >= 10) typingSpeedScore = 2;
-        
-        let summaryQualityScore = 1;
-        if (wordCount >= 150) summaryQualityScore = 5;
-        else if (wordCount >= 100) summaryQualityScore = 4;
-        else if (wordCount >= 50) summaryQualityScore = 3;
-        else if (wordCount >= 30) summaryQualityScore = 2;
-        
-        const typingAccuracyScore = wordCount >= 50 ? 4 : 3;
-        const closureQualityScore = summaryQualityScore;
         
         const typingResult: TypingTestResult = {
           summary,
@@ -773,33 +756,28 @@ function CandidateAppContent() {
           completedAt: new Date().toISOString(),
         };
         
-        // Save typing test result and scores to database
+        // Save typing test result and evaluate using AI
         if (evalId) {
-          // Save typing result
+          // Save typing result first
           fetch(`/api/v2/evaluations/${evalId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ typingTestResult: JSON.stringify(typingResult) }),
           }).then(() => {
-            console.log("[v2] ✅ Typing test saved successfully (auto-submit)");
-          }).catch((error) => {
-            console.error("[v2] ❌ Failed to save typing test:", error);
-          });
-          
-          // Save typing scores
-          const typingScores = [
-            { parameterId: "typing_speed", score: typingSpeedScore, notes: `${wpm} WPM (auto-submit)` },
-            { parameterId: "typing_accuracy", score: typingAccuracyScore, notes: `${charCount} characters typed` },
-            { parameterId: "summary_quality", score: summaryQualityScore, notes: `${wordCount} words in summary` },
-            { parameterId: "closure_quality", score: closureQualityScore, notes: `Written closure: ${wordCount} words` },
-          ];
-          
-          typingScores.forEach(scoreData => {
-            fetch(`/api/v2/evaluations/${evalId}/scores`, {
+            console.log("[v2] ✅ Typing test saved (auto-submit)");
+            
+            // Call AI evaluation endpoint
+            return fetch(`/api/v2/evaluations/${evalId}/evaluate-summary`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(scoreData),
-            }).catch(err => console.error(`[v2] ❌ Failed to save score ${scoreData.parameterId}:`, err));
+              body: JSON.stringify({ summary, wordCount, wpm, timeSpent }),
+            });
+          }).then((evalResponse) => {
+            if (evalResponse.ok) {
+              console.log("[v2] ✅ AI evaluation complete (auto-submit)");
+            }
+          }).catch((error) => {
+            console.error("[v2] ❌ Failed to save/evaluate typing test:", error);
           });
         }
         
@@ -855,33 +833,10 @@ function CandidateAppContent() {
       : 0;
     
     const wordCount = summary.split(/\s+/).filter(w => w).length;
-    const charCount = summary.length;
     
     // Calculate typing metrics
     const minutesSpent = timeSpent / 60;
     const wpm = minutesSpent > 0 ? Math.round(wordCount / minutesSpent) : 0;
-    
-    // Calculate typing scores (1-5 scale)
-    // Typing Speed: Based on WPM (20-30 = 3, 30-40 = 4, 40+ = 5)
-    let typingSpeedScore = 1;
-    if (wpm >= 40) typingSpeedScore = 5;
-    else if (wpm >= 30) typingSpeedScore = 4;
-    else if (wpm >= 20) typingSpeedScore = 3;
-    else if (wpm >= 10) typingSpeedScore = 2;
-    
-    // Summary Quality: Based on word count and content (50-100 words = 3, 100-150 = 4, 150+ = 5)
-    let summaryQualityScore = 1;
-    if (wordCount >= 150) summaryQualityScore = 5;
-    else if (wordCount >= 100) summaryQualityScore = 4;
-    else if (wordCount >= 50) summaryQualityScore = 3;
-    else if (wordCount >= 30) summaryQualityScore = 2;
-    
-    // Typing Accuracy: We can't measure actual accuracy without reference text
-    // Use word count consistency and summary quality as proxy (default to 3-4)
-    const typingAccuracyScore = wordCount >= 50 ? 4 : 3;
-    
-    // Closure Quality: Based on summary completeness (same as summary quality for now)
-    const closureQualityScore = summaryQualityScore;
     
     const typingResult: TypingTestResult = {
       summary,
@@ -892,10 +847,10 @@ function CandidateAppContent() {
       completedAt: new Date().toISOString(),
     };
     
-    // Save typing test result and scores to database
+    // Save typing test result and evaluate summary using AI
     if (evalId) {
       try {
-        // Save the typing test result
+        // Save the typing test result first
         await fetch(`/api/v2/evaluations/${evalId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -903,28 +858,30 @@ function CandidateAppContent() {
         });
         console.log("[v2] ✅ Typing test result saved successfully");
         
-        // Save typing scores
-        const typingScores = [
-          { parameterId: "typing_speed", score: typingSpeedScore, notes: `${wpm} WPM` },
-          { parameterId: "typing_accuracy", score: typingAccuracyScore, notes: `${charCount} characters typed` },
-          { parameterId: "summary_quality", score: summaryQualityScore, notes: `${wordCount} words in summary` },
-          { parameterId: "closure_quality", score: closureQualityScore, notes: `Written closure: ${wordCount} words` },
-        ];
+        // Call AI evaluation endpoint to score the summary against transcript
+        console.log("[v2] 🤖 Evaluating summary against call transcript...");
+        const evalResponse = await fetch(`/api/v2/evaluations/${evalId}/evaluate-summary`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            summary,
+            wordCount,
+            wpm,
+            timeSpent,
+          }),
+        });
         
-        for (const scoreData of typingScores) {
-          try {
-            await fetch(`/api/v2/evaluations/${evalId}/scores`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(scoreData),
-            });
-            console.log(`[v2] ✅ Score saved: ${scoreData.parameterId} = ${scoreData.score}`);
-          } catch (scoreError) {
-            console.error(`[v2] ❌ Failed to save score ${scoreData.parameterId}:`, scoreError);
+        if (evalResponse.ok) {
+          const evalResult = await evalResponse.json();
+          console.log("[v2] ✅ AI evaluation complete:", evalResult);
+          if (evalResult.feedback) {
+            console.log("[v2] 📝 Feedback:", evalResult.feedback.overall);
           }
+        } else {
+          console.error("[v2] ⚠️ AI evaluation failed, basic scores saved");
         }
       } catch (error) {
-        console.error("[v2] ❌ Failed to save typing test:", error);
+        console.error("[v2] ❌ Failed to save/evaluate typing test:", error);
       }
     }
     
